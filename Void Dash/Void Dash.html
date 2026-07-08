@@ -56,6 +56,7 @@ var pauseHoverC=false,pauseHoverR=false,pauseHoverM=false;
 var merchant={active:false,x:0,y:0,phase:'special',used:false,
     specialOffers:[],boughtSpecials:0,hover:-1,randomCards:[],bobT:0};
 var runExcludedCards=[];
+var merchantBoughtThisRun=[];
 var devKeyChars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
 var devBulletColors=['#ff3333','#33ff33','#3366ff','#ffff33','#ff33ff','#33ffff',
     '#ff8833','#88ff33','#ff3388','#8833ff','#33ff88','#ff6633','#3399ff','#cc33ff','#33ffcc'];
@@ -72,10 +73,10 @@ var enemySeen={};
 var ownedSkins=['default','neon_cyan'];
 var currentSkin='default';
 var skinHover=-1;
-var indexScroll=0;
+var indexScroll=0,skinScroll=0,skinMaxScroll=0,shopScroll=0,shopMaxScroll=0;
 var coffeeLetterIdx=0;
 var cardPickCounts={};
-var cardLimits={vampire:1,lifesteal:1,multishot:1,dblshot:1,turret:1,fireorbs:1};
+var cardLimits={vampire:1,lifesteal:1,multishot:2,dblshot:3,turret:1,fireorbs:1};
 
 var ENEMY_SCHEDULE=[
     {w:1,type:'chaser',base:3,scale:0.45},
@@ -310,7 +311,7 @@ function initInput(){
     addEventListener('mousemove',function(e){inp.mx=e.clientX;inp.my=e.clientY;});
     addEventListener('mousedown',function(e){if(e.button===0)inp.md=true;});
     addEventListener('mouseup',function(e){if(e.button===0)inp.md=false;});
-    addEventListener('wheel',function(e){if(G.state==='ENEMY_INDEX')indexScroll=clamp(indexScroll+e.deltaY*0.5,0,Math.max(0,indexMaxScroll));});
+    addEventListener('wheel',function(e){if(G.state==='ENEMY_INDEX')indexScroll=clamp(indexScroll+e.deltaY*0.5,0,Math.max(0,indexMaxScroll));if(G.state==='SKINS')skinScroll=clamp(skinScroll+e.deltaY*0.5,0,Math.max(0,skinMaxScroll));if(G.state==='CARD_SHOP')shopScroll=clamp(shopScroll+e.deltaY*0.5,0,Math.max(0,shopMaxScroll));});
     cv.addEventListener('contextmenu',function(e){e.preventDefault();});
 }
 function flushInput(){inp._jmd=inp.md&&!inp.pmd;inp.pk=Object.assign({},inp.k);inp.pmd=inp.md;}
@@ -458,7 +459,7 @@ function triggerCardSelect(){
     for(var i=0;i<ownedCards.length;i++){
         var id=ownedCards[i];
         if(runExcludedCards.indexOf(id)>=0)continue;
-        if(MERCHANT_EXCLUSIVE.indexOf(id)>=0)continue;
+        if(MERCHANT_EXCLUSIVE.indexOf(id)>=0&&merchantBoughtThisRun.indexOf(id)<0)continue;
         if(cardLimits[id]!==undefined&&(cardPickCounts[id]||0)>=cardLimits[id])continue;
         pool.push(id);
     }
@@ -507,7 +508,7 @@ function drawTurrets(){
 }
 
 function activateFireOrbs(){
-    for(var i=0;i<3;i++)fireOrbs.push({ang:i*2.094,orbitR:55,dmg:Math.round(20*mods.dmgMult),pulse:rng(0,6.28),hitCD:0});
+    for(var i=0;i<3;i++)fireOrbs.push({ang:i*2.094,orbitR:55,dmg:Math.round(40*mods.dmgMult),pulse:rng(0,6.28),hitCD:0});
     addNotif('Fire Orbs activated!','#f97316');addRing(P.x,P.y,{mr:60,sp:3,c:'#f97316',lw:2});
 }
 function updateFireOrbs(){
@@ -545,7 +546,7 @@ function spawnMerchant(){
 }
 function generateMerchantRandomCards(){
     merchant.randomCards=[];var pool=[];
-    for(var i=0;i<ownedCards.length;i++){var id=ownedCards[i];if(runExcludedCards.indexOf(id)>=0)continue;if(cardLimits[id]!==undefined&&(cardPickCounts[id]||0)>=cardLimits[id])continue;pool.push(id);}
+    for(var i=0;i<ownedCards.length;i++){var id=ownedCards[i];if(MERCHANT_EXCLUSIVE.indexOf(id)>=0)continue;if(runExcludedCards.indexOf(id)>=0)continue;if(cardLimits[id]!==undefined&&(cardPickCounts[id]||0)>=cardLimits[id])continue;pool.push(id);}
     if(pool.length===0)pool=ownedCards.slice();
     for(var i=0;i<3&&pool.length>0;i++){var idx=rngI(0,pool.length-1);merchant.randomCards.push(pool[idx]);pool.splice(idx,1);}
     while(merchant.randomCards.length<3&&pool.length>0)merchant.randomCards.push(pool[rngI(0,pool.length-1)]);
@@ -567,7 +568,7 @@ function updateMerchantTalk(){
             var offer=offers[merchant.hover];
             if(!offer.bought){
                 if(coins>=offer.cost){coins-=offer.cost;
-                    if(offer.type==='card'){if(ownedCards.indexOf(offer.id)<0)ownedCards.push(offer.id);runExcludedCards.push(offer.id);}
+                    if(offer.type==='card'){if(ownedCards.indexOf(offer.id)<0)ownedCards.push(offer.id);if(merchantBoughtThisRun.indexOf(offer.id)<0)merchantBoughtThisRun.push(offer.id);}
                     else if(offer.type==='skin'){if(ownedSkins.indexOf(offer.id)<0)ownedSkins.push(offer.id);}
                     saveData();offer.bought=true;merchant.boughtSpecials++;addNotif(offer.name+' purchased!',offer.col);
                     var allDone=true;for(var j=0;j<merchant.specialOffers.length;j++){if(!merchant.specialOffers[j].bought){allDone=false;break;}}
@@ -980,8 +981,11 @@ function dmgE(e,d){
     return e.hp<=0;
 }
 function killE(e,idx){
-    burst(e.x,e.y,12+e.r,{sp:4,r:3,lf:30,c:e.gc});burst(e.x,e.y,8,{sp:2.5,r:2,lf:22,c:CL.neon});
-    for(var i=0;i<5;i++)emit(e.x,e.y,{sp:rng(0.3,1),r:rng(4,8),lf:rng(30,50),c:'#333',t:'smoke',d:0.97,g:-0.02});
+    burst(e.x,e.y,22+e.r*2,{sp:5,r:3.5,lf:40,c:e.gc});
+    burst(e.x,e.y,12,{sp:4,r:2.5,lf:30,c:e.gc,t:'spark'});
+    burst(e.x,e.y,8,{sp:2,r:3,lf:35,c:e.gc,t:'energy'});
+    addRing(e.x,e.y,{mr:45+e.r*2,sp:4,c:e.gc,lw:2.5});
+    for(var i=0;i<6;i++)emit(e.x,e.y,{sp:rng(0.4,1.2),r:rng(4,9),lf:rng(30,55),c:'#333',t:'smoke',d:0.97,g:-0.02});
     if(e.type==='tank'){burst(e.x,e.y,25,{sp:5,r:4,lf:40,c:e.gc});addRing(e.x,e.y,{mr:100,sp:4,c:e.gc,lw:3});addRing(e.x,e.y,{mr:130,sp:3,c:e.gc,lw:2});shakeAdd(8);vfxExpl();}
     else if(e.type==='dasher'){addRing(e.x,e.y,{mr:70,sp:5,c:e.gc,lw:2});shakeAdd(5);}
     else if(e.type==='shooter'){addRing(e.x,e.y,{mr:60,sp:4,c:e.gc,lw:2});shakeAdd(5);}
@@ -1068,7 +1072,7 @@ function uptWave(){
     if(wave.queue.length<=0&&enemies.length===0){
         wave.between=true;wave.delay=120;
         if(wave.num>0){waveShowMsg('WAVE CLEARED','Dimensional rift stabilizing...',90);addPlayerXP(10+wave.num*5);}
-        if(wave.num>=20&&!merchant.used&&!merchant.active&&Math.random()<0.1){spawnMerchant();}
+        if(wave.num>=15&&!merchant.used&&!merchant.active){var mChance=Math.min(1,0.2+(wave.num-15)/35*0.8);if(Math.random()<mChance)spawnMerchant();}
     }
     if(wave.msgT>0)wave.msgT--;
 }
@@ -1171,9 +1175,9 @@ function uptTitle(){
     title.skinsHover=isH(btnX,b4Y,btnW,btnH);
     title.creditsHover=isH(btnX,b5Y,btnW,btnH);
     if(title.hover&&inp._jmd)startGame();
-    if(title.cardsHover&&inp._jmd){G.state='CARD_SHOP';shopHover=-1;}
+    if(title.cardsHover&&inp._jmd){G.state='CARD_SHOP';shopHover=-1;shopScroll=0;}
     if(title.indexHover&&inp._jmd){G.state='ENEMY_INDEX';indexScroll=0;}
-    if(title.skinsHover&&inp._jmd){G.state='SKINS';skinHover=-1;}
+    if(title.skinsHover&&inp._jmd){G.state='SKINS';skinHover=-1;skinScroll=0;}
     if(title.creditsHover&&inp._jmd){G.state='CREDITS';}
     if(maxWave>0&&Math.random()<0.04){
         var hwY=cv.height/2-42;
@@ -1245,7 +1249,7 @@ function drwTitle(){
     drawMenuBtn('SKINS',b4Y,title.skinsHover);
     drawMenuBtn('CREDITS',b5Y,title.creditsHover);
 
-    var ctrlX=28,ctrlY=cv.height-140,ctrlW=230,ctrlH=110;
+    var ctrlX=28,ctrlY=cv.height-140,ctrlW=230,ctrlH=135;
     cx.fillStyle='rgba(168,85,247,0.06)';cx.fillRect(ctrlX,ctrlY,ctrlW,ctrlH);
     cx.strokeStyle='rgba(168,85,247,0.2)';cx.lineWidth=1;cx.strokeRect(ctrlX,ctrlY,ctrlW,ctrlH);
     cx.font='bold 17px monospace';cx.textAlign='left';cx.fillStyle=CL.neonL;cx.globalAlpha=0.85;
@@ -1308,7 +1312,7 @@ function uptSkins(){
     var cols=Math.min(4,Math.max(2,Math.floor((cv.width-60)/180)));
     var cw=Math.min(170,(cv.width-60-(cols-1)*16)/cols),ch=cw*1.85;
     var totalW=cols*cw+(cols-1)*16,startX=(cv.width-totalW)/2,startY=105;
-    for(var i=0;i<list.length;i++){var row=Math.floor(i/cols),col=i%cols;if(isH(startX+col*(cw+16),startY+row*(ch+10),cw,ch)){skinHover=i;break;}}
+    var rows=Math.ceil(list.length/cols);var contentH=rows*(ch+10);var availH=cv.height-startY-70;skinMaxScroll=Math.max(0,contentH-availH);skinScroll=clamp(skinScroll,0,skinMaxScroll);for(var i=0;i<list.length;i++){var row=Math.floor(i/cols),col=i%cols;if(isH(startX+col*(cw+16),startY+row*(ch+10)-skinScroll,cw,ch)){skinHover=i;break;}}
     if(skinHover>=0&&inp._jmd){
         var sk=list[skinHover];
         if(ownedSkins.indexOf(sk.id)>=0){currentSkin=sk.id;saveData();}
@@ -1328,7 +1332,7 @@ function drwSkins(){
     var totalW=cols*cw+(cols-1)*16,startX=(cv.width-totalW)/2,startY=105;
     for(var i=0;i<list.length;i++){
         var sk=list[i],isc=currentSkin===sk.id,isOwned=ownedSkins.indexOf(sk.id)>=0;
-        var row=Math.floor(i/cols),col=i%cols;var cx2=startX+col*(cw+16),cy2=startY+row*(ch+10);
+        var row=Math.floor(i/cols),col=i%cols;var cx2=startX+col*(cw+16),cy2=startY+row*(ch+10)-skinScroll;if(cy2+ch<startY-10||cy2>cv.height-70)continue;
         var hov=i===skinHover;var sc3=hov?1.04:1;
         cx.save();cx.translate(cx2+cw/2,cy2+ch/2);cx.scale(sc3,sc3);cx.translate(-cx2-cw/2,-cy2-ch/2);
         cx.fillStyle=hov?'rgba(168,85,247,0.15)':'rgba(10,10,20,0.6)';cx.strokeStyle=isc?sk.col:(isOwned?sk.col:'rgba(255,255,255,0.08)');cx.lineWidth=isc?2.5:1;
@@ -1347,6 +1351,7 @@ function drwSkins(){
         if(isc){cx.fillStyle=CL.green;cx.fillText('EQUIPPED',cx2+cw/2,stY);}else if(isOwned){if(hov){cx.fillStyle=sk.col;cx.fillText('CLICK TO EQUIP',cx2+cw/2,stY);}}else if(sk.unlock==='buy'){cx.fillStyle=coins>=sk.cost?CL.gold:'rgba(255,255,255,0.25)';cx.fillText(sk.cost+' COINS',cx2+cw/2,stY);if(hov){cx.font=Math.round(cw*0.065)+'px monospace';cx.fillStyle=coins>=sk.cost?CL.green:CL.red;cx.fillText(coins>=sk.cost?'CLICK TO BUY':'NOT ENOUGH',cx2+cw/2,stY+14);}}else if(sk.unlock==='wave'){cx.fillStyle=maxWave>=sk.level?CL.green:'rgba(255,255,255,0.2)';cx.fillText('WAVE '+sk.level+' REQ.',cx2+cw/2,stY);}
         cx.restore();
     }
+    if(skinMaxScroll>0){cx.font='10px monospace';cx.textAlign='center';cx.fillStyle='rgba(255,255,255,0.15)';cx.fillText('Scroll to see more',cv.width/2,cv.height-62);}
     var bH=isH(cv.width/2-60,cv.height-55,120,38);
     cx.fillStyle=bH?'rgba(168,85,247,0.15)':'rgba(168,85,247,0.05)';cx.strokeStyle=CL.neon;cx.lineWidth=1;
     if(bH){cx.shadowColor=CL.neon;cx.shadowBlur=12;}cx.beginPath();cx.rect(cv.width/2-60,cv.height-55,120,38);cx.fill();cx.stroke();cx.shadowBlur=0;
@@ -1399,7 +1404,7 @@ function uptShop(){
     var cols=Math.min(5,Math.floor((cv.width-40)/145));if(cols<3)cols=3;
     var cw=Math.min(130,(cv.width-40-(cols-1)*12)/cols),ch=cw*1.25;
     var totalW=cols*cw+(cols-1)*12,startX=(cv.width-totalW)/2,startY=115;
-    for(var i=0;i<sortedCards.length;i++){var row=Math.floor(i/cols),col=i%cols;if(isH(startX+col*(cw+12),startY+row*(ch+10),cw,ch)){shopHover=i;break;}}
+    var rows=Math.ceil(sortedCards.length/cols);var contentH=rows*(ch+10);var availH=cv.height-startY-70;shopMaxScroll=Math.max(0,contentH-availH);shopScroll=clamp(shopScroll,0,shopMaxScroll);for(var i=0;i<sortedCards.length;i++){var row=Math.floor(i/cols),col=i%cols;if(isH(startX+col*(cw+12),startY+row*(ch+10)-shopScroll,cw,ch)){shopHover=i;break;}}
     if(shopHover>=0&&inp._jmd){
         var card=sortedCards[shopHover];var owned=ownedCards.indexOf(card.id)>=0;
         if(!owned&&coins>=card.cost){
@@ -1420,7 +1425,7 @@ function drwShop(){
     var totalW=cols*cw+(cols-1)*12,startX=(cv.width-totalW)/2,startY=115;
     for(var i=0;i<sortedCards.length;i++){
         var card=sortedCards[i],owned=ownedCards.indexOf(card.id)>=0;
-        var row=Math.floor(i/cols),col=i%cols;var cx2=startX+col*(cw+12),cy2=startY+row*(ch+10);
+        var row=Math.floor(i/cols),col=i%cols;var cx2=startX+col*(cw+12),cy2=startY+row*(ch+10)-shopScroll;if(cy2+ch<startY-10||cy2>cv.height-70)continue;
         var hovered=i===shopHover;var sc4=hovered?1.04:1;
         cx.save();cx.translate(cx2+cw/2,cy2+ch/2);cx.scale(sc4,sc4);cx.translate(-cx2-cw/2,-cy2-ch/2);
         var isMerchant= MERCHANT_EXCLUSIVE.indexOf(card.id)>=0;
@@ -1440,6 +1445,7 @@ function drwShop(){
         else{cx.font='bold '+Math.round(cw*0.09)+'px monospace';cx.fillStyle=coins>=card.cost?CL.gold:'rgba(255,255,255,0.25)';cx.fillText(card.cost+' coins',cx2+cw/2,cy2+ch*0.9);}
         cx.restore();
     }
+    if(shopMaxScroll>0){cx.font='10px monospace';cx.textAlign='center';cx.fillStyle='rgba(255,255,255,0.15)';cx.fillText('Scroll to see more',cv.width/2,cv.height-62);}
     var bH=isH(cv.width/2-60,cv.height-55,120,38);
     cx.fillStyle=bH?'rgba(168,85,247,0.15)':'rgba(168,85,247,0.05)';cx.strokeStyle=CL.neon;cx.lineWidth=1;
     if(bH){cx.shadowColor=CL.neon;cx.shadowBlur=12;}cx.beginPath();cx.rect(cv.width/2-60,cv.height-55,120,38);cx.fill();cx.stroke();cx.shadowBlur=0;
@@ -1481,6 +1487,7 @@ function startGame(){
     enemies=[];bullets=[];eBullets=[];coinDrops=[];bombs=[];turrets=[];fireOrbs=[];pts=[];rings=[];dmgNums=[];
     xp=0;xpMax=80;xpLevel=0;
     runExcludedCards=[];
+    merchantBoughtThisRun=[];
     merchant.active=false;merchant.used=false;
     resetMods();activeCards=[];
     initArena();initPlayer();initBG();
@@ -1533,25 +1540,25 @@ function draw(){
     switch(G.state){
         case'MENU':drwTitle();break;
         case'PLAYING':
-            drwArena();drawTurrets();drawFireOrbs();
+            drwArena();drwRings();drawTurrets();drawFireOrbs();
             drwCoins();drwBombs();drwEnemies();drawMerchant();
             drwPlayer();drwBullets();drwEBullets();
-            drwDmgN();drwHUD();
+            drwPts();drwDmgN();drwHUD();
             if(G.paused)drwPause();
             break;
         case'CARD_SELECT':
-            drwArena();drawTurrets();drawFireOrbs();
+            drwArena();drwRings();drawTurrets();drawFireOrbs();
             drwCoins();drwEnemies();drawMerchant();
             drwPlayer();drwBullets();drwEBullets();
-            drwHUD();drwCardSelect();
+            drwPts();drwHUD();drwCardSelect();
             break;
         case'MERCHANT_TALK':
-            drwArena();drawTurrets();drawFireOrbs();
+            drwArena();drwRings();drawTurrets();drawFireOrbs();
             drwCoins();drwEnemies();drawMerchant();
             drwPlayer();drwBullets();drwEBullets();
-            drwHUD();drawMerchantTalk();
+            drwPts();drwHUD();drawMerchantTalk();
             break;
-        case'DEATH':drwArena();drwEnemies();drwBullets();drwDmgN();drwDeath();break;
+        case'DEATH':drwArena();drwRings();drwEnemies();drwBullets();drwPts();drwDmgN();drwDeath();break;
         case'CARD_SHOP':drwShop();break;
         case'ENEMY_INDEX':drwEnemyIndex();break;
         case'SKINS':drwSkins();break;
