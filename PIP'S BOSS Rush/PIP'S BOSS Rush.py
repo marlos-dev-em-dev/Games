@@ -5,6 +5,7 @@ from pathlib import Path
 
 pygame.init()
 W, H, GND, FPS = 800, 500, 440, 60
+CEILING = 50
 screen = pygame.display.set_mode((W, H))
 pygame.display.set_caption("Pip's Boss Rush")
 fullscreen=False
@@ -95,8 +96,8 @@ WPNS=[
     {'n':'Canhao Sangue','cost':5,'own':0,'c':(139,0,0),'tp':'blood'},
 ]
 
-W_DMG={'pea':1,'boom':2,'tomato':2,'mask':0,'shuriken':1,'mic':4,'pepper':1,
-       'camera':0,'nail':1,'shield':3,'rod':2,'crown':2,'slots':0,
+W_DMG={'pea':1,'boom':2,'tomato':2,'mask':0,'shuriken':1000,'mic':10,'pepper':1,
+       'camera':0,'nail':1,'shield':30,'rod':2,'crown':2,'slots':0,
        'spr':1,'bolt':1,'bomb':10,'firering':2,'home':2,'matchbox':1,'blood':4}
 
 
@@ -112,97 +113,111 @@ CTRLS=[{'left':pygame.K_a,'right':pygame.K_d,'jump':pygame.K_w,
        {'left':pygame.K_LEFT,'right':pygame.K_RIGHT,'jump':pygame.K_UP,
         'shoot':pygame.K_PERIOD,'dash':pygame.K_COMMA,'swap':pygame.K_SLASH,'special':pygame.K_SEMICOLON}]
 
-
 # ── SECRET WEAPONS SYSTEM ──
+# SUBSTITUIR TODO O BLOCO DE SECRET WEAPONS (do "SECRET_WPNS=" até o final das variáveis de estado)
+# REMOVER a segunda definição de SECRET_TP, segunda extensão de W_DMG,
+# segunda declaração de secret_synergy_bosses/secret_unlocked
+
+# Resultado final — um único bloco limpo:
 SECRET_WPNS=[
-    {'n':'A Forca','cost':0,'own':0,'c':(200,0,0),'tp':'piano','passive':'Distorcao da Realidade'},
+    {'n':'A Forca','cost':0,'own':0,'c':(200,0,0),'tp':'piano'},
+    {'n':'O Terminal','cost':0,'own':0,'c':(0,200,0),'tp':'terminal'},
+    {'n':'A Lamina','cost':0,'own':0,'c':(180,180,255),'tp':'lamina'},
+    {'n':'O Arcade','cost':0,'own':0,'c':(255,165,0),'tp':'arcade'},
+    {'n':'A Culinaria','cost':0,'own':0,'c':(255,200,100),'tp':'culinaria'},
 ]
-SECRET_TP=set(['piano'])  # secret types — never shown in shop
+SECRET_TP=set(['piano','terminal','lamina','arcade','culinaria'])
+SECRET_MODES={'piano':3,'terminal':4,'lamina':3,'arcade':3,'culinaria':3}
 W_DMG['piano_throw']=12;W_DMG['piano_note']=2;W_DMG['piano_laser']=1
-CFG['wR'].extend([300])  # piano throw rate
+W_DMG['term_delete_tick']=3;W_DMG['term_virus']=5;W_DMG['term_data']=3;W_DMG['term_overflow_exp']=20
+W_DMG['lam_slash']=4;W_DMG['lam_beam1']=3;W_DMG['lam_beam2']=7;W_DMG['lam_beam3']=14
+W_DMG['arc_combo']=2;W_DMG['arc_fan']=2;W_DMG['arc_rage']=8
+W_DMG['cul_slash']=3;W_DMG['cul_pan']=2
+secret_synergy_bosses=0;secret_unlocked=False
+terminal_proj_peak=0;terminal_unlocked=False
+lamina_stand_timer=0;lamina_unlocked=False
+arcade_buttons_found=0;arcade_unlocked=False
+culinaria_perfect_bosses=0;culinaria_unlocked=False
+active_secret=-1
+crash_overlay=None
+secret_mode=0
+special_charge=0;wish_active=False;wish_opts=[];wish_sel=0;wish_timer=0;wish_thunder_pts=[]
+piano_laser_active=False;piano_laser_power=0
+piano_passive_timer=0;piano_passive_effect=None;piano_passive_dur=0
+SS={
+    'term_delete':None,'term_delete_cd':0,'term_inject_cd':0,
+    'term_overflow':0,'term_overflow_cd':0,
+    'term_loop_active':False,'term_loop_timer':0,'term_loop_cd':0,'term_loop_auto':0,'term_loop_mode':0,
+    'term_patch':None,'term_patch_dur':0,'term_patch_timer':0,
+    'term_ult_cd':0,'term_ult_phase':0,'term_ult_timer':0,
+    'lam_bonus':0,'lam_charge_t':0,'lam_charging':False,
+    'lam_awake':False,'lam_awake_t':0,'lam_awake_cd':0,
+    'lam_exhaust':False,'lam_exhaust_t':0,
+    'lam_suspiro_used':False,'lam_golden':False,'lam_golden_t':0,
+    'lam_ult_cd':0,'lam_ult_phase':0,'lam_ult_choice':0,
+    'arc_combo_cd':0,'arc_combo_hits':0,'arc_combo_t':0,
+    'arc_fan_cd':0,'arc_fan_volleys':0,'arc_fan_t':0,
+    'arc_rage_cd':0,
+    'arc_life_used':False,'arc_continue':False,'arc_continue_t':0,
+    'arc_ult_cd':0,'arc_ult_active':'','arc_ult_t':0,
+    'cul_inv':[],'cul_pan_cd':0,'cul_pan_t':0,'cul_pan_stuck':False,
+    'cul_craft_cd':0,'cul_recipe_open':False,
+    'cul_surprise_t':0,'cul_surprise_pos':None,'cul_surprise_t2':0,
+    'cul_ult_cd':0,'cul_ult_active':'','cul_ult_t':0,
+    'ingr_spawns':[],
+}
 
-# Piano state
-piano_variant=0  # 0=throw, 1=notes, 2=laser
-piano_passive_timer=0
-piano_passive_effect=None
-piano_passive_dur=0
-special_charge=0  # 0-100
-special_active=False
-special_opts=[]
-special_sel=0
-piano_laser_active=False
-piano_laser_power=0
-wish_active=False
-wish_opts=[]
-wish_sel=0
-wish_timer=0
-wish_thunder_pts=[]
+TERMINAL_PATCHES=[
+    {'id':'speed','n':'Player SPD +15%','c':GREEN},
+    {'id':'boss_cd','n':'Boss CD +0.5s','c':CYAN},
+    {'id':'crit','n':'Crit x2','c':RED},
+    {'id':'gravity','n':'Low Gravity','c':PURPLE},
+    {'id':'proj_size','n':'Proj +20%','c':YELLOW},
+    {'id':'boss_def','n':'Boss DEF -10%','c':ORANGE},
+]
 
-secret_synergy_bosses=0  # bosses derrotados com sinergia ativa
-secret_unlocked=False
+def u_terminal_passive(dt):
+    if not has_weapon_type('terminal'):return
+    SS['term_patch_timer']+=dt
+    if SS['term_patch'] and SS['term_patch_dur']>0:
+        SS['term_patch_dur']-=dt
+        if SS['term_patch_dur']<=0:SS['term_patch']=None
+    if SS['term_patch_timer']>=30000 and not SS['term_patch']:
+        SS['term_patch_timer']=0
+        p2=random.choice(TERMINAL_PATCHES)
+        SS['term_patch']=p2['id'];SS['term_patch_dur']=15000
 
+def terminal_patch_id():
+    return SS.get('term_patch')
 # ═══ SAVE SYSTEM ════════════════════════════════════════
 SVP=Path(os.path.expanduser("~"))/".pip_boss_rush.json"
+
+def write_saves(s):
+    try:SVP.write_text(json.dumps(s))
+    except:pass
+
 def load_saves():
     if SVP.exists():
         try:return json.loads(SVP.read_text())
         except:pass
     return[None,None,None]
-def write_saves(s):
-    try:SVP.write_text(json.dumps(s))
-    except:pass
-saves_data=load_saves();cur_save=-1;coins=0
-b_coins=[0]*16;b_clear=[0]*16;equipped=[0,0]
-loadout=[0,0,0]
-loadout_active=0  
-first_play=True;post_b1=False;
 
-remote_keys={}
-net_mode="local";net_sock=None;net_conn=None
-net_connected=False;net_status="";net_ip_input=""
-net_port=5555;net_frame=0;lobby_timer=0;_sec_t=0
-def reset_save():
-    global coins,b_coins,b_clear,equipped,first_play,post_b1,loadout,loadout_active
-    global secret_synergy_bosses,secret_unlocked
-    coins=0;b_coins=[0]*16;b_clear=[0]*16
-    for w in WPNS:
-        if w.get('tp') not in SECRET_TP:w['own']=1 if w['cost']==0 else 0
-    equipped=[0,0];first_play=True;post_b1=False
-    loadout=[0,-1,-1];loadout_active=0
-    secret_synergy_bosses=0;secret_unlocked=False
 def save_game():
     if cur_save<0:return
     saves_data[cur_save]={'coins':coins,'bc':b_coins[:],'bl':b_clear[:],
         'wp':[w['own'] for w in WPNS],'eq':equipped[:],'fp':first_play,'pb':post_b1,
-        'lo':loadout[:],'ssb':secret_synergy_bosses,'su':secret_unlocked}
+        'lo':loadout[:],'ssb':secret_synergy_bosses,'su':secret_unlocked,
+        'tu':terminal_unlocked,'tpp':terminal_proj_peak,
+        'lu':lamina_unlocked,'au':arcade_unlocked,'abf':arcade_buttons_found,
+        'cu':culinaria_unlocked,'cpb':culinaria_perfect_bosses,'as':active_secret}
     write_saves(saves_data)
 
-def has_secret():
-    for i in range(3):
-        if loadout[i]>=0 and loadout[i]<len(WPNS) and WPNS[loadout[i]].get('tp') in SECRET_TP:
-            return True
-    return False
-
-def equip_secret(idx):
-    """idx = index in SECRET_WPNS list"""
-    # Add to WPNS if not present
-    for i,w in enumerate(WPNS):
-        if w.get('tp')==SECRET_WPNS[idx]['tp']:return i
-    WPNS.append(SECRET_WPNS[idx].copy())
-    return len(WPNS)-1
-
-def activate_secret():
-    """Called when player unlocks a secret weapon"""
-    global loadout,loadout_active
-    idx=equip_secret(0)  # A Força
-    loadout=[idx,-1,-1]
-    loadout_active=0
-    for i,w in enumerate(WPNS):
-        if w.get('tp') not in SECRET_TP:w['own_save']=w.get('own',0)
-    WPNS[idx]['own']=1
 def load_save(idx):
     global cur_save,coins,b_coins,b_clear,equipped,first_play,post_b1,loadout,loadout_active
-    global secret_synergy_bosses,secret_unlocked
+    global secret_synergy_bosses,secret_unlocked,active_secret
+    global terminal_unlocked,terminal_proj_peak
+    global lamina_unlocked,arcade_unlocked,arcade_buttons_found
+    global culinaria_unlocked,culinaria_perfect_bosses
     cur_save=idx;s=saves_data[idx]
     if s:
         coins=s.get('coins',0);b_coins=(s.get('bc',[])+[0]*16)[:16]
@@ -215,8 +230,124 @@ def load_save(idx):
         while len(loadout)<3:loadout.append(-1)
         loadout_active=0
         secret_synergy_bosses=s.get('ssb',0);secret_unlocked=s.get('su',False)
+        terminal_unlocked=s.get('tu',False);terminal_proj_peak=s.get('tpp',0)
+        lamina_unlocked=s.get('lu',False)
+        arcade_unlocked=s.get('au',False);arcade_buttons_found=s.get('abf',0)
+        culinaria_unlocked=s.get('cu',False);culinaria_perfect_bosses=s.get('cpb',0)
+        active_secret=s.get('as',-1)
         if secret_unlocked:equip_secret(0)
+        if terminal_unlocked:equip_secret(1)
+        if lamina_unlocked:equip_secret(2)
+        if arcade_unlocked:equip_secret(3)
+        if culinaria_unlocked:equip_secret(4)
+        if active_secret>=0 and active_secret<len(SECRET_WPNS):
+            idx2=equip_secret(active_secret);loadout=[idx2,-1,-1];loadout_active=0
     else:reset_save();save_game()
+
+def reset_save():
+
+    global coins,b_coins,b_clear,equipped,first_play,post_b1,loadout,loadout_active
+    global secret_synergy_bosses,secret_unlocked,active_secret
+    global terminal_unlocked,terminal_proj_peak
+    global lamina_unlocked,arcade_unlocked,arcade_buttons_found
+    global culinaria_unlocked,culinaria_perfect_bosses
+    coins=0;b_coins=[0]*16;b_clear=[0]*16
+    for w in WPNS:
+        if w.get('tp') not in SECRET_TP:w['own']=1 if w['cost']==0 else 0
+    equipped=[0,0];first_play=True;post_b1=False
+    loadout=[0,-1,-1];loadout_active=0
+    secret_synergy_bosses=0;secret_unlocked=False;active_secret=-1
+    terminal_unlocked=False;terminal_proj_peak=0
+    lamina_unlocked=False;arcade_unlocked=False;arcade_buttons_found=0
+    culinaria_unlocked=False;culinaria_perfect_bosses=0
+
+saves_data=load_saves();cur_save=-1;coins=0
+b_coins=[0]*16;b_clear=[0]*16;equipped=[0,0]
+loadout=[0,0,0]
+loadout_active=0  
+first_play=True;post_b1=False;
+
+remote_keys={}
+net_mode="local";net_sock=None;net_conn=None
+net_connected=False;net_status="";net_ip_input=""
+net_port=5555;net_frame=0;lobby_timer=0;_sec_t=0
+
+def equip_secret(idx):
+    """idx = index in SECRET_WPNS list. Returns WPNS index."""
+    for i,w in enumerate(WPNS):
+        if w.get('tp')==SECRET_WPNS[idx]['tp']:return i
+    WPNS.append(SECRET_WPNS[idx].copy())
+    return len(WPNS)-1
+
+def has_secret():
+    for i in range(3):
+        if loadout[i]>=0 and loadout[i]<len(WPNS) and WPNS[loadout[i]].get('tp') in SECRET_TP:
+            return True
+    return False
+
+def has_weapon_type(tp):
+    for i in range(3):
+        if loadout[i]>=0 and loadout[i]<len(WPNS) and WPNS[loadout[i]].get('tp')==tp:
+            return True
+    return False
+
+def activate_secret(idx):
+    """Unlock and equip a secret weapon."""
+    global loadout,loadout_active,active_secret
+    widx=equip_secret(idx)
+    loadout=[widx,-1,-1];loadout_active=0;active_secret=idx
+    SECRET_WPNS[idx]['own']=1
+
+def load_save(idx):
+    global cur_save,coins,b_coins,b_clear,equipped,first_play,post_b1,loadout,loadout_active
+    global secret_synergy_bosses,secret_unlocked,active_secret
+    global terminal_unlocked,terminal_proj_peak
+    global lamina_unlocked,arcade_unlocked,arcade_buttons_found
+    global culinaria_unlocked,culinaria_perfect_bosses
+    cur_save=idx;s=saves_data[idx]
+    if s:
+        coins=s.get('coins',0);b_coins=(s.get('bc',[])+[0]*16)[:16]
+        b_clear=(s.get('bl',[])+[0]*16)[:16]
+        wp=s.get('wp',[])
+        for i,w in enumerate(WPNS):
+            if w.get('tp') not in SECRET_TP:w['own']=wp[i] if i<len(wp) else(1 if w['cost']==0 else 0)
+        equipped=s.get('eq',[0,0])[:];first_play=s.get('fp',True);post_b1=s.get('pb',False)
+        loadout=s.get('lo',[0,-1,-1])[:3]
+        while len(loadout)<3:loadout.append(-1)
+        loadout_active=0
+        secret_synergy_bosses=s.get('ssb',0);secret_unlocked=s.get('su',False)
+        terminal_unlocked=s.get('tu',False);terminal_proj_peak=s.get('tpp',0)
+        lamina_unlocked=s.get('lu',False)
+        arcade_unlocked=s.get('au',False);arcade_buttons_found=s.get('abf',0)
+        culinaria_unlocked=s.get('cu',False);culinaria_perfect_bosses=s.get('cpb',0)
+        active_secret=s.get('as',-1)
+        # Re-equip unlocked secrets
+        if secret_unlocked:equip_secret(0)
+        if terminal_unlocked:equip_secret(1)
+        if lamina_unlocked:equip_secret(2)
+        if arcade_unlocked:equip_secret(3)
+        if culinaria_unlocked:equip_secret(4)
+        if active_secret>=0 and active_secret<len(SECRET_WPNS):
+            idx2=equip_secret(active_secret)
+            loadout=[idx2,-1,-1];loadout_active=0
+    else:reset_save();save_game()
+
+def reset_save():
+    global coins,b_coins,b_clear,equipped,first_play,post_b1,loadout,loadout_active
+    global secret_synergy_bosses,secret_unlocked,active_secret
+    global terminal_unlocked,terminal_proj_peak
+    global lamina_unlocked,arcade_unlocked,arcade_buttons_found
+    global culinaria_unlocked,culinaria_perfect_bosses
+    coins=0;b_coins=[0]*16;b_clear=[0]*16
+    for w in WPNS:
+        if w.get('tp') not in SECRET_TP:w['own']=1 if w['cost']==0 else 0
+    equipped=[0,0];first_play=True;post_b1=False
+    loadout=[0,-1,-1];loadout_active=0
+    secret_synergy_bosses=0;secret_unlocked=False;active_secret=-1
+    terminal_unlocked=False;terminal_proj_peak=0
+    lamina_unlocked=False;arcade_unlocked=False;arcade_buttons_found=0
+    culinaria_unlocked=False;culinaria_perfect_bosses=0
+
 def del_sv(i):saves_data[i]=None;write_saves(saves_data)
 def sec_ok(s):
     if s==0:return True
@@ -262,20 +393,97 @@ def any_al():return any(p['alive'] for p in players)
 def all_de():return all(not p['alive'] for p in players)
 
 def u_player_extras(p,dt):
-    global piano_variant
+    global secret_mode
     if p.get('shield_timer',0)>0:p['shield_timer']-=dt
-    # Reset speed if not using laser
+    # Piano: reset speed if not laser
     if p['equipped']<len(WPNS) and WPNS[p['equipped']]['tp']=='piano':
-        if piano_variant!=2 or not p_h(p,'shoot'):
-            p['spd']=CFG['pSpd']
+        if secret_mode!=2 or not p_h(p,'shoot'):p['spd']=CFG['pSpd']
+    # Terminal cooldowns
+    for k in['term_delete_cd','term_inject_cd','term_overflow_cd','term_loop_cd','term_ult_cd']:
+        if SS.get(k,0)>0:SS[k]-=dt
+    # Terminal loop auto-fire
+    if SS['term_loop_active'] and p['id']==local_pid:
+        SS['term_loop_timer']-=dt;SS['term_loop_auto']+=dt
+        if SS['term_loop_auto']>=1200:
+            SS['term_loop_auto']=0;cx2=p['x']+16+p['face']*18;cy2=p['y']+p['h']*0.35
+            am=SS['term_loop_mode']
+            if am==0 and not SS['term_delete']:
+                zx2=p['x']+p['face']*120;SS['term_delete']={'x':zx2-70,'y':GND-100,'w':140,'h':100,'life':2000,'dtick':0}
+            elif am==1:
+                pB.append({'x':cx2,'y':cy2,'vx':p['face']*8,'vy':0,'ext':'term_virus','life':3000,'sx':cx2,'ret':False,'expl':False,'ang':0,'hitC':0,'hitCD':0,'elap':0,'gid':0,'hit':False,'pid':p['id']})
+            elif am==2:
+                pB.append({'x':cx2,'y':cy2,'vx':p['face']*10,'vy':rng(-1,1),'ext':'term_data','life':2000,'sx':cx2,'ret':False,'expl':False,'ang':0,'hitC':0,'hitCD':0,'elap':0,'gid':0,'hit':False,'pid':p['id']})
+        if SS['term_loop_timer']<=0:SS['term_loop_active']=False;SS['term_loop_cd']=40000
+    u_terminal_passive(dt)
+    u_piano_passive(dt)
+    # Lamina: charge beam + awakening + exhaust + golden
+    if SS.get('lam_charging'):SS['lam_charge_t']=SS.get('lam_charge_t',0)+dt
+    if SS.get('lam_awake'):SS['lam_awake_t']-=dt
+    if SS.get('lam_awake_t',0)<=0 and SS.get('lam_awake'):
+        SS['lam_awake']=False;SS['lam_exhaust']=True;SS['lam_exhaust_t']=5000
+    if SS.get('lam_exhaust'):SS['lam_exhaust_t']-=dt
+    if SS.get('lam_exhaust_t',0)<=0 and SS.get('lam_exhaust'):SS['lam_exhaust']=False
+    if SS.get('lam_awake_cd',0)>0:SS['lam_awake_cd']-=dt
+    if SS.get('lam_golden'):
+        SS['lam_golden_t']-=dt
+        if SS['lam_golden_t']<=0:
+            SS['lam_golden']=False
+            if p['alive']:p['hp']=0;p['alive']=False
+            burst(p['x']+16,p['y']+22,25,GOLD,2,7,3,7,600)
+            if all_de():sched.append({'time':pygame.time.get_ticks()+400,'fn':lambda:go_st('over')})
+    if SS.get('lam_ult_cd',0)>0:SS['lam_ult_cd']-=dt
+    if SS.get('lam_ult_phase',0)>0:
+        SS['lam_ult_t']-=dt
+        if SS['lam_ult_t']<=0:_execute_lamina_ultimate()
+    # Arcade cooldowns + continue
+    for k in['arc_combo_cd','arc_fan_cd','arc_rage_cd','arc_ult_cd']:
+        if SS.get(k,0)>0:SS[k]-=dt
+    if SS.get('arc_continue'):SS['arc_continue_t']-=dt
+    if SS.get('arc_continue_t',0)<=0 and SS.get('arc_continue'):
+        SS['arc_continue']=False
+        if p['alive']:p['hp']=0;p['alive']=False
+        if all_de():sched.append({'time':pygame.time.get_ticks()+400,'fn':lambda:go_st('over')})
+    if SS.get('arc_ult_t',0)>0:SS['arc_ult_t']-=dt
+    if SS.get('arc_ult_t',0)<=0 and SS.get('arc_ult_active'):SS['arc_ult_active']=''
+    # Culinaria
+    if SS.get('cul_pan_cd',0)>0:SS['cul_pan_cd']-=dt
+    if SS.get('cul_craft_cd',0)>0:SS['cul_craft_cd']-=dt
+    if SS.get('cul_ult_cd',0)>0:SS['cul_ult_cd']-=dt
+    SS['cul_surprise_t']+=dt
+    if SS['cul_surprise_t']>=20000 and not SS.get('cul_surprise_pos'):
+        SS['cul_surprise_t']=0
+        SS['cul_surprise_pos']={'x':rng(100,W-100),'y':GND-20,'type':random.choice([6,7]),'life':10000}
+    if SS.get('cul_surprise_pos'):
+        SS['cul_surprise_pos']['life']-=dt
+        if SS['cul_surprise_pos']['life']<=0:SS['cul_surprise_pos']=None
+    if SS.get('cul_ult_t',0)>0:SS['cul_ult_t']-=dt
+    if SS.get('cul_ult_t',0)<=0 and SS.get('cul_ult_active'):SS['cul_ult_active']=''
+    # Collect ingredients (proximity)
+    for ig in SS.get('ingr_spawns',[]):
+        if dist(p['x']+16,p['y']+22,ig['x'],ig['y'])<30:
+            if len(SS['cul_inv'])<3:SS['cul_inv'].append(ig['type'])
+            SS['ingr_spawns'].remove(ig);break
+    # Collect surprise ingredient
+    sp=SS.get('cul_surprise_pos')
+    if sp and dist(p['x']+16,p['y']+22,sp['x'],sp['y'])<30:
+        if len(SS['cul_inv'])<3:SS['cul_inv'].append(sp['type'])
+        SS['cul_surprise_pos']=None
+    # Mic visuals
     for mv in mic_visuals[:]:
         mv['t']+=dt
         if mv['t']>=mv['dur']:mic_visuals.remove(mv)
     u_special_charge(dt)
 
 def u_player(p,dt):
-    global piano_variant,loadout_active
+    global secret_mode,loadout_active,lamina_unlocked,lamina_stand_timer
     if not p['alive']:
+        # Arcade continue: any key revives
+        if SS.get('arc_continue'):
+            for k in list(just_pressed):
+                if just_pressed[k]:
+                    SS['arc_continue']=False
+                    p['alive']=True;p['hp']=max(1,int(p['mhp']*0.4));p['inv']=2000;p['deadT']=0
+                    burst(p['x']+16,p['y']+22,20,GREEN,2,6,3,6,500);break
         if num_players>=2:
             p['deadT']+=dt
             if p['deadT']>15000 and any_al():
@@ -293,40 +501,103 @@ def u_player(p,dt):
         mx=0
         if p_h(p,'left'):mx=-1;p['face']=-1
         if p_h(p,'right'):mx=1;p['face']=1
-        p['vx']=mx*p['spd'];p['x']+=p['vx']
+        spd=p['spd']
+        if SS.get('term_patch')=='speed':spd*=1.15
+        if SS.get('lam_awake'):spd*=2
+        if SS.get('lam_exhaust'):spd*=0.7
+        if SS.get('arc_ult_active')=='invincible':spd*=1.2
+        p['vx']=mx*spd;p['x']+=p['vx']
         if p_j(p,'jump') and p['jc']<2:
-            p['vy']=-CFG['pJS'];p['jc']+=1;p['gnd']=False;p['jH']=True
+            grav_jump=CFG['pJS']
+            if SS.get('term_patch')=='gravity':grav_jump*=1.3
+            p['vy']=-grav_jump;p['jc']+=1;p['gnd']=False;p['jH']=True
         if p_h(p,'jump') and p['jH'] and p['vy']<0:
             p['vy']-=0.65
             if p['vy']<p['jf']:p['vy']=p['jf']
         if not p_h(p,'jump') and p['vy']<-3:p['vy']=-3;p['jH']=False
         if p_j(p,'dash') and p['dCD']<=0:
-            p['dash']=True;p['dT']=CFG['pDD'];p['dDir']=p['face'];p['vy']=0
-        # ── SWAP: piano troca variante, outros trocam loadout slot ──
+            if SS.get('lam_awake'):
+                p['dash']=True;p['dT']=int(CFG['pDD']*1.5);p['dDir']=p['face'];p['vy']=0
+            else:
+                p['dash']=True;p['dT']=CFG['pDD'];p['dDir']=p['face'];p['vy']=0
         if p['id']==local_pid and p_j(p,'swap'):
-            is_piano=p['equipped']<len(WPNS) and WPNS[p['equipped']]['tp']=='piano'
-            if is_piano:
-                piano_variant=(piano_variant+1)%3
+            is_secret=p['equipped']<len(WPNS) and WPNS[p['equipped']]['tp'] in SECRET_TP
+            if is_secret:
+                max_modes=SECRET_MODES.get(WPNS[p['equipped']]['tp'],3)
+                # Terminal: salvar último modo antes de trocar pra LOOP
+                if WPNS[p['equipped']]['tp']=='terminal' and secret_mode!=3:
+                    SS['term_loop_mode']=secret_mode
+                secret_mode=(secret_mode+1)%max_modes
             else:
                 loadout_active=(loadout_active+1)%3
-                if loadout[loadout_active]>=0:
-                    p['equipped']=loadout[loadout_active]
-    p['vy']+=0.55;p['y']+=p['vy']
+                if loadout[loadout_active]>=0:p['equipped']=loadout[loadout_active]
+    grav=0.55
+    if SS.get('term_patch')=='gravity':grav=0.35
+    p['vy']+=grav;p['y']+=p['vy']
     if p['y']+p['h']>=GND:
         p['y']=GND-p['h'];p['vy']=0;p['gnd']=True;p['jc']=0;p['jH']=False
+    p['y']=max(p['y'],CEILING)
     p['x']=wrap_x(p['x'])
     if p['inv']>0:p['inv']=max(0,p['inv']-dt)
-    # ── TECLAS 1/2/3: piano troca variante, outros trocam arma ──
     if p['id']==local_pid:
-        is_piano=p['equipped']<len(WPNS) and WPNS[p['equipped']]['tp']=='piano'
+        is_secret=p['equipped']<len(WPNS) and WPNS[p['equipped']]['tp'] in SECRET_TP
         for i in range(1,min(len(loadout),9)+1):
             k=getattr(pygame,f'K_{i}',None)
             if k and jp(k):
-                if is_piano and i<=3:
-                    piano_variant=i-1
-                elif not is_piano and loadout[i-1]>=0:
+                if is_secret and i<=4:
+                    secret_mode=i-1
+                elif not is_secret and loadout[i-1]>=0:
                     p['equipped']=loadout[i-1]
     u_player_extras(p,dt)
+        # ── Lâmina unlock: 15s parado no boss final <10% HP ──
+    if not lamina_unlocked and boss and boss.get('alive') and boss.get('idx')==15:
+        if boss['hp']/boss['mhp']<0.1 and p['hp']>1:
+            moving=abs(p['vx'])>0.5 or abs(p['vy'])>2
+            shooting=p_h(p,'shoot')
+            if not moving and not shooting:
+                lamina_stand_timer+=dt
+                p['inv']=max(p['inv'],500)  # invencível durante standstill
+                if lamina_stand_timer>=15000:
+                    lamina_unlocked=True;activate_secret(2);save_game()
+                    burst(p['x']+16,p['y']+22,40,(180,180,255),2,8,3,9,1000)
+            else:
+                lamina_stand_timer=max(0,lamina_stand_timer-dt)
+        else:
+            lamina_stand_timer=0
+    else:
+        lamina_stand_timer=0
+
+def d_lamina_indicator(surf):
+    """Olho + katana indicador quando boss final está <10% HP"""
+    if lamina_unlocked:return
+    if not boss or not boss.get('alive') or boss.get('idx',0)!=15:return
+    if boss['hp']/boss['mhp']>=0.1:return
+    p=players[local_pid] if local_pid<len(players) else None
+    if not p or not p['alive'] or p['hp']<=1:return
+    # Olho pulsante no canto
+    t=pygame.time.get_ticks()
+    pulse=int(abs(math.sin(t*0.003))*40)+30
+    # Olho
+    ex=W-50;ey=H-90
+    pygame.draw.ellipse(surf,(200,200,255),(ex-14,ey-10,28,20))
+    pygame.draw.ellipse(surf,(100,100,255,pulse),(ex-14,ey-10,28,20),2)
+    pygame.draw.circle(surf,(255,255,255),(ex,ey),6)
+    pygame.draw.circle(surf,(0,0,0),(ex+int(math.sin(t*0.002)*3),ey),3)
+    # Katana
+    pygame.draw.line(surf,(180,180,255),(ex-20,ey+18),(ex+20,ey+18),2)
+    pygame.draw.line(surf,WHITE,(ex-15,ey+18),(ex+15,ey+18),1)
+    pygame.draw.rect(surf,(150,50,50),(ex+16,ey+14,6,8))
+    # Texto
+    txt(surf,"Fique imovel...",ex,ey+30,(180,180,255),8,True,True)
+    # Barra de progresso se já está parado
+    if lamina_stand_timer>0:
+        prog=lamina_stand_timer/15000
+        bw=100;bh=8;bx=W//2-bw//2;by=50
+        pygame.draw.rect(surf,(20,20,40),(bx-2,by-2,bw+4,bh+4))
+        pygame.draw.rect(surf,(180,180,255),(bx,by,int(bw*prog),bh))
+        pygame.draw.rect(surf,(180,180,255),(bx-2,by-2,bw+4,bh+4),1)
+        sec=math.ceil((15000-lamina_stand_timer)/1000)
+        txt(surf,f"LAMINA: {sec}s",bx+bw//2,by-14,(180,180,255),10,True,True)
 
 def d_player(surf,p):
     cx,cy=p['x']+16,p['y']+22
@@ -410,17 +681,27 @@ def add_tg(x,y,r,d,col,fn):telegraphs.append({'x':x,'y':y,'r':r,'t':0,'dur':d,'c
 def add_tgR(x,y,w,h,d,col,fn):telegraphs.append({'x':x,'y':y,'w':w,'h':h,'t':0,'dur':d,'col':col,'tp':'rect','cb':fn})
 
 def shoot_p(p):
-    global grp_id,piano_variant,piano_laser_active,piano_laser_power
+    global grp_id,secret_mode,piano_laser_active,piano_laser_power
     now=pygame.time.get_ticks()
     tp=WPNS[p['equipped']]['tp'] if p['equipped']<len(WPNS) else 'pea'
-
-    # ── Piano: Laser cancel on release (ANTES do check de shoot) ──
-    if tp=='piano' and piano_variant==2 and not p_h(p,'shoot'):
-        piano_laser_active=False;piano_laser_power=0
-        p['spd']=CFG['pSpd']
-
+    # Piano: cancel laser on release
+    if tp=='piano' and secret_mode==2 and not p_h(p,'shoot'):
+        piano_laser_active=False;piano_laser_power=0;p['spd']=CFG['pSpd']
+    # Lamina: cancel charge on release
+    if tp=='lamina' and secret_mode==1 and not p_h(p,'shoot') and SS.get('lam_charging'):
+        SS['lam_charging']=False;ct=SS.get('lam_charge_t',0);SS['lam_charge_t']=0
+        if ct>=500:
+            cx2=p['x']+16+p['face']*18;cy2=p['y']+p['h']*0.35
+            if ct>=3000:lv=2
+            elif ct>=1500:lv=1
+            else:lv=0
+            pB.append({'x':cx2,'y':cy2,'vx':p['face']*(10+lv*4),'vy':0,'ext':'lam_beam','life':2500,
+                'sx':cx2,'ret':False,'expl':False,'ang':0,'hitC':0,'hitCD':0,'elap':0,'gid':0,'hit':False,
+                'pid':p['id'],'beam_lv':lv})
+    # Culinaria: close recipe screen on release
+    if tp=='culinaria' and secret_mode==2 and not p_h(p,'shoot') and SS.get('cul_recipe_open'):
+        SS['cul_recipe_open']=False
     if not p_h(p,'shoot') or not p['alive']:return
-
     # Rod teleport
     if tp=='rod' and p.get('rod_hook') is not None:
         hook=p['rod_hook']
@@ -432,65 +713,120 @@ def shoot_p(p):
         for b2 in pB[:]:
             if b2.get('ext')=='rod' and b2.get('pid')==p['id']:pB.remove(b2)
         p['rod_hook']=None;p['lsht']=now;return
-
     widx=p['equipped']
     rate=CFG['wR'][widx] if widx<len(CFG['wR']) else 300
-    # Piano notes: faster rate
-    if tp=='piano' and piano_variant==1:rate=120
-    # Piano laser: no rate limit (continuous)
-    if tp=='piano' and piano_variant==2:rate=0
+    if tp=='piano' and secret_mode==1:rate=120
+    if tp=='piano' and secret_mode==2:rate=0
+    if tp=='lamina' and secret_mode==0:rate=200
+    if tp=='lamina' and secret_mode==1:rate=0
+    if tp=='lamina' and secret_mode==2:rate=0
+    if tp=='arcade' and secret_mode==0 and SS.get('arc_combo_cd',0)>0:return
+    if tp=='arcade' and secret_mode==1 and SS.get('arc_fan_cd',0)>0:return
+    if tp=='arcade' and secret_mode==2 and SS.get('arc_rage_cd',0)>0:return
+    if tp=='culinaria' and secret_mode==0:rate=200
+    if tp=='culinaria' and secret_mode==1 and SS.get('cul_pan_cd',0)>0:return
+    if tp=='culinaria' and secret_mode==2:rate=0
     if now-p['lsht']<rate:return
     p['lsht']=now;cx=p['x']+16+p['face']*18;cy=p['y']+p['h']*0.35
-
     def mk(vx,vy):
         return{'x':cx,'y':cy,'vx':vx,'vy':vy,'ext':tp,'life':3000,'sx':cx,
             'ret':False,'expl':False,'ang':0,'hitC':0,'hitCD':0,'elap':0,
             'gid':0,'hit':False,'pid':p['id']}
-
-    # ══════════════════════════════════
-    # PIANO — 3 variantes
-    # ══════════════════════════════════
+    # ═══ PIANO ═══
     if tp=='piano':
-        if piano_variant==0:
+        if secret_mode==0:
             if sum(1 for b2 in pB if b2.get('ext')=='piano_throw')<1:
-                b=mk(p['face']*10,0);b['ext']='piano_throw';b['life']=2000
-                pB.append(b)
-        elif piano_variant==1:
-            ...
-            # V2: Musical notes — random status, high cadence
-            b=mk(p['face']*9,rng(-2,2))
-            b['ext']='piano_note';b['life']=1500
-            b['note_status']=random.choice(['burn','poison','frio','bleed','picancia'])
-            pB.append(b)
-        elif piano_variant==2:
-            # V3: Rainbow laser — continuous, grows
+                b=mk(p['face']*10,0);b['ext']='piano_throw';b['life']=2000;pB.append(b)
+        elif secret_mode==1:
+            b=mk(p['face']*9,rng(-2,2));b['ext']='piano_note';b['life']=1500
+            b['note_status']=random.choice(['burn','poison','frio','bleed','picancia']);pB.append(b)
+        elif secret_mode==2:
             piano_laser_active=True
             piano_laser_power=min(piano_laser_power+dt_global*0.003,3.0)
-            laser_w=int(4+piano_laser_power*8)
             laser_dmg=max(1,int(piano_laser_power*2))
-            # Slow player while charging
             p['spd']=max(1,CFG['pSpd']-piano_laser_power*1.5)
-            # Deal damage continuously to boss
             if boss and boss.get('alive'):
-                boss_cx=boss['x']+boss['w']//2;boss_cy=boss['y']+boss['h']//2
-                if (p['face']>0 and boss_cx>cx) or (p['face']<0 and boss_cx<cx):
-                    hit_boss(laser_dmg)
-                    burst(boss_cx,boss_cy,3,random.choice([RED,YELLOW,GREEN,CYAN,PURPLE]),1,3,2,4,150)
-                    global special_charge
-                    special_charge=min(100,special_charge+0.15)
-            return  # don't create projectile
-
-    # ══════════════════════════════════
-    # ALL OTHER WEAPONS (same as before)
-    # ══════════════════════════════════
+                bcx=boss['x']+boss['w']//2;bcy=boss['y']+boss['h']//2
+                if (p['face']>0 and bcx>cx) or (p['face']<0 and bcx<cx):
+                    if abs(bcy-cy)<60 and boss['y']>-boss['h']//2:hit_boss(laser_dmg)
+                burst(bcx,bcy,3,random.choice([RED,YELLOW,GREEN,CYAN,PURPLE]),1,3,2,4,150)
+                global special_charge;special_charge=min(100,special_charge+0.15)
+            return
+    # ═══ TERMINAL ═══
+    elif tp=='terminal':
+        if secret_mode==0:
+            if SS['term_delete_cd']<=0 and not SS['term_delete']:
+                zx=p['x']+p['face']*120
+                SS['term_delete']={'x':zx-70,'y':GND-100,'w':140,'h':100,'life':2000,'dtick':0}
+                SS['term_delete_cd']=5000;burst(zx,GND-50,10,(0,200,0),1,4,2,5,300)
+        elif secret_mode==1:
+            if SS['term_inject_cd']<=0:
+                b=mk(p['face']*8,0);b['ext']='term_virus';b['life']=3000;pB.append(b);SS['term_inject_cd']=7000
+        elif secret_mode==2:
+            if SS['term_overflow_cd']<=0:
+                b=mk(p['face']*10,rng(-1,1));b['ext']='term_data';b['life']=2000;pB.append(b)
+        elif secret_mode==3:
+            if not SS['term_loop_active'] and SS['term_loop_cd']<=0:
+                SS['term_loop_active']=True;SS['term_loop_timer']=15000
+                SS['term_loop_auto']=0
+                # Usa o modo que estava ativo ANTES de trocar pra LOOP
+                SS['term_loop_mode']=0  # default: delete
+                burst(p['x']+16,p['y']+22,10,(0,255,0),1,4,2,5,300)
+    # ═══ LAMINA ═══
+    elif tp=='lamina':
+        if secret_mode==0:
+            # Slash melee
+            b=mk(p['face']*12,0);b['ext']='lam_slash';b['life']=250
+            b['slash_name']=random.choice(["Corte da Aurora!","Lamina Carmesim!","Flor de Cerejeira!","Espada do Vazio!","Lua Partida!"])
+            SS['lam_bonus']=SS.get('lam_bonus',0)+1;pB.append(b)
+        elif secret_mode==1:
+            # Charge beam — start charging
+            if not SS.get('lam_charging'):SS['lam_charging']=True;SS['lam_charge_t']=0
+        elif secret_mode==2:
+            # Awakening
+            if not SS.get('lam_awake') and not SS.get('lam_exhaust') and SS.get('lam_awake_cd',0)<=0:
+                SS['lam_awake']=True;SS['lam_awake_t']=8000;SS['lam_awake_cd']=45000
+                burst(p['x']+16,p['y']+22,20,(180,180,255),2,7,3,8,600)
+    # ═══ ARCADE ═══
+        elif tp=='arcade':
+            if secret_mode==0:
+                if SS.get('arc_combo_cd',0)<=0:
+                    SS['arc_combo_cd']=6000;SS['arc_combo_hits']=0
+                    for i in range(5):
+                        sched.append({'time':now+i*150,'fn':_safe(lambda i=i:_arc_combo_hit(p,i))})
+            elif secret_mode==1:
+                if SS.get('arc_fan_cd',0)<=0 and SS.get('arc_fan_volleys',0)<=0:
+                    SS['arc_fan_volleys']=3;SS['arc_fan_t']=0;SS['arc_fan_cd']=8000
+            elif secret_mode==2:
+                if SS.get('arc_rage_cd',0)<=0:
+                    SS['arc_rage_cd']=12000
+                    pB.append({'x':p['x']+16,'y':p['y']+22,'vx':0,'vy':0,'ext':'arc_rage','life':600,
+                        'sx':p['x']+16,'ret':False,'expl':False,'ang':0,'hitC':0,'hitCD':0,'elap':0,
+                        'gid':0,'hit':False,'pid':p['id']})
+    # ═══ CULINARIA ═══
+    elif tp=='culinaria':
+        if secret_mode==0:
+            # Slash + collect
+            b=mk(p['face']*10,0);b['ext']='cul_slash';b['life']=300;pB.append(b)
+            # Collect nearby ingredients
+            for ig in SS.get('ingr_spawns',[]):
+                if dist(cx,cy,ig['x'],ig['y'])<60 and len(SS['cul_inv'])<3:
+                    SS['cul_inv'].append(ig['type']);SS['ingr_spawns'].remove(ig);break
+        elif secret_mode==1:
+            # Pan throw
+            if SS.get('cul_pan_cd',0)<=0:
+                b=mk(p['face']*6,0);b['ext']='cul_pan';b['life']=4000;pB.append(b);SS['cul_pan_cd']=10000
+        elif secret_mode==2:
+            # Recipe screen — open via wish-like system
+            if not SS.get('cul_recipe_open') and len(SS.get('cul_inv',[]))>=2 and SS.get('cul_craft_cd',0)<=0:
+                SS['cul_recipe_open']=True
+    # ═══ ALL OTHER WEAPONS ═══
     elif tp=='pea':pB.append(mk(p['face']*7,0))
     elif tp=='boom':b=mk(p['face']*7,0);b['life']=5000;pB.append(b)
     elif tp=='tomato':
         has_synergy=any(loadout[i]>=0 and loadout[i]<len(WPNS) and WPNS[loadout[i]]['tp'] in('mask','mic') for i in range(3))
-        if has_synergy:
-            b=mk(p['face']*6,-5);b['ext']='tomato_champ';b['life']=4000;b['landed']=False;pB.append(b)
-        else:
-            b=mk(p['face']*5,-4);b['life']=4000;b['landed']=False;pB.append(b)
+        if has_synergy:b=mk(p['face']*6,-5);b['ext']='tomato_champ';b['life']=4000;b['landed']=False;pB.append(b)
+        else:b=mk(p['face']*5,-4);b['life']=4000;b['landed']=False;pB.append(b)
     elif tp=='mask':b=mk(p['face']*3.5,0);b['life']=6000;pB.append(b)
     elif tp=='shuriken':
         count=p.get('shuriken_count',1);grp_id+=1;gid=grp_id
@@ -500,9 +836,9 @@ def shoot_p(p):
             b=mk(p['face']*7,0);b['y']=cy+offset_y;b['gid']=gid;b['life']=2500;pB.append(b)
     elif tp=='mic':
         if boss and boss.get('alive'):
-            in_c,d=in_cone(cx,cy,p['face'],boss['x']+boss['w']//2,boss['y']+boss['h']//2,70,300)
+            in_c,d2=in_cone(cx,cy,p['face'],boss['x']+boss['w']//2,boss['y']+boss['h']//2,70,300)
             if in_c:
-                dmg=max(3,int(12*(1-d/300)));hit_boss(dmg)
+                dmg=max(3,int(12*(1-d2/300)));hit_boss(dmg)
                 burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,10,(200,100,255),2,5,3,6,400)
                 st=boss.get('status',{})
                 if st.get('collapsed',False):_trigger_trauma()
@@ -510,31 +846,22 @@ def shoot_p(p):
                 st['mic_irrit']=True;st['mic_timer']=700
         mic_visuals.append({'x':cx,'y':cy,'face':p['face'],'t':0,'dur':300})
     elif tp=='pepper':
-        pepper_count=sum(1 for b2 in pB if b2.get('ext')=='pepper')
-        if pepper_count<6:b=mk(p['face']*2.5,0);b['life']=5000;pB.append(b)
+        if sum(1 for b2 in pB if b2.get('ext')=='pepper')<6:b=mk(p['face']*2.5,0);b['life']=5000;pB.append(b)
     elif tp=='camera':
         if boss and boss.get('alive'):
             st=boss.get('status',{})
-            if not st.get('filming',False):
-                st['filming']=True;st['film_time']=5000;st['film_dmg']=0;st['film_hit_player']=False
-                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,15,(100,200,255),2,5,3,6,500)
+            if not st.get('filming',False):st['filming']=True;st['film_time']=5000;st['film_dmg']=0;st['film_hit_player']=False;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,15,(100,200,255),2,5,3,6,500)
     elif tp=='nail':b=mk(p['face']*4,0);b['life']=4000;pB.append(b)
     elif tp=='shield':
-        if p.get('shield_timer',0)<=0:
-            dur=2000 if p['hp']<=1 else 4000
-            p['shield_timer']=dur;p['shield_360']=p['hp']<=1
+        if p.get('shield_timer',0)<=0:dur=2000 if p['hp']<=1 else 4000;p['shield_timer']=dur;p['shield_360']=p['hp']<=1
         if p.get('dash',False) and boss and boss.get('alive'):
             if dist(p['x']+16,p['y']+22,boss['x']+boss['w']//2,boss['y']+boss['h']//2)<80:
-                missing=(p['mhp']-p['hp'])/max(p['mhp'],1)
-                hit_boss(int(15+missing*30))
-                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,(70,130,180),2,6,3,7,500)
+                missing=(p['mhp']-p['hp'])/max(p['mhp'],1);hit_boss(int(15+missing*30));burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,(70,130,180),2,6,3,7,500)
     elif tp=='rod':
-        has_hook=any(b2.get('ext')=='rod' and b2.get('pid')==p['id'] for b2 in pB)
-        if not has_hook:
+        if not any(b2.get('ext')=='rod' and b2.get('pid')==p['id'] for b2 in pB):
             b=mk(p['face']*10,0);b['ext']='rod';b['life']=3000;b['hooked']=False;pB.append(b)
     elif tp=='crown':
-        for i in range(3):
-            b=mk(p['face']*(5+i*1.5),rng(-0.8,0.8));b['life']=3000;b['hit_count']=0;pB.append(b)
+        for i in range(3):b=mk(p['face']*(5+i*1.5),rng(-0.8,0.8));b['life']=3000;b['hit_count']=0;pB.append(b)
     elif tp=='slots':b=mk(p['face']*5,0);b['life']=4000;pB.append(b)
     elif tp=='spr':
         grp_id+=1;spread_groups[grp_id]={'t':now,'hits':[],'done':False}
@@ -562,6 +889,14 @@ def shoot_p(p):
 def hit_p(p):
     global fDmg,shake
     if p['inv']>0 or p['dash'] or not p['alive']:return
+    # Arcade: continue screen
+    if has_weapon_type('arcade') and not SS.get('arc_life_used') and not SS.get('arc_continue'):
+        SS['arc_continue']=True;SS['arc_continue_t']=9000;SS['arc_life_used']=True
+        p['inv']=2000;burst(p['x']+16,p['y']+22,15,GOLD,2,6,3,6,600);return
+    # Lamina: last breath (golden life)
+    if has_weapon_type('lamina') and not SS.get('lam_suspiro_used') and not SS.get('lam_golden'):
+        SS['lam_suspiro_used']=True;SS['lam_golden']=True;SS['lam_golden_t']=20000
+        p['inv']=2000;burst(p['x']+16,p['y']+22,30,GOLD,2,7,3,7,800);return
     p['hp']-=1;p['inv']=CFG['pInv'];fDmg+=1;shake=max(shake,12)
     if boss and boss.get('status',{}).get('filming',False):boss['status']['film_hit_player']=True
     burst(p['x']+16,p['y']+22,10,RED,2,5,2,4,400)
@@ -569,13 +904,46 @@ def hit_p(p):
         p['alive']=False;p['deadT']=0
         burst(p['x']+16,p['y']+22,20,GRAY,2,6,3,6,600)
         if all_de():sched.append({'time':pygame.time.get_ticks()+400,'fn':lambda:go_st('over')})
-
 def tgt_p():
     if boss:return near_p(boss['x']+boss['w']/2,boss['y']+boss['h']/2) or players[0]
     return players[0] if players else{'x':120,'y':GND-44,'w':32,'h':44,'face':1,'spd':5,'gnd':True,'vy':0}
 
 def u_bullets(dt):
-    global shake,special_charge
+    global shake,special_charge,crash_overlay,terminal_proj_peak
+        # Terminal unlock check
+    if not terminal_unlocked and not crash_overlay:
+        terminal_proj_peak=max(terminal_proj_peak,len(pB))
+        if terminal_proj_peak>=25:crash_overlay={'timer':0,'msg_idx':0,'next_msg':1000}
+    # Terminal DELETE zone update
+    zd=SS.get('term_delete')
+    if zd:
+        zd['life']-=dt
+        for eb in eB[:]:
+            if zd['x']<eb['x']<zd['x']+zd['w'] and zd['y']<eb['y']<zd['y']+zd['h']:eB.remove(eb);burst(eb['x'],eb['y'],4,(0,200,0),0.5,2,1,3,200)
+        if boss and boss.get('alive'):
+            bcx=boss['x']+boss['w']//2;bcy=boss['y']+boss['h']//2
+            if zd['x']<bcx<zd['x']+zd['w'] and zd['y']<bcy<zd['y']+zd['h']:
+                zd['dtick']+=dt
+                if zd['dtick']>=300:zd['dtick']=0;hit_boss(3);burst(bcx,bcy,4,(255,0,0),0.5,2,1,3,200)
+        if zd['life']<=0:SS['term_delete']=None
+    # Arcade fan update
+    _arc_fan_update(dt)
+        # Arcade continue timer
+    if SS.get('arc_continue'):
+        SS['arc_continue_t']-=dt
+        if SS['arc_continue_t']<=0:
+            SS['arc_continue']=False
+            for p in players:
+                if not p['alive']:p['alive']=False  # game over
+            if all_de():sched.append({'time':pygame.time.get_ticks()+400,'fn':lambda:go_st('over')})
+
+    # Ingredient drops from boss hits
+    if boss and boss.get('alive') and has_weapon_type('culinaria') and random.random()<0.002:
+        SS['ingr_spawns'].append({'x':boss['x']+rng(0,boss['w']),'y':boss['y']+boss['h'],'type':random.randint(0,5),'life':8000})
+    for ig in SS.get('ingr_spawns',[])[:]:
+        ig['life']-=dt;ig['y']+=0.5
+        if ig['life']<=0 or ig['y']>GND+10:SS['ingr_spawns'].remove(ig)
+
     now=pygame.time.get_ticks()
     for b in pB[:]:
         b['life']-=dt;b['elap']=b.get('elap',0)+dt
@@ -686,7 +1054,67 @@ def u_bullets(dt):
                         burst(b['x'],b['y'],8,(70,130,180),1,4,2,5,300);b['life']=0
             if b['life']<=0 and b in pB:pB.remove(b)
             continue
-
+        # ══ ARCADE FAN ══
+        if b['ext']=='arc_fan':
+            b['x']+=b['vx'];b['y']+=b['vy']
+            if boss and boss.get('alive') and hit_cr(b['x'],b['y'],10,boss['x'],boss['y'],boss['w'],boss['h']):
+                hit_boss(W_DMG.get('arc_fan',2));burst(b['x'],b['y'],5,ORANGE,1,3,2,4,200);b['life']=0
+            if b['life']<=0 and b in pB:pB.remove(b)
+            continue
+        # ══ ARCADE RAGE ══
+        if b['ext']=='arc_rage':
+            b['elap']+=dt;radius=b['elap']*0.5
+            if boss and boss.get('alive'):
+                bcx=boss['x']+boss['w']//2;bcy=boss['y']+boss['h']//2
+                d2=dist(b['x'],b['y'],bcx,bcy)
+                if d2<radius and b.get('hitCD',0)<=0:
+                    mult=max(0.3,1-d2/max(radius,1))
+                    hit_boss(int(W_DMG.get('arc_rage',8)*mult));b['hitCD']=200
+                    burst(bcx,bcy,5,RED,1,3,2,4,200)
+            if b['life']<=0 and b in pB:pB.remove(b)
+            continue
+        # ══ LAMINA SLASH ══
+        if b['ext']=='lam_slash':
+            b['x']+=b['vx']
+            if boss and boss.get('alive') and hit_cr(b['x'],b['y'],20,boss['x'],boss['y'],boss['w'],boss['h']):
+                hit_boss(W_DMG.get('lam_slash',4));burst(b['x'],b['y'],8,(180,180,255),1,4,2,5,200);b['life']=0
+            if b['life']<=0 and b in pB:pB.remove(b)
+            continue
+                # ══ LAMINA BEAM ══
+        if b['ext']=='lam_beam':
+            lv=b.get('beam_lv',0)
+            b['x']+=b['vx']
+            if boss and boss.get('alive') and hit_cr(b['x'],b['y'],12+lv*4,boss['x'],boss['y'],boss['w'],boss['h']):
+                dmg=[W_DMG.get('lam_beam1',3),W_DMG.get('lam_beam2',7),W_DMG.get('lam_beam3',14)][lv]
+                hit_boss(dmg);burst(b['x'],b['y'],10,(180,180,255),2,5,3,6,300);b['life']=0
+            if b['life']<=0 and b in pB:pB.remove(b)
+            continue
+        # ══ CULINARIA SLASH ══
+        if b['ext']=='cul_slash':
+            b['x']+=b['vx']
+            if boss and boss.get('alive') and hit_cr(b['x'],b['y'],18,boss['x'],boss['y'],boss['w'],boss['h']):
+                hit_boss(W_DMG.get('cul_slash',3));burst(b['x'],b['y'],6,(255,200,100),1,3,2,4,200);b['life']=0
+            if b['life']<=0 and b in pB:pB.remove(b)
+            continue
+        # ══ CULINARIA PAN ══
+        if b['ext']=='cul_pan':
+            if not b.get('stuck',False):
+                b['x']+=b['vx'];b['y']+=b['vy']
+                if boss and boss.get('alive') and hit_cr(b['x'],b['y'],12,boss['x'],boss['y'],boss['w'],boss['h']):
+                    b['stuck']=True;SS['cul_pan_t']=5000;SS['cul_pan_stuck']=True
+                    inv=SS.get('cul_inv',[]);b['pan_boost']=1.5 if inv else 1.0
+                    if inv:inv.pop(0)
+                    burst(b['x'],b['y'],10,(200,100,50),1,4,2,5,300)
+            else:
+                SS['cul_pan_t']-=dt
+                if boss and boss.get('alive'):
+                    b['x']=boss['x']+boss['w']//2;b['y']=boss['y']-10
+                    if SS['cul_pan_t']%500<dt:
+                        hit_boss(int(W_DMG.get('cul_pan',2)*b.get('pan_boost',1.0)))
+                        burst(b['x'],b['y'],3,(200,100,50),0.5,2,1,3,200)
+                if SS['cul_pan_t']<=0:b['life']=0;SS['cul_pan_stuck']=False
+            if b['life']<=0 and b in pB:pB.remove(b)
+            continue
         # ══ STANDARD MOVEMENT ══
         if b['ext']=='boom':
             if not b['ret'] and(abs(b['x']-b['sx'])>250 or b['x']<-20 or b['x']>W+20):b['ret']=True
@@ -776,7 +1204,6 @@ def u_bullets(dt):
                         elif ns=='frio':apply_frio(1)
                         elif ns=='bleed':apply_bleed(3000)
                         elif ns=='picancia':apply_picancia(1)
-                    elif b['ext']=='pea':dmg=W_DMG.get('pea',1)
                     if dmg>0:
                         if b['ext']!='pea':dmg+=medal_bonus()
                         hit_boss(dmg)
@@ -874,11 +1301,60 @@ def d_bullets(surf):
             pygame.draw.rect(surf,c2,(bx+3,by-14,2,14))
             pygame.draw.ellipse(surf,c2,(bx+3,by-16,6,4))
             pygame.draw.ellipse(surf,BLACK,(bx-4,by-2,8,6),1)
+        elif b['ext']=='lam_slash':
+            ca=math.cos(b.get('elap',0)*0.03)
+            pygame.draw.line(surf,(180,180,255),(bx-12,by),(bx+12,by),4)
+            pygame.draw.line(surf,WHITE,(bx-8,by),(bx+8,by),2)
+            if b.get('slash_name'):txt(surf,b['slash_name'],bx,by-20,(180,180,255),9,True,True)
+        elif b['ext']=='lam_beam':
+            lv=b.get('beam_lv',0);w2=[4,8,14][lv]
+            colors_beam=[(100,100,255),(150,150,255),(200,200,255)]
+            pygame.draw.line(surf,colors_beam[lv],(bx-int(b['vx']*3),by),(bx,by),w2)
+            pygame.draw.line(surf,WHITE,(bx-int(b['vx']*2),by),(bx,by),max(1,w2-2))
+        elif b['ext']=='arc_fan':
+            pygame.draw.rect(surf,ORANGE,(bx-3,by-3,6,6))
+            pygame.draw.rect(surf,BLACK,(bx-3,by-3,6,6),1)
+        elif b['ext']=='arc_rage':
+            r2=int(b['elap']*0.5)
+            a2=max(0,180-int(b['elap']*0.3))
+            s2=pygame.Surface((W,H),pygame.SRCALPHA)
+            pygame.draw.circle(s2,(255,100,0,a2),(bx,by),r2,3)
+            pygame.draw.circle(s2,(200,50,0,a2//2),(bx,by),r2)
+            surf.blit(s2,(0,0))
+        elif b['ext']=='cul_slash':
+            pygame.draw.line(surf,(255,200,100),(bx-10,by),(bx+10,by),3)
+            pygame.draw.line(surf,WHITE,(bx-6,by),(bx+6,by),1)
+        elif b['ext']=='cul_pan':
+            if b.get('stuck',False):
+                pygame.draw.rect(surf,(100,60,20),(bx-10,by-3,20,6))
+                pygame.draw.rect(surf,BLACK,(bx-10,by-3,20,6),1)
+                pygame.draw.circle(surf,ORANGE,(bx+10,by-5),4)
+            else:
+                pygame.draw.rect(surf,(180,120,60),(bx-8,by-5,16,10))
+                pygame.draw.rect(surf,BLACK,(bx-8,by-5,16,10),1)
+        elif b['ext']=='term_virus':
+            # Ícone de erro
+            pygame.draw.rect(surf,(200,0,0),(bx-7,by-7,14,14))
+            pygame.draw.rect(surf,BLACK,(bx-7,by-7,14,14),1)
+            txt(surf,"!",bx,by-4,WHITE,10,True,True)
+            # Glitch flicker
+            if random.random()<0.2:
+                pygame.draw.line(surf,(0,255,0),(bx-8,by+rng(-3,3)),(bx+8,by+rng(-3,3)),1)
+        elif b['ext']=='term_data':
+            # Dados/binário
+            c2=(0,200+int(abs(math.sin(b['elap']*0.01))*55),0)
+            pygame.draw.rect(surf,c2,(bx-4,by-4,8,8))
+            pygame.draw.rect(surf,BLACK,(bx-4,by-4,8,8),1)
+            txt(surf,str(random.randint(0,9)),bx,by-3,WHITE,7,True,True)
+
         elif b['ext']=='boom':
             ca,sa=math.cos(b.get('ang',0)),math.sin(b.get('ang',0));rp=[]
             for px2,py2 in[(0,-4),(8,0),(0,4),(-8,0)]:rp.append((b['x']+px2*ca-py2*sa,b['y']+px2*sa+py2*ca))
             pygame.draw.polygon(surf,c,rp);pygame.draw.polygon(surf,BLACK,rp,1)
-        elif b['ext']=='bomb':b['expl']=True;dmg=W_DMG.get('bomb',5)
+        elif b['ext']=='bomb':
+            pygame.draw.circle(surf,(68,68,68),(bx,by),10)
+            pygame.draw.circle(surf,BLACK,(bx,by),10,1)
+            pygame.draw.circle(surf,YELLOW,(bx,by-8),3)
         elif b['ext']=='mask':
             pygame.draw.ellipse(surf,(180,180,200),(bx-8,by-10,16,20))
             pygame.draw.ellipse(surf,BLACK,(bx-8,by-10,16,20),1)
@@ -973,6 +1449,107 @@ def d_bullets(surf):
     for b in eB:
         sz=int(b['sz']);pygame.draw.circle(surf,b['c'],(int(b['x']),int(b['y'])),sz)
         pygame.draw.circle(surf,BLACK,(int(b['x']),int(b['y'])),sz,2)
+            # Terminal DELETE zone visual
+    zd=SS.get('term_delete')
+    if zd:
+        prog=zd['life']/2000;za=int(60+prog*80)
+        zs=pygame.Surface((zd['w'],zd['h']),pygame.SRCALPHA)
+        pygame.draw.rect(zs,(0,200,0,za),(0,0,zd['w'],zd['h']))
+        pygame.draw.rect(zs,(0,255,0,min(255,za+40)),(0,0,zd['w'],zd['h']),2)
+        surf.blit(zs,(zd['x'],zd['y']))
+        if prog>0.5:txt(surf,"DELETED",zd['x']+zd['w']//2,zd['y']+zd['h']//2,(255,0,0),12,True,True)
+    # Ingredient spawns visual
+    for ig in SS.get('ingr_spawns',[]):
+        ic=INGR_COLORS[ig['type']] if ig['type']<len(INGR_COLORS) else WHITE
+        pygame.draw.circle(surf,ic,(int(ig['x']),int(ig['y'])),6)
+        pygame.draw.circle(surf,BLACK,(int(ig['x']),int(ig['y'])),6,1)
+    sp=SS.get('cul_surprise_pos')
+    if sp:
+        pulse=int(abs(math.sin(pygame.time.get_ticks()*0.01))*30)+20
+        pygame.draw.circle(surf,GOLD,(int(sp['x']),int(sp['y'])),8)
+        pygame.draw.circle(surf,WHITE,(int(sp['x']),int(sp['y'])),4)
+        glow=pygame.Surface((30,30),pygame.SRCALPHA)
+        pygame.draw.ellipse(glow,(255,215,0,pulse),(0,0,30,30))
+        surf.blit(glow,(int(sp['x'])-15,int(sp['y'])-15))
+
+def d_terminal_hud(surf):
+    if not has_weapon_type('terminal'):return
+    # Mode indicator
+    modes=["DELETE","INJECT","OVERFLOW","LOOP"]
+    colors=[GREEN,(200,0,0),YELLOW,(0,150,200)]
+    for i in range(4):
+        x=10+i*75;y=H-52
+        sel=(i==secret_mode)
+        c2=colors[i] if sel else(60,60,60)
+        pygame.draw.rect(surf,c2,(x,y,68,16),2 if sel else 1)
+        if sel:pygame.draw.rect(surf,(*colors[i],40),(x+1,y+1,66,14))
+        txt(surf,f"[{i+1}] {modes[i]}",x+34,y+1,colors[i] if sel else(100,100,100),7,True,True)
+    # Overflow counter
+    ov=SS['term_overflow']
+    if ov>0:
+        bw=120;bh=10;bx=W-bw-10;by=80
+        prog=ov/15
+        pygame.draw.rect(surf,(20,20,40),(bx-2,by-2,bw+4,bh+4))
+        c2=GREEN if prog<0.7 else YELLOW if prog<0.9 else RED
+        pygame.draw.rect(surf,c2,(bx,by,int(bw*prog),bh))
+        txt(surf,f"MEM: {ov}/15",bx+bw//2,by-2,c2,8,True,True)
+    # Active debuffs on boss
+    if boss and boss.get('alive'):
+        st=boss.get('status',{})
+        dx=10;dy=50
+        debuffs=[('LAG',st.get('term_lag',0),(0,255,0)),('LEAK',st.get('term_leak',0),(0,200,0)),
+            ('CRASH',st.get('term_crash',0),(200,200,0)),('INVERSE',st.get('term_inverse',0),(200,0,200))]
+        for name,t,c2 in debuffs:
+            if t>0:
+                sec=math.ceil(t/1000)
+                txt(surf,f"{name}: {sec}s",dx,dy,c2,8,True);dy+=12
+    # Patch notes
+    if SS.get('term_patch'):
+        p2=None
+        for pp in TERMINAL_PATCHES:
+            if pp['id']==SS['term_patch']:p2=pp;break
+        if p2:
+            remaining=math.ceil(SS['term_patch_dur']/1000)
+            txt(surf,f"PATCH: {p2['n']} ({remaining}s)",W//2,H-64,p2['c'],9,True,True)
+    # Loop status
+    if SS['term_loop_active']:
+        rem=math.ceil(SS['term_loop_timer']/1000)
+        txt(surf,f"LOOP: {rem}s [BREAK=ESC]",W//2,H-76,(0,200,0),10,True,True)
+CRASH_MSGS=[
+    "Exception in thread 'player'...",
+    "StackOverflowError",
+    "Segmentation Fault",
+    "Error: Reality.exe stopped working",
+    "",
+    "O erro foi promovido a funcionalidade.",
+]
+
+def u_crash_overlay(dt):
+    global crash_overlay,terminal_unlocked
+    if not crash_overlay:return
+    crash_overlay['timer']+=dt
+    if crash_overlay['timer']>crash_overlay.get('next_msg',2000):
+        crash_overlay['msg_idx']=crash_overlay.get('msg_idx',0)+1
+        crash_overlay['next_msg']=crash_overlay['timer']+1500
+        if crash_overlay['msg_idx']>=len(CRASH_MSGS):
+            terminal_unlocked=True;activate_secret(1);save_game()
+            crash_overlay=None
+
+def d_crash_overlay(surf):
+    if not crash_overlay:return
+    # Glitch background
+    s2=pygame.Surface((W,H),pygame.SRCALPHA)
+    s2.fill((0,0,0,200));surf.blit(s2,(0,0))
+    # Glitch lines
+    for _ in range(5):
+        gy=random.randint(0,H);gw=random.randint(20,200);gx=random.randint(0,W-gw)
+        gc=random.choice([(0,200,0),(200,0,0),(0,0,200)])
+        pygame.draw.rect(surf,gc,(gx,gy,gw,2))
+    # Messages
+    idx=crash_overlay.get('msg_idx',0)
+    for i in range(min(idx+1,len(CRASH_MSGS))):
+        c2=(0,200,0) if i<len(CRASH_MSGS)-1 else GOLD
+        txt(surf,CRASH_MSGS[i],W//2,80+i*30,c2,14,True,True)
 
 def d_piano_passive_hud(surf):
     """Mostra efeito passivo ativo do piano"""
@@ -1007,20 +1584,28 @@ def d_special_bar(surf):
     if special_charge>=100:
         if(pygame.time.get_ticks()//400)%2:txt(surf,"[U] DESEJO",bx+bw//2,by+14,GOLD,9,True,True)
 
-def d_piano_variant_hud(surf):
-    """Mostra variante ativa do piano"""
+def d_secret_mode_hud(surf):
     if not has_secret():return
     p=players[0] if players else None
-    if not p or p['equipped']>=len(WPNS) or WPNS[p['equipped']]['tp']!='piano':return
-    variants=["PIANO","NOTAS","LASER"]
-    colors=[RED,(200,100,255),(255,100,100)]
-    for i in range(3):
-        x=10+i*70;y=H-52
-        sel=(i==piano_variant)
+    if not p or p['equipped']>=len(WPNS):return
+    tp=WPNS[p['equipped']].get('tp','')
+    if tp not in SECRET_TP:return
+    n_modes=SECRET_MODES.get(tp,3)
+    mode_names={'piano':['PIANO','NOTAS','LASER'],'terminal':['DELETE','INJECT','OVERFLOW','LOOP'],
+        'lamina':['CORTE','ENERGIA','DESPERTAR'],'arcade':['COMBO','TIRO','RAGE'],
+        'culinaria':['FACA','PANELA','RECEITA']}
+    mode_colors={'piano':[RED,(200,100,255),(255,100,100)],'terminal':[GREEN,(200,0,0),YELLOW,(0,150,200)],
+        'lamina':[(180,180,255),(100,100,255),(255,50,50)],'arcade':[(255,165,0),(0,200,0),(200,0,0)],
+        'culinaria':[(255,200,100),(200,100,50),(255,100,50)]}
+    names=mode_names.get(tp,[f'M{i+1}' for i in range(n_modes)])
+    colors=mode_colors.get(tp,[WHITE]*n_modes)
+    for i in range(min(n_modes,4)):
+        x=10+i*75;y=H-52
+        sel=(i==secret_mode)
         c2=colors[i] if sel else(60,60,60)
-        pygame.draw.rect(surf,c2,(x,y,62,16),2 if sel else 1)
-        if sel:pygame.draw.rect(surf,(*colors[i],40),(x+1,y+1,60,14))
-        txt(surf,f"[{i+1}] {variants[i]}",x+31,y+1,colors[i] if sel else(100,100,100),7,True,True)
+        pygame.draw.rect(surf,c2,(x,y,68,16),2 if sel else 1)
+        if sel:pygame.draw.rect(surf,(*colors[i],40),(x+1,y+1,66,14))
+        txt(surf,f"[{i+1}] {names[i]}",x+34,y+1,colors[i] if sel else(100,100,100),7,True,True)
 
 def d_wish_thunder(surf):
     """Desenha raios do desejo Relâmpago"""
@@ -1054,6 +1639,117 @@ def d_piano_laser(surf,p):
     glow=pygame.Surface((40,laser_w*2),pygame.SRCALPHA)
     pygame.draw.ellipse(glow,(255,255,255,40),(0,0,40,laser_w*2))
     surf.blit(glow,(cx-20,cy-laser_w))
+
+def d_terminal_hud(surf):
+    if not has_weapon_type('terminal'):return
+    if SS.get('term_overflow',0)>0:
+        bw=120;bh=10;bx=W-bw-10;by=80;prog=SS['term_overflow']/15
+        pygame.draw.rect(surf,(20,20,40),(bx-2,by-2,bw+4,bh+4))
+        c2=GREEN if prog<0.7 else YELLOW if prog<0.9 else RED
+        pygame.draw.rect(surf,c2,(bx,by,int(bw*prog),bh));txt(surf,f"MEM: {SS['term_overflow']}/15",bx+bw//2,by-2,c2,8,True,True)
+    if SS.get('term_patch'):
+        for pp in TERMINAL_PATCHES:
+            if pp['id']==SS['term_patch']:remaining=math.ceil(SS['term_patch_dur']/1000);txt(surf,f"PATCH: {pp['n']} ({remaining}s)",W//2,H-64,pp['c'],9,True,True);break
+    if SS.get('term_loop_active'):txt(surf,f"LOOP: {math.ceil(SS['term_loop_timer']/1000)}s",W//2,H-76,(0,200,0),10,True,True)
+
+def d_lamina_hud(surf):
+    if not has_weapon_type('lamina'):return
+    if SS.get('lam_charging'):ct=SS.get('lam_charge_t',0);lv=0 if ct<500 else 1 if ct<1500 else 2;txt(surf,f"CHARGE LV{lv+1}",W//2,H-64,(180,180,255),12,True,True)
+    if SS.get('lam_awake'):txt(surf,f"DESPERTAR: {math.ceil(SS['lam_awake_t']/1000)}s",W//2,H-76,(255,50,50),12,True,True)
+    if SS.get('lam_exhaust'):txt(surf,f"EXAUSTO: {math.ceil(SS['lam_exhaust_t']/1000)}s",W//2,H-76,(150,150,150),10,True,True)
+    if SS.get('lam_golden'):txt(surf,f"OURO: {math.ceil(SS['lam_golden_t']/1000)}s",W//2,30,GOLD,16,True,True)
+    if SS.get('lam_bonus',0)>0:txt(surf,f"ESCALA: +{SS['lam_bonus']*0.5:.1f}%",W-10,80,(180,180,255),8,True,right=True)
+    if SS.get('lam_ult_cd',0)>0:txt(surf,f"ULT: {math.ceil(SS['lam_ult_cd']/1000)}s",W-10,92,GRAY,8,True,right=True)
+
+def d_arcade_hud(surf):
+    if not has_weapon_type('arcade'):return
+    if SS.get('arc_continue'):
+        s2=pygame.Surface((W,H),pygame.SRCALPHA);s2.fill((0,0,0,150));surf.blit(s2,(0,0))
+        count=max(0,math.ceil(SS['arc_continue_t']/1000))
+        txt(surf,f"CONTINUE? {count}...",W//2,H//2-20,GOLD,36,True,True)
+        txt(surf,"APERTE QUALQUER TECLA",W//2,H//2+20,WHITE,14,True,True)
+    # Cooldowns
+    if SS.get('arc_combo_cd',0)>0:txt(surf,f"COMBO: {math.ceil(SS['arc_combo_cd']/1000)}s",W-10,104,GRAY,8,True,right=True)
+    elif SS.get('arc_fan_cd',0)>0:txt(surf,f"TIRO: {math.ceil(SS['arc_fan_cd']/1000)}s",W-10,104,GRAY,8,True,right=True)
+    elif SS.get('arc_rage_cd',0)>0:txt(surf,f"RAGE: {math.ceil(SS['arc_rage_cd']/1000)}s",W-10,104,GRAY,8,True,right=True)
+    if SS.get('arc_ult_cd',0)>0:txt(surf,f"ULT: {math.ceil(SS['arc_ult_cd']/1000)}s",W-10,116,GRAY,8,True,right=True)
+    if SS.get('arc_ult_active'):txt(surf,f"CHEAT: {SS['arc_ult_active'].upper()}",W//2,30,(255,165,0),12,True,True)
+
+def d_culinaria_hud(surf):
+    if not has_weapon_type('culinaria'):return
+    # Inventory
+    inv=SS.get('cul_inv',[]);ix=10;iy=H-70
+    txt(surf,"INGR:",ix,iy,GOLD,8,True)
+    for i in range(3):
+        x2=ix+35+i*30
+        if i<len(inv):
+            ic=INGR_COLORS[inv[i]] if inv[i]<len(INGR_COLORS) else WHITE
+            pygame.draw.circle(surf,ic,(x2+8,iy+4),8);pygame.draw.circle(surf,BLACK,(x2+8,iy+4),8,1)
+        else:
+            pygame.draw.circle(surf,DGREY,(x2+8,iy+4),8);pygame.draw.circle(surf,BLACK,(x2+8,iy+4),8,1)
+    if SS.get('cul_pan_stuck'):txt(surf,"PANELA ATIVA",W//2,H-76,(200,100,50),10,True,True)
+    if SS.get('cul_pan_cd',0)>0:txt(surf,f"PANELA: {math.ceil(SS['cul_pan_cd']/1000)}s",W-10,116,GRAY,8,True,right=True)
+    if SS.get('cul_ult_cd',0)>0:txt(surf,f"ULT: {math.ceil(SS['cul_ult_cd']/1000)}s",W-10,128,GRAY,8,True,right=True)
+
+def d_cooldown_bar(surf):
+    """Barra universal de cooldown para arma secreta ativa"""
+    if not has_secret():return
+    p=players[local_pid] if local_pid<len(players) else None
+    if not p or p['equipped']>=len(WPNS):return
+    tp=WPNS[p['equipped']].get('tp','')
+    if tp not in SECRET_TP:return
+    # Barra de ultimate
+    bw=160;bh=8;bx=W//2-bw//2;by=H-22
+    prog=min(1,special_charge/100)
+    pygame.draw.rect(surf,(20,20,40),(bx-2,by-2,bw+4,bh+4))
+    c2=(200,0,0) if prog<0.8 else GOLD
+    if fill_w:=int(bw*prog):pygame.draw.rect(surf,c2,(bx,by,fill_w,bh))
+    pygame.draw.rect(surf,c2,(bx-2,by-2,bw+4,bh+4),1)
+    txt(surf,f"ULT {int(special_charge)}%",bx+bw//2,by-2,WHITE if prog<1 else GOLD,7,True,True)
+    if special_charge>=100:
+        if(pygame.time.get_ticks()//400)%2:txt(surf,"[U]",bx+bw//2,by+10,GOLD,8,True,True)
+
+def u_terminal_ultimate(dt):
+    if not has_weapon_type('terminal'):return
+    if SS.get('term_ult_cd',0)>0:SS['term_ult_cd']-=dt
+    if SS.get('term_ult_phase',0)>0:
+        SS['term_ult_timer']+=dt
+        if SS['term_ult_phase']==1 and SS['term_ult_timer']>3000:
+            SS['term_ult_phase']=2;SS['term_ult_timer']=0
+        if SS['term_ult_phase']==2 and SS['term_ult_timer']>2500:
+            SS['term_ult_phase']=0;SS['term_ult_timer']=0
+            if boss and boss.get('alive'):
+                boss['visible']=True;hit_boss(int(boss['mhp']*0.2));burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,(0,255,0),2,7,3,8,600)
+
+def d_terminal_ultimate(surf):
+    if not has_weapon_type('terminal'):return
+    if SS.get('term_ult_phase')==1:
+        s2=pygame.Surface((W,H));s2.fill((0,0,170));surf.blit(s2,(0,0))
+        txt(surf,"404",W//2,H//2-60,WHITE,60,True,True);txt(surf,"Boss Not Found",W//2,H//2,WHITE,24,True,True)
+        if boss:boss['visible']=False
+    elif SS.get('term_ult_phase')==2:
+        s2=pygame.Surface((W,H));s2.fill((0,0,0));surf.blit(s2,(0,0))
+        prog=min(1,SS['term_ult_timer']/2500);bw=300;bh=20;bx=W//2-150;by=H//2
+        pygame.draw.rect(surf,(40,40,40),(bx-2,by-2,bw+4,bh+4))
+        pygame.draw.rect(surf,(0,200,0),(bx,by,int(bw*prog),bh))
+        txt(surf,f"Reinstalling... {int(prog*100)}%",W//2,by-30,WHITE,14,True,True)
+
+def d_lamina_ultimate(surf):
+    if not has_weapon_type('lamina'):return
+    if SS.get('lam_ult_phase',0)>0:
+        pygame.draw.rect(surf,BLACK,(0,0,W,30));pygame.draw.rect(surf,BLACK,(0,H-30,W,30))
+        txt(surf,"A CENA FINAL",W//2,H//2-60,WHITE,28,True,True)
+        opts=[("Corte Unico",RED),("Mil Cortes",CYAN),("Sacrificio",PURPLE)]
+        for i,(name,c2) in enumerate(opts):
+            sel=(i==SS.get('lam_ult_choice',0))
+            txt(surf,f"{'> ' if sel else '   '}{name}",W//2,H//2-20+i*35,c2 if sel else GRAY,18,True,True)
+
+def d_arcade_ultimate(surf):
+    pass  # Game Genie uses wish-like system via overlay
+
+def d_culinaria_ultimate(surf):
+    pass  # Banquet uses wish-like system via overlay
+
 # ═══ BOSS SYSTEM ════════════════════════════════════════
 boss=None;b_atk={'st':'idle','t':0,'id':-1}
 ph_tr={'st':'none','t':0};b_anim=0
@@ -1100,11 +1796,24 @@ def hit_boss(d):
     if st.get('filming',False):st['film_dmg']=st.get('film_dmg',0)+d
     if st.get('irritated',False):d=int(d*1.2)
     if d<1:d=1
-    if st.get('filming',False):st['film_dmg']=st.get('film_dmg',0)+d
-    if st.get('frio_stacks',0)>0 and not st.get('gelo_ardente',False):
-        boss['ms']=boss.get('_base_ms',boss['ms'])
-    if d<1:d=1
     if boss.get('trans_resist',False):d=max(1,int(d*0.1))
+    if SS.get('term_patch')=='boss_def':d=int(d*1.1)
+    if SS.get('term_patch')=='crit':
+        if random.random()<0.15:d=int(d*2)
+    # Lamina passive: low HP = more damage
+    if has_weapon_type('lamina') and players:
+        lp=players[local_pid] if local_pid<len(players) else players[0]
+        if lp['alive']:
+            ratio=lp['hp']/max(lp['mhp'],1)
+            if ratio<=0.10:d=int(d*4)
+            elif ratio<=0.25:d=int(d*2.5)
+            elif ratio<=0.50:d=int(d*1.7)
+            elif ratio<=0.75:d=int(d*1.3)
+    if has_weapon_type('lamina'):
+        d=int(d*(1+SS.get('lam_bonus',0)*0.005))
+    if SS.get('lam_golden'):d=int(d*2)
+    if SS.get('lam_awake'):d=int(d*2)
+    if SS.get('arc_ult_active')=='maxdmg':d=int(d*2.5)
     boss['hp']-=d
     burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,8,GOLD,1,4,2,5,300)
     ths=get_thresh();ratio=boss['hp']/boss['mhp']
@@ -1119,8 +1828,7 @@ def hit_boss(d):
             return
     if boss['hp']<=0:
         boss['hp']=0;boss['alive']=False;shake=25
-        boss['hp']=0;boss['alive']=False;shake=2
-        _check_synergy_boss()
+        _check_synergy_boss();_check_lamina_unlock();_check_arcade_unlock();_check_culinaria_unlock()
         for p in players:
             if p['alive']:p['inv']=max(p['inv'],2000)
         burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,ORANGE,2,9,3,9,1000)
@@ -1177,16 +1885,17 @@ def _boss_spd_mult():
         mult*=max(0.3,1-frio*0.015)
     if piano_passive_effect and piano_passive_effect['n']=='Boss Lento':mult*=0.8
     if boss and boss.get('_frozen',False):mult*=0.1
+    if SS.get('term_patch')=='boss_cd':mult*=1.2 
     return mult
 
 def u_boss(dt):
+
     global shake,b_anim
     if not boss:return
     if ph_tr['st']!='none':u_phtr(dt);return
     if not boss['alive']:return
     b_anim+=dt;boss['fl']=max(0,boss['fl']-dt)
     u_boss_status(dt)
-    u_piano_passive(dt)
     if not boss or not boss.get('alive'):return
     if boss.get('_frozen_time',0)>0:
         boss['_frozen_time']-=dt
@@ -1624,7 +2333,8 @@ def init_boss_status():
            'frio_stacks':0,'gelo_ardente':False,'ga_tick':0,
            'picancia_stacks':0,'pic_move_tick':0,'abismo':False,
            'filming':False,'film_time':0,'film_dmg':0,'film_hit_player':False,
-           'collapsed':False,'collapse_time':0}
+           'collapsed':False,'collapse_time':0,
+           'term_lag':0,'term_leak':0,'term_leak_tick':0,'term_crash':0,'term_inverse':0}
 
 def apply_burn(dur=2000):
     if not boss or not boss.get('alive'):return
@@ -1660,6 +2370,147 @@ def apply_picancia(stacks=1):
     st=boss['status']
     if st.get('abismo',False):return
     st['picancia_stacks']=min(st.get('picancia_stacks',0)+stacks,10)
+
+# ═══ ARCADE COMBO ═══
+def _arc_combo_hit(p,idx):
+    if not boss or not boss.get('alive') or not p['alive']:return
+    cx2=p['x']+16+p['face']*20;cy2=p['y']+p['h']*0.35
+    if dist(cx2,cy2,boss['x']+boss['w']//2,boss['y']+boss['h']//2)<60:
+        dmg=W_DMG.get('arc_combo',2)
+        if idx==4:dmg=int(dmg*1.5)
+        hit_boss(dmg);burst(cx2,cy2,5,ORANGE,1,3,2,4,200)
+        SS['arc_combo_hits']=SS.get('arc_combo_hits',0)+1
+    if idx==4 and boss and boss.get('alive'):boss['_stun_time']=800
+
+# ═══ ARCADE FAN UPDATE (em u_bullets) ═══
+def _arc_fan_update(dt):
+    if SS.get('arc_fan_volleys',0)>0:
+        SS['arc_fan_t']+=dt
+        if SS['arc_fan_t']>=300:
+            SS['arc_fan_t']=0;SS['arc_fan_volleys']-=1
+            p=players[local_pid] if local_pid<len(players) else None
+            if p and p['alive']:
+                cx2=p['x']+16+p['face']*18;cy2=p['y']+p['h']*0.35
+                for i in range(5):
+                    ang=p['face']*(0.5-i*0.25)
+                    pB.append({'x':cx2,'y':cy2,'vx':math.cos(ang)*8,'vy':math.sin(ang)*8,
+                        'ext':'arc_fan','life':2000,'sx':cx2,'ret':False,'expl':False,'ang':0,
+                        'hitC':0,'hitCD':0,'elap':0,'gid':0,'hit':False,'pid':p['id']})
+            if SS['arc_fan_volleys']<=0:SS['arc_fan_cd']=8000
+
+# ═══ LAMINA ULTIMATE ═══
+def _execute_lamina_ultimate():
+    SS['lam_ult_phase']=0;SS['lam_ult_t']=0
+    if not boss or not boss.get('alive'):return
+    choice=SS.get('lam_ult_choice',0)
+    if choice==0:# Single Cut: 50% max HP
+        hit_boss(int(boss['mhp']*0.5))
+        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,WHITE,3,10,4,10,800)
+    elif choice==1:# Thousand Cuts: 20 hits
+        for i in range(20):
+            sched.append({'time':pygame.time.get_ticks()+i*80,'fn':_safe(lambda:hit_boss(8))})
+        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,(180,180,255),2,8,3,8,1000)
+    elif choice==2:# Sacrifice: 75% max HP, leave at 1 HP
+        hit_boss(int(boss['mhp']*0.75))
+        for p in players:
+            if p['alive']:p['hp']=1
+        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,50,RED,3,10,4,10,1000)
+
+# ═══ ARCADE ULTIMATE ═══
+def _apply_arcade_ultimate(idx):
+    SS['arc_ult_cd']=90000
+    if idx==0:
+        SS['arc_ult_active']='invincible';SS['arc_ult_t']=15000
+        for pl in players:
+            if pl['alive']:pl['inv']=max(pl['inv'],15000)
+    elif idx==1:
+        SS['arc_ult_active']='maxdmg';SS['arc_ult_t']=15000
+    elif idx==2:
+        if boss and boss.get('alive'):
+            if int(boss['phase'])<boss['maxPh']:
+                boss['phase']=int(boss['phase'])+1;boss['hp']=boss['mhp']
+                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,YELLOW,2,6,3,6,500)
+            else:hit_boss(int(boss['mhp']*0.3))
+    elif idx==3:
+        if boss and boss.get('alive'):
+            boss['ai']=BDATA[boss['idx']]['ai'];boss['phase']=0;boss['status']=init_boss_status()
+            SS['arc_ult_active']='reset';SS['arc_ult_t']=20000
+    special_charge=0
+
+# ═══ CULINARIA RECIPES ═══
+CUL_RECIPES=[
+    {'name':'Molho Explosivo','ingr':(0,2),'desc':'Explosao de fogo','c':ORANGE},
+    {'name':'Granita Acida','ingr':(1,4),'desc':'Boss -40% spd 8s','c':CYAN},
+    {'name':'Elixir Dourado','ingr':(3,4),'desc':'Cura 30% HP','c':GREEN},
+    {'name':'Cogumelo Eletrico','ingr':(5,6),'desc':'3 raios no boss','c':YELLOW},
+    {'name':'Prato Proibido','ingr':(7,2),'desc':'20% HP atual do boss','c':(200,0,0)},
+]
+INGR_NAMES=['Tomate','Gelo','Pimenta','Alho','Mel','Cogumelo','Fruta Elet.','Trufa Negra']
+INGR_COLORS=[(220,20,60),(100,200,255),(200,0,0),(200,200,180),(255,215,0),(139,90,43),(255,235,59),(50,50,50)]
+
+def _apply_recipe(idx):
+    if idx>=len(CUL_RECIPES):return
+    r=CUL_RECIPES[idx];inv=SS.get('cul_inv',[])
+    # Remove used ingredients
+    for ing in r['ingr']:
+        if ing in inv:inv.remove(ing)
+    SS['cul_inv']=inv;SS['cul_craft_cd']=15000
+    # Surprise bonus
+    surprise=any(ig>=6 for ig in r['ingr'])
+    mult=3 if surprise else 1
+    if not boss or not boss.get('alive'):return
+    if r['name']=='Molho Explosivo':
+        hit_boss(20*mult);apply_burn(5000*mult)
+        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,ORANGE,2,8,3,8,700)
+    elif r['name']=='Granita Acida':
+        boss['status']['frio_stacks']=min(10,boss['status'].get('frio_stacks',0)+5*mult)
+    elif r['name']=='Elixir Dourado':
+        for p in players:
+            if p['alive']:p['hp']=min(p['hp']+int(p['mhp']*0.3),p['mhp'])
+    elif r['name']=='Cogumelo Eletrico':
+        for _ in range(3*mult):hit_boss(10);burst(boss['x']+rng(0,boss['w']),boss['y']+rng(0,boss['h']),5,YELLOW,1,3,2,4,300)
+    elif r['name']=='Prato Proibido':
+        hit_boss(int(boss['hp']*0.2*mult))
+
+# ═══ CULINARIA BANQUET ═══
+def _apply_culinaria_ultimate(idx):
+    SS['cul_ult_cd']=90000
+    if idx==0:# Banquete Real
+        for p in players:
+            if p['alive']:p['hp']=p['mhp']
+        SS['cul_ult_active']='real';SS['cul_ult_t']=20000
+    elif idx==1:# Sopa Esquecimento
+        if boss:boss['ai']=max(0,boss['ai']-8);SS['cul_ult_active']='sopa';SS['cul_ult_t']=20000
+    elif idx==2:# Fruta Proibida
+        for p in players:
+            if p['alive']:p['hp']=max(1,int(p['hp']*0.5))
+        if boss and boss.get('alive'):hit_boss(int(boss['mhp']*0.4))
+    elif idx==3:# Degustacao Infinita
+        SS['cul_inv']=[6,7,6];burst(players[0]['x']+16,players[0]['y']+22,15,GOLD,2,5,3,6,500)
+
+# ═══ UNLOCK CHECKS ═══
+def _check_lamina_unlock():
+    pass  # desbloqueio é em tempo real, não na morte do boss
+def _check_arcade_unlock():
+    global arcade_unlocked,arcade_buttons_found
+    if arcade_unlocked:return
+    # Desbloqueia após derrotar 3 bosses com combo de 5+ hits
+    if SS.get('arc_combo_hits',0)>=5:arcade_buttons_found+=1
+    if arcade_buttons_found>=3:
+        arcade_unlocked=True;activate_secret(3);save_game()
+
+def _check_culinaria_unlock():
+    global culinaria_unlocked,culinaria_perfect_bosses
+    if culinaria_unlocked:return
+    types=set()
+    for i in range(3):
+        if loadout[i]>=0 and loadout[i]<len(WPNS):types.add(WPNS[loadout[i]]['tp'])
+    food_types=set(['tomato','pepper','matchbox','blood'])
+    if len(types&food_types)>=2 and fDmg<=1:
+        culinaria_perfect_bosses+=1
+        if culinaria_perfect_bosses>=5:
+            culinaria_unlocked=True;activate_secret(4);save_game()
+
 def _trigger_collapse():
     if not boss or not boss.get('alive'):return
     st=boss.get('status',{})
@@ -1755,6 +2606,23 @@ WISHES=[
     {'n':'Relampago!','desc':'Trovões do céu','c':YELLOW},
     {'n':'Olhe para o abismo!','desc':'Marca do abismo permanente','c':(200,0,0)},
 ]
+LAMINA_ULTS=[
+    {'n':'Corte Unico','desc':'50% HP max do boss','c':WHITE},
+    {'n':'Mil Cortes','desc':'20 cortes rapidos','c':CYAN},
+    {'n':'Sacrificio','desc':'75% HP max, fica com 1 HP','c':PURPLE},
+]
+ARCADE_ULTS=[
+    {'n':'Vidas Infinitas','desc':'Imune a dano 15s','c':GREEN},
+    {'n':'Dano Maximo','desc':'Dano x2.5 por 15s','c':RED},
+    {'n':'Skip Level','desc':'Proxima fase do boss','c':YELLOW},
+    {'n':'Reset Boss','desc':'Boss volta fase 1 por 20s','c':CYAN},
+]
+CULINARIA_ULTS=[
+    {'n':'Banquete Real','desc':'Cura 100% + stats +30% 20s','c':GOLD},
+    {'n':'Sopa Esquecimento','desc':'Boss so usa ataque basico 20s','c':CYAN},
+    {'n':'Fruta Proibida','desc':'Perde 50% HP, causa 40% HP boss','c':RED},
+    {'n':'Degustacao Infinita','desc':'3 ingredientes raros','c':PURPLE},
+]
 
 def u_special_charge(dt):
     global special_charge,wish_active,wish_opts,wish_sel,wish_timer
@@ -1764,7 +2632,6 @@ def u_special_charge(dt):
     if wish_active:
         wish_timer+=dt
         if wish_timer>30000:wish_active=False
-        # Thunder effect
         if wish_thunder_pts:
             for tp2 in wish_thunder_pts[:]:
                 tp2['t']+=dt
@@ -1772,60 +2639,83 @@ def u_special_charge(dt):
                 elif tp2['t']%200<dt:
                     if boss and boss.get('alive'):hit_boss(3)
         return
-    if special_charge>=100 and p_j(players[0],'special'):
-        # Open wish screen
-        wish_active=True;wish_opts=WISHES[:];wish_sel=0;wish_timer=0
-        wish_thunder_pts=[]
+    if special_charge>=100 and players and p_j(players[0],'special'):
+        p=players[local_pid] if local_pid<len(players) else players[0]
+        tp=WPNS[p['equipped']]['tp'] if p['equipped']<len(WPNS) else ''
+        if tp=='piano':
+            wish_active=True;wish_opts=WISHES[:];wish_sel=0;wish_timer=0;wish_thunder_pts=[]
+        elif tp=='terminal' and SS.get('term_ult_cd',0)<=0:
+            SS['term_ult_phase']=1;SS['term_ult_timer']=0;SS['term_ult_cd']=100000;special_charge=0
+        elif tp=='lamina' and SS.get('lam_ult_cd',0)<=0:
+            wish_active=True;wish_opts=LAMINA_ULTS[:];wish_sel=0;wish_timer=0
+        elif tp=='arcade' and SS.get('arc_ult_cd',0)<=0:
+            wish_active=True;wish_opts=ARCADE_ULTS[:];wish_sel=0;wish_timer=0
+        elif tp=='culinaria' and SS.get('cul_ult_cd',0)<=0:
+            wish_active=True;wish_opts=CULINARIA_ULTS[:];wish_sel=0;wish_timer=0
 
 def apply_wish(idx):
-    global special_charge,wish_active,wish_thunder_pts
-    w=WISHES[idx]
+    global special_charge,wish_active
+    p=players[local_pid] if local_pid<len(players) else players[0]
+    tp=WPNS[p['equipped']]['tp'] if p['equipped']<len(WPNS) else ''
     if not boss or not boss.get('alive'):wish_active=False;special_charge=0;return
-    st=boss.get('status',{})
-    if w['n']=='Queime!':
-        st['burn_time']=30000;st['burn_total']=max(st.get('burn_total',0),5001)
-        st['purg_time']=20000;st['purg_stacks']=5;st['purg_total']=max(st.get('purg_total',0),10001)
-        st['blackflame']=True
-        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,ORANGE,3,9,4,9,1000)
-    elif w['n']=='Congele!':
-        st['frio_stacks']=10;st['gelo_ardente']=True
-        boss['_frozen']=True;boss['_frozen_time']=15000
-        for b2 in eB[:]:
-            b2['vx']*=0.5;b2['vy']*=0.5
-        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,CYAN,3,9,4,9,1000)
-    elif w['n']=='Exploda!':
-        hit_boss(int(boss['mhp']*0.4))
-        shake=40;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,60,RED,3,12,4,12,1200)
-    elif w['n']=='Desapareca!':
-        if int(boss['phase'])>=boss['maxPh']:
-            # Ja na ultima fase → vitoria instantanea
-            boss['hp']=0;boss['alive']=False;shake=30
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,50,PURPLE,3,10,4,10,1000)
-            for p in players:
-                if p['alive']:p['inv']=max(p['inv'],2000)
-            earned=0;bi=boss['idx']
-            if not(b_coins[bi]&1):earned+=1;b_coins[bi]|=1;b_clear[bi]=1
-            if fDmg==0 and not(b_coins[bi]&2):earned+=1;b_coins[bi]|=2
-            if fTime<240000 and not(b_coins[bi]&4):earned+=1;b_coins[bi]|=4
-            global coins,rN;coins+=earned;rN=earned;save_game()
-            sched.append({'time':pygame.time.get_ticks()+1500,'fn':lambda:go_st('result')})
-        else:
-            # Vai para a PROXIMA fase apenas
-            boss['phase']=int(boss['phase'])+1
-            boss['hp']=boss['mhp']
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,PURPLE,3,8,4,8,800)
-    elif w['n']=='Relampago!':
-        wish_thunder_pts=[]
-        for i in range(20):
-            wish_thunder_pts.append({'x':rng(50,W-50),'y':0,'t':i*100,'dmg':8})
-            burst(rng(50,W-50),rng(50,GND),5,YELLOW,2,4,3,5,400)
-    elif w['n']=='Olhe para o abismo!':
-        st['abismo']=True
-        boss['_no_phase']=True
-        hit_boss(int(boss['mhp']*0.1))
-        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,(200,0,0),3,9,4,9,1000)
-    special_charge=0;wish_active=False
 
+    # ═══ PIANO WISHES ═══
+    if tp=='piano':
+        w=WISHES[idx];st=boss.get('status',{})
+        if w['n']=='Queime!':
+            st['burn_time']=30000;st['burn_total']=max(st.get('burn_total',0),5001)
+            st['purg_time']=20000;st['purg_stacks']=5;st['purg_total']=max(st.get('purg_total',0),10001)
+            st['blackflame']=True;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,ORANGE,3,9,4,9,1000)
+        elif w['n']=='Congele!':
+            st['frio_stacks']=10;st['gelo_ardente']=True;boss['_frozen']=True;boss['_frozen_time']=15000
+            for b2 in eB:b2['vx']*=0.5;b2['vy']*=0.5
+            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,CYAN,3,9,4,9,1000)
+        elif w['n']=='Exploda!':
+            hit_boss(int(boss['mhp']*0.4));shake=40;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,60,RED,3,12,4,12,1200)
+        elif w['n']=='Desapareca!':
+            if int(boss['phase'])>=boss['maxPh']:
+                boss['hp']=0;boss['alive']=False;shake=30
+                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,50,PURPLE,3,10,4,10,1000)
+                for pl in players:
+                    if pl['alive']:pl['inv']=max(pl['inv'],2000)
+                earned=0;bi=boss['idx']
+                if not(b_coins[bi]&1):earned+=1;b_coins[bi]|=1;b_clear[bi]=1
+                if fDmg==0 and not(b_coins[bi]&2):earned+=1;b_coins[bi]|=2
+                if fTime<240000 and not(b_coins[bi]&4):earned+=1;b_coins[bi]|=4
+                global coins,rN;coins+=earned;rN=earned;save_game()
+                sched.append({'time':pygame.time.get_ticks()+1500,'fn':lambda:go_st('result')})
+            else:
+                boss['phase']=int(boss['phase'])+1;boss['hp']=boss['mhp']
+                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,PURPLE,3,8,4,8,800)
+        elif w['n']=='Relampago!':
+            wish_thunder_pts=[]
+            for i in range(20):wish_thunder_pts.append({'x':rng(50,W-50),'y':0,'t':i*100,'dmg':8});burst(rng(50,W-50),rng(50,GND),5,YELLOW,2,4,3,5,400)
+        elif w['n']=='Olhe para o abismo!':
+            st['abismo']=True;boss['_no_phase']=True;hit_boss(int(boss['mhp']*0.1))
+            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,(200,0,0),3,9,4,9,1000)
+
+    # ═══ LAMINA ULTIMATE ═══
+    elif tp=='lamina':
+        SS['lam_ult_cd']=120000
+        if idx==0:hit_boss(int(boss['mhp']*0.5));burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,WHITE,3,10,4,10,800)
+        elif idx==1:
+            for i in range(20):sched.append({'time':pygame.time.get_ticks()+i*80,'fn':_safe(lambda:hit_boss(8))})
+            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,(180,180,255),2,8,3,8,1000)
+        elif idx==2:
+            hit_boss(int(boss['mhp']*0.75))
+            for pl in players:
+                if pl['alive']:pl['hp']=1
+            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,50,PURPLE,3,10,4,10,1000)
+
+    # ═══ ARCADE ULTIMATE ═══
+    elif tp=='arcade':
+        _apply_arcade_ultimate(idx)
+
+    # ═══ CULINARIA ULTIMATE ═══
+    elif tp=='culinaria':
+        _apply_culinaria_ultimate(idx)
+
+    special_charge=0;wish_active=False
 def d_wish_screen(surf):
     if not wish_active:return
     s2=pygame.Surface((W,H),pygame.SRCALPHA);s2.fill((0,0,0,180));surf.blit(s2,(0,0))
@@ -1848,121 +2738,82 @@ def in_cone(px,py,pf,bx,by,rng_deg=50,rng_dist=200):
 def u_boss_status(dt):
     if not boss or not boss.get('alive'):return
     st=boss['status']
+    # Terminal debuffs
+    if st.get('term_lag',0)>0:
+        st['term_lag']-=dt
+        if random.random()<0.04:boss['x']=clamp(boss['x']+rng(-25,25),80,W-60);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,3,(0,200,0),0.5,2,1,3,200)
+    if st.get('term_leak',0)>0:
+        st['term_leak']-=dt;st['term_leak_tick']=st.get('term_leak_tick',0)+dt
+        if st['term_leak_tick']>=500:st['term_leak_tick']=0;hit_boss(2);burst(boss['x']+rng(0,boss['w']),boss['y']+rng(0,boss['h']),2,(0,255,0),0.5,1.5,1,2,200)
+    if st.get('term_crash',0)>0:st['term_crash']-=dt;b_atk['st']='idle';b_atk['t']=0
+    if st.get('term_inverse',0)>0:st['term_inverse']-=dt
     if st.get('hemorrhage_time',0)>0:st['hemorrhage_time']-=dt
-    # ── FIRE CHAIN ──
+    # FIRE CHAIN
     if st.get('burn_time',0)>0:
         st['burn_time']-=dt;st['burn_total']+=dt;st['burn_tick']-=dt
-        if st['burn_tick']<=0:
-            st['burn_tick']=500;hit_boss(1)
-            burst(boss['x']+boss['w']//2,boss['y'],5,ORANGE,1,3,2,4,200)
+        if st['burn_tick']<=0:st['burn_tick']=500;hit_boss(1);burst(boss['x']+boss['w']//2,boss['y'],5,ORANGE,1,3,2,4,200)
         if st.get('gelo_ardente',False):
-            st['gelo_ardente']=False;st['frio_stacks']=0
-            st['burn_time']=0;st['burn_total']=0
-            hit_boss(30)
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,(0,200,255),3,8,4,8,800)
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,ORANGE,3,8,4,8,800)
+            st['gelo_ardente']=False;st['frio_stacks']=0;st['burn_time']=0;st['burn_total']=0
+            hit_boss(30);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,(0,200,255),3,8,4,8,800);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,ORANGE,3,8,4,8,800)
         if st.get('picancia_stacks',0)>0 and not st.get('abismo',False):
-            st['abismo']=True;st['picancia_stacks']=0
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,25,(200,0,0),2,6,3,7,500)
+            st['abismo']=True;st['picancia_stacks']=0;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,25,(200,0,0),2,6,3,7,500)
         if st.get('burn_total',0)>=5000 and st.get('purg_time',0)<=0:
-            st['purg_time']=4000;st['purg_stacks']=1;st['purg_total']=0
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,PURPLE,2,5,3,6,500)
+            st['purg_time']=4000;st['purg_stacks']=1;st['purg_total']=0;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,PURPLE,2,5,3,6,500)
     if not boss or not boss.get('alive'):return
     if st.get('purg_time',0)>0:
         st['purg_time']-=dt;st['purg_total']+=dt;st['purg_tick']-=dt
-        if st['purg_tick']<=0:
-            st['purg_tick']=300;hit_boss(int(3*st.get('purg_stacks',1)))
-            burst(boss['x']+boss['w']//2,boss['y'],8,PURPLE,1,4,2,5,200)
-        if st.get('purg_total',0)>=10000 and not st.get('blackflame',False):
-            st['blackflame']=True
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,(50,0,50),3,8,4,8,1000)
+        if st['purg_tick']<=0:st['purg_tick']=300;hit_boss(int(3*st.get('purg_stacks',1)));burst(boss['x']+boss['w']//2,boss['y'],8,PURPLE,1,4,2,5,200)
+        if st.get('purg_total',0)>=10000 and not st.get('blackflame',False):st['blackflame']=True;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,40,(50,0,50),3,8,4,8,1000)
     if not boss or not boss.get('alive'):return
     if st.get('blackflame',False):
         st['bf_tick']-=dt
-        if st['bf_tick']<=0:
-            st['bf_tick']=200;hit_boss(8)
-            burst(boss['x']+boss['w']//2+random.randint(-20,20),boss['y']+random.randint(0,boss['h']),3,(80,0,80),1,3,2,4,200)
+        if st['bf_tick']<=0:st['bf_tick']=200;hit_boss(8);burst(boss['x']+rng(-20,boss['w']+20),boss['y']+rng(0,boss['h']),3,(80,0,80),1,3,2,4,200)
     if not boss or not boss.get('alive'):return
-    # ── POISON ──
     if st.get('poison_time',0)>0:
         st['poison_time']-=dt;st['poison_tick']-=dt
-        if st['poison_tick']<=0:
-            st['poison_tick']=1000;hit_boss(int(1*st.get('poison_stacks',1)))
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,3,(0,200,0),1,2,2,3,200)
+        if st['poison_tick']<=0:st['poison_tick']=1000;hit_boss(int(1*st.get('poison_stacks',1)));burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,3,(0,200,0),1,2,2,3,200)
     if not boss or not boss.get('alive'):return
-    # ── BLEED ──
     if st.get('bleed_time',0)>0:
         st['bleed_time']-=dt;st['bleed_tick']-=dt
-        if st['bleed_tick']<=0:
-            st['bleed_tick']=500;hit_boss(5)
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,5,RED,1,4,2,5,300)
+        if st['bleed_tick']<=0:st['bleed_tick']=500;hit_boss(5);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,5,RED,1,4,2,5,300)
     if not boss or not boss.get('alive'):return
-    # ── MASK LOUCURA ──
     if st.get('mask_attached',False):
         st['mask_tick']-=dt
-        if st['mask_tick']<=0:
-            st['mask_tick']=1500;st['mask_loucura']=st.get('mask_loucura',0)+1
-            burst(boss['x']+boss['w']//2,boss['y']-10,5,(180,180,200),1,3,2,4,300)
-    # ── FRIO → GELO ARDENTE ──
-    if st.get('frio_stacks',0)>=10 and not st.get('gelo_ardente',False):
-        st['gelo_ardente']=True;st['ga_tick']=0
-        burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,(0,200,255),2,7,3,7,700)
+        if st['mask_tick']<=0:st['mask_tick']=1500;st['mask_loucura']=st.get('mask_loucura',0)+1;burst(boss['x']+boss['w']//2,boss['y']-10,5,(180,180,200),1,3,2,4,300)
+    if st.get('frio_stacks',0)>=10 and not st.get('gelo_ardente',False):st['gelo_ardente']=True;st['ga_tick']=0;burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,(0,200,255),2,7,3,7,700)
     if st.get('gelo_ardente',False):
         st['ga_tick']-=dt
-        if st['ga_tick']<=0:
-            st['ga_tick']=300;hit_boss(4)
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,5,(0,200,255),1,3,2,4,200)
+        if st['ga_tick']<=0:st['ga_tick']=300;hit_boss(4);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,5,(0,200,255),1,3,2,4,200)
     if not boss or not boss.get('alive'):return
-    # ── PICANCIA movement damage ──
     if st.get('picancia_stacks',0)>0:
         dx2=boss['tx']-boss['x'];dy2=boss['ty']-boss['y']
         if math.hypot(dx2,dy2)>2:
             st['pic_move_tick']-=dt
-            if st['pic_move_tick']<=0:
-                st['pic_move_tick']=500;hit_boss(st['picancia_stacks'])
-                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,3,(200,0,0),1,2,2,3,200)
-    # ── CAMERA FILMING ──
+            if st['pic_move_tick']<=0:st['pic_move_tick']=500;hit_boss(st['picancia_stacks']);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,3,(200,0,0),1,2,2,3,200)
     if st.get('filming',False):
         st['film_time']-=dt
         if st['film_time']<=0:
-            st['filming']=False
-            dmg=int(st.get('film_dmg',0)*1.5)
-            if dmg>0:
-                hit_boss(dmg)
-                burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,(100,200,255),2,7,3,7,700)
+            st['filming']=False;dmg=int(st.get('film_dmg',0)*1.5)
+            if dmg>0:hit_boss(dmg);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,30,(100,200,255),2,7,3,7,700)
             if st.get('film_hit_player',False):
                 for p in players:
-                    if p['alive'] and p['hp']>1:p['hp']-=1
-                    burst(p['x']+16,p['y']+22,15,RED,2,5,2,5,500);break
-    # ── Piano note visuals on boss ──
+                    if p['alive'] and p['hp']>1:p['hp']-=1;burst(p['x']+16,p['y']+22,15,RED,2,5,2,5,500);break
     if piano_passive_effect:
-        c=piano_passive_effect['c']
-        for _ in range(1):
-            burst(boss['x']+rng(0,boss['w']),boss['y']+rng(0,boss['h']),1,c,0.5,1.5,1,2,300)
-    # ── IRRITATION ──
+        c=piano_passive_effect['c'];burst(boss['x']+rng(0,boss['w']),boss['y']+rng(0,boss['h']),1,c,0.5,1.5,1,2,300)
     if st.get('irrit_time',0)>0:
         st['irrit_time']-=dt
         if st.get('mic_irrit',False):
             st['mic_timer']=st.get('mic_timer',0)-dt
             if st['mic_timer']<=0:
                 st['mic_timer']=1000;tgt=tgt_p()
-                if tgt:pB.append({'x':tgt['x']+16,'y':-20,'vx':rng(-1,1),'vy':rng(2,4),
-                    'ext':'tomato_aud','life':5000,'pid':0,'elap':0,'sx':tgt['x']+16,
-                    'ret':False,'expl':False,'hitC':0,'hitCD':0,'gid':0,'hit':False,'landed':False})
+                if tgt:pB.append({'x':tgt['x']+16,'y':-20,'vx':rng(-1,1),'vy':rng(2,4),'ext':'tomato_aud','life':5000,'pid':0,'elap':0,'sx':tgt['x']+16,'ret':False,'expl':False,'hitC':0,'hitCD':0,'gid':0,'hit':False,'landed':False})
         if st['irrit_time']<=0:st['irritated']=False;st['mic_irrit']=False
-    # ── COLLAPSE ──
     if st.get('collapse_time',0)>0:
         st['collapse_time']-=dt
-        if st['collapse_time']<=0:
-            st['collapsed']=False
-
-    # ── BLOOD 15s → HEMORRHAGE PERMANENTE ──
+        if st['collapse_time']<=0:st['collapsed']=False
     if st.get('bleed_time',0)>0 and st.get('bleed_total',0)<15000:
         st['bleed_total']=st.get('bleed_total',0)+dt
-        if st['bleed_total']>=15000:
-            apply_hemorrhage(999999)
-            burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,(200,0,0),2,6,3,7,600)
-
+        if st['bleed_total']>=15000:apply_hemorrhage(999999);burst(boss['x']+boss['w']//2,boss['y']+boss['h']//2,20,(200,0,0),2,6,3,7,600)
 # ═══ MISSING GLOBALS & INPUT ═══════════════════════════════
 keys = {}; just_pressed = {}; players = []; num_players = 1; local_pid = 0
 sh_sel = 0; bs_sel = 0; sec_sel = 0; mode_sel = 0; save_sel = 0
@@ -1970,9 +2821,8 @@ ctrl_p = 0; ctrl_a = 0; ctrl_r = False; bossI = 0
 cs = None; cs_nxt = ''; overlay = None; ov_sel = 0; admin = False; running = True
 ts = {'type':0,'phase':0,'t':0,'progress':0,'px':W//2,'py':H-80,'php':3,
       'entities':[],'warnings':[],'mini_boss':None,'lss':0}
-C_LABELS = ['Esquerda','Direita','Pular','Atirar','Dash','Trocar']
-C_ACTS=['left','right','jump','shoot','dash','swap']
-
+C_LABELS = ['Esquerda','Direita','Pular','Atirar','Dash','Trocar','Especial']
+C_ACTS=['left','right','jump','shoot','dash','swap','special']
 def jp(k):
     if just_pressed.get(k,False): just_pressed[k]=False; return True
     return False
@@ -1991,15 +2841,18 @@ def fade_to(s,cb=None):
 def set_gpost():
     global post_b1; post_b1=True
 def start_fight():
-    global players,fDmg,fTime,piano_variant,piano_laser_active,piano_laser_power
+    global players,fDmg,fTime,secret_mode,piano_laser_active,piano_laser_power
     global special_charge,wish_active,piano_passive_timer,piano_passive_effect,piano_passive_dur
-    global wish_thunder_pts
+    global wish_thunder_pts,terminal_proj_peak
     players=[mk_p(i) for i in range(num_players)]
     init_boss(bossI);fDmg=0;fTime=0
     pB.clear();eB.clear();telegraphs.clear();particles.clear();spread_groups.clear()
-    piano_variant=0;piano_laser_active=False;piano_laser_power=0
+    secret_mode=0;piano_laser_active=False;piano_laser_power=0
     special_charge=0;wish_active=False;wish_thunder_pts=[]
     piano_passive_timer=0;piano_passive_effect=None;piano_passive_dur=0
+    terminal_proj_peak=0
+    for k in SS:SS[k]=False if isinstance(SS[k],bool) else 0 if isinstance(SS[k],(int,float)) else None if SS[k] is None else [] if isinstance(SS[k],list) else '' if isinstance(SS[k],str) else SS[k]
+
 def process_sched():
     now=pygame.time.get_ticks()
     for ev in sched[:]:
@@ -2080,6 +2933,8 @@ def u_trans_plat(dt,P):
         if keys.get(P['binds']['left']):mx=-1;P['face']=-1
         if keys.get(P['binds']['right']):mx=1;P['face']=1
         P['x']+=mx*P['spd'];P['x']=wrap_x(P['x'])
+        CEILING=50
+        p['y']=max(p['y'],CEILING)
         return
     ts['progress']+=dt*(0.008+ts['t']*0.000003)
     if ts['progress']>=100:fade_to('shop');return
@@ -2381,7 +3236,17 @@ def draw_boss(surf):
         txt(surf,f"FILM {sec}s",sx2,sy2,(100,200,255),9,True);sx2+=48
     if st.get('mask_attached',False):
         txt(surf,f"MASKx{st['mask_loucura']}",sx2,sy2,(180,180,200),9,True)
-
+    if boss.get('_stun_time',0)>0:
+        stun_s=pygame.Surface((bw+20,bh+20),pygame.SRCALPHA)
+        pulse=int(abs(math.sin(b_anim*0.02))*80)+40
+        pygame.draw.ellipse(stun_s,(255,255,0,pulse),(0,0,bw+20,bh+20))
+        surf.blit(stun_s,(cx-(bw+20)//2,cy-(bh+20)//2+bob))
+        txt(surf,"STUN",cx,cy-bh//2-10+bob,YELLOW,10,True,True)
+    if boss.get('_frozen',False):
+        frz_s=pygame.Surface((bw+10,bh+10),pygame.SRCALPHA)
+        pygame.draw.ellipse(frz_s,(100,200,255,100),(0,0,bw+10,bh+10))
+        surf.blit(frz_s,(cx-(bw+10)//2,cy-(bh+10)//2+bob))
+        txt(surf,"CONGELADO",cx,cy-bh//2-10+bob,CYAN,10,True,True)
 
 # ── Individual boss renderers ───────────────────────────
 def _dbeet(s,cx,cy,fc,p2,bw,bh):
@@ -2608,8 +3473,12 @@ def draw_hud(surf):
     txt(surf,f"{coins}",W-16,18,GOLD,14,True,right=True)
     # Piano HUD extras
     d_piano_passive_hud(surf)
-    d_special_bar(surf)
-    d_piano_variant_hud(surf)
+    d_secret_mode_hud(surf)
+    d_cooldown_bar(surf)
+    d_terminal_hud(surf)
+    d_lamina_hud(surf)
+    d_arcade_hud(surf)
+    d_culinaria_hud(surf)
 
 def d_title(surf):
     surf.fill((11,11,32))
@@ -2833,6 +3702,28 @@ def _dwicon(surf,tp,cx,cy,c):
         pygame.draw.circle(surf,(139,0,0),(cx,cy),9)
         pygame.draw.circle(surf,(200,0,0),(cx,cy),5)
         pygame.draw.circle(surf,BLACK,(cx,cy),9,1)
+    elif tp=='piano':
+        pygame.draw.rect(surf,(180,0,0),(cx-10,cy-6,20,12))
+        pygame.draw.rect(surf,BLACK,(cx-10,cy-6,20,12),1)
+        for ki in range(5):pygame.draw.rect(surf,WHITE if ki%2==0 else BLACK,(cx-8+ki*3,cy-4,2,8))
+    elif tp=='terminal':
+        pygame.draw.rect(surf,(0,100,0),(cx-10,cy-8,20,16))
+        pygame.draw.rect(surf,(0,200,0),(cx-10,cy-8,20,16),1)
+        txt(surf,">_",cx-2,cy-6,(0,255,0),7,True)
+    elif tp=='lamina':
+        pygame.draw.line(surf,(180,180,255),(cx,cy-12),(cx,cy+10),3)
+        pygame.draw.line(surf,WHITE,(cx,cy-12),(cx+2,cy-8),1)
+        pygame.draw.rect(surf,(150,50,50),(cx-4,cy+6,8,5))
+    elif tp=='arcade':
+        pygame.draw.rect(surf,(60,60,60),(cx-10,cy-6,20,12))
+        pygame.draw.rect(surf,BLACK,(cx-10,cy-6,20,12),1)
+        pygame.draw.circle(surf,RED,(cx-4,cy),3)
+        pygame.draw.rect(surf,(0,150,0),(cx+2,cy-3,6,6))
+    elif tp=='culinaria':
+        pygame.draw.rect(surf,(180,120,60),(cx-10,cy-8,20,16))
+        pygame.draw.rect(surf,BLACK,(cx-10,cy-8,20,16),1)
+        pygame.draw.line(surf,(200,200,200),(cx-6,cy-12),(cx+6,cy-12),2)
+        pygame.draw.line(surf,(200,200,200),(cx,cy-12),(cx,cy-6),2)
 
 def d_bsel(surf):
     surf.fill((11,11,32))
@@ -3074,22 +3965,21 @@ def d_netwait(surf):
 CCTRLS=CTRLS
 
 def main():
-    global coins
     global keys,just_pressed,state,sh_sel,bs_sel,sec_sel,mode_sel,save_sel
     global ctrl_p,ctrl_a,ctrl_r,bossI,cs,overlay,ov_sel,admin
     global fadeA,shake,fTime,fDmg,running,num_players,local_pid
     global net_mode,net_ip_input,net_frame,remote_keys,_sec_t,lobby_timer
     global b_atk,ph_tr,b_anim,sched,first_play,screen,fullscreen
     global loadout,loadout_active,loadout_edit_slot
-    global piano_variant,piano_passive_timer,piano_passive_effect,piano_passive_dur
+    global secret_mode,piano_passive_timer,piano_passive_effect,piano_passive_dur
+    global SS,crash_overlay,terminal_proj_peak,terminal_unlocked
+    global lamina_unlocked,arcade_unlocked,arcade_buttons_found
+    global culinaria_unlocked,culinaria_perfect_bosses,active_secret
     global special_charge,wish_active,wish_opts,wish_sel,wish_timer,wish_thunder_pts
-    global piano_laser_active,piano_laser_power
-    global dt_global
-    loadout_edit_slot=0
-    running=True;last_t=pygame.time.get_ticks();_sec_t=0
+    global piano_laser_active,piano_laser_power,dt_global,coins
+    loadout_edit_slot=0;running=True;last_t=pygame.time.get_ticks();_sec_t=0
     while running:
-        t=pygame.time.get_ticks();dt=min(t-last_t,32);last_t=t
-        dt_global=dt
+        t=pygame.time.get_ticks();dt=min(t-last_t,32);last_t=t;dt_global=dt
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:running=False
             elif ev.type==pygame.KEYDOWN:
@@ -3108,12 +3998,9 @@ def main():
         shake*=0.88
         if shake<0.3:shake=0
         process_sched()
-        # ── Rede ──
         if net_mode=='host' and net_connected:
             inp=net_recv()
-            if inp and inp.get('t')=='inp':
-                remote_keys={int(k):v for k,v in inp.get('k',{}).items()}
-                if 'eq' in inp and len(players)>1:players[1]['equipped']=inp['eq']
+            if inp and inp.get('t')=='inp':remote_keys={int(k):v for k,v in inp.get('k',{}).items()};players[1]['equipped']=inp.get('eq',0) if len(players)>1 else 0
             net_frame+=1
             if net_frame%3==0 and cs is None:net_send({'t':'gs','d':serialize_state()})
         elif net_mode=='client' and net_connected:
@@ -3121,23 +4008,25 @@ def main():
             net_send({'t':'inp','k':{str(k):v for k,v in keys.items() if v},'eq':eq_val})
             gs=net_recv()
             if gs and gs.get('t')=='gs':apply_state(gs.get('d',{}))
-                # ── Cutscene ──
+        # Cutscene
         if cs:
             u_cutscene(dt)
             for k in list(just_pressed):just_pressed[k]=False
             surf=pygame.Surface((W,H));draw_bg(surf);d_cutscene(surf)
             if fadeA>0.01:fs=pygame.Surface((W,H),pygame.SRCALPHA);fs.fill((0,0,0,int(clamp(fadeA,0,1)*255)));surf.blit(fs,(0,0))
             screen.blit(surf,(0,0));pygame.display.flip();clock.tick(FPS);continue
-
-        # ── Wish screen (sobrepõe tudo) ──
+        # Crash overlay
+        if crash_overlay:
+            u_crash_overlay(dt);surf=pygame.Surface((W,H));d_crash_overlay(surf)
+            for k in list(just_pressed):just_pressed[k]=False
+            screen.blit(surf,(0,0));pygame.display.flip();clock.tick(FPS);continue
+        # Wish screen
         if wish_active:
             if jp(pygame.K_w) or jp(pygame.K_UP):wish_sel=max(0,wish_sel-1)
             if jp(pygame.K_s) or jp(pygame.K_DOWN):wish_sel=min(len(wish_opts)-1,wish_sel+1)
-            if jp(pygame.K_RETURN):
-                apply_wish(wish_sel)
+            if jp(pygame.K_RETURN):apply_wish(wish_sel)
             if jp(pygame.K_ESCAPE):wish_active=False;special_charge=0
-
-        # ── Overlay (pause) ──
+        # Overlay
         elif overlay:
             if jp(pygame.K_w) or jp(pygame.K_UP):ov_sel=max(0,ov_sel-1)
             if jp(pygame.K_s) or jp(pygame.K_DOWN):ov_sel=min(len(overlay['opts'])-1,ov_sel+1)
@@ -3147,12 +4036,15 @@ def main():
                 if opt=='Continuar':pass
                 elif opt=='Reiniciar':fade_to('fight',start_fight)
                 elif opt=='Tentar':fade_to('fight',start_fight)
+                elif opt=='Arsenal':fade_to('shop')
                 elif opt=='Boss':
-                    def _bs():global sec_sel,bs_sel;sec_sel=BDATA[bossI]['s'] if bossI<len(BDATA) else 0;bs_sel=0
-                    fade_to('bsel',_bs)
+                    sec_sel=BDATA[bossI]['s'] if bossI<len(BDATA) else 0
+                    bs_sel=0
+                    fade_to('bsel')
+                # elif opt=='Menu':admin=False;net_close();local_pid=0;fade_to('title');sh_sel=0
+                #     def _bs():global sec_sel,bs_sel;sec_sel=BDATA[bossI]['s'] if bossI<len(BDATA) else 0;bs_sel=0;fade_to('bsel',_bs)
                 elif opt=='Menu':admin=False;net_close();local_pid=0;fade_to('title');sh_sel=0
-
-        # ── State logic (APENAS SE wish_active==False E overlay==None) ──
+        # State logic
         elif state=='title':
             items=["JOGAR","CONTROLES"]
             if jp(pygame.K_w) or jp(pygame.K_UP):sh_sel=max(0,sh_sel-1)
@@ -3160,7 +4052,6 @@ def main():
             if jp(pygame.K_RETURN):
                 if sh_sel==0:save_sel=cur_save if cur_save>=0 else 0;saves_data[:]=load_saves();fade_to('savesel')
                 else:ctrl_p=0;ctrl_a=0;ctrl_r=False;fade_to('ctrlcfg')
-
         elif state=='savesel':
             if jp(pygame.K_a) or jp(pygame.K_LEFT):save_sel=max(0,save_sel-1)
             if jp(pygame.K_d) or jp(pygame.K_RIGHT):save_sel=min(2,save_sel+1)
@@ -3168,7 +4059,6 @@ def main():
             if jp(pygame.K_DELETE) or jp(pygame.K_BACKSPACE):
                 if saves_data[save_sel]:del_sv(save_sel);saves_data[:]=load_saves()
             if jp(pygame.K_ESCAPE):fade_to('title')
-
         elif state=='modeselect':
             items=["1P","2P LOCAL","HOST LAN","CONECTAR LAN","VOLTAR"]
             if jp(pygame.K_w) or jp(pygame.K_UP):mode_sel=max(0,mode_sel-1)
@@ -3186,7 +4076,6 @@ def main():
                 elif mode_sel==3:net_ip_input=get_local_subnet();fade_to('lobby_client')
                 else:net_close();fade_to('savesel')
             if jp(pygame.K_ESCAPE):net_close();fade_to('savesel')
-
         elif state=='ctrlcfg':
             if not ctrl_r:
                 if jp(pygame.K_w) or jp(pygame.K_UP):ctrl_a=max(0,ctrl_a-1)
@@ -3199,7 +4088,6 @@ def main():
                     if just_pressed[k]:
                         if k!=pygame.K_ESCAPE:CTRLS[ctrl_p][C_ACTS[ctrl_a]]=k
                         ctrl_r=False;just_pressed[k]=False;break
-
         elif state=='lobby_host':
             net_check()
             if net_connected:
@@ -3209,15 +4097,12 @@ def main():
                     if first_play:first_play=False;loadout=[0,-1,-1];loadout_active=0;start_cs('intro','shop')
                     else:fade_to('shop')
             if jp(pygame.K_ESCAPE):net_close();fade_to('modeselect')
-
         elif state=='lobby_client':
             if jp(pygame.K_RETURN) and net_ip_input and not net_connected:net_connect(net_ip_input)
             if net_connected:state='netwait'
             if jp(pygame.K_ESCAPE):net_close();fade_to('modeselect')
-
         elif state=='netwait':
             if jp(pygame.K_ESCAPE):net_close();fade_to('title')
-
         elif state=='shop':
             if net_mode=='client':
                 if jp(pygame.K_d) or jp(pygame.K_RIGHT):sh_sel=min(len(WPNS)-1,sh_sel+1)
@@ -3249,7 +4134,6 @@ def main():
                             if not ac:sec_sel=s2;break
                     bs_sel=0;fade_to('bsel')
                 if jp(pygame.K_ESCAPE):sh_sel=0;fade_to('modeselect')
-
         elif state=='bsel':
             if net_mode!='client':
                 if jp(pygame.K_a) or jp(pygame.K_LEFT):
@@ -3266,20 +4150,18 @@ def main():
                         idx=bosses[bs_sel]
                         if boss_ok(idx):bossI=idx;fade_to('fight',start_fight)
                 if jp(pygame.K_ESCAPE):fade_to('shop')
-
         elif state=='fight':
             if net_mode!='client':
-                if jp(pygame.K_ESCAPE):overlay={'opts':['Continuar','Reiniciar','Boss','Menu']};ov_sel=0
+                if jp(pygame.K_ESCAPE):overlay={'opts':['Continuar','Reiniciar','Arsenal','Boss','Menu']};ov_sel=0
                 fTime+=dt
                 for p in players:u_player(p,dt)
                 for p in players:shoot_p(p)
                 u_boss(dt);u_bullets(dt);u_telegraphs(dt);u_pts(dt)
+                u_terminal_ultimate(dt)
             else:u_pts(dt)
-
         elif state=='trans':
             if net_mode!='client':u_trans(dt)
             else:u_pts(dt)
-
         elif state=='result':
             u_pts(dt)
             if net_mode!='client':
@@ -3288,22 +4170,18 @@ def main():
                     bl=SECS[s2]['bosses'];bs_sel=min(bl.index(bossI)+1,len(bl)-1) if bossI in bl else 0
                     fade_to('bsel')
                 if jp(pygame.K_ESCAPE):fade_to('shop')
-
         elif state=='over':
             if net_mode!='client':
                 if jp(pygame.K_RETURN) or jp(pygame.K_SPACE):fade_to('fight',start_fight)
                 if jp(pygame.K_ESCAPE):overlay={'opts':['Tentar','Boss','Menu']};ov_sel=0
-
         elif state=='victory':
             if jp(pygame.K_RETURN) or jp(pygame.K_SPACE):reset_save();net_close();local_pid=0;save_game();fade_to('title')
-
         elif state=='sectorclear':
             _sec_t+=dt
-            if jp(pygame.K_RETURN) or jp(pygame.K_SPACE):
-                sec=BDATA[bossI]['s'] if bossI<len(BDATA) else 0;_sec_t=0;start_trans(sec)
+            if jp(pygame.K_RETURN) or jp(pygame.K_SPACE):sec=BDATA[bossI]['s'] if bossI<len(BDATA) else 0;_sec_t=0;start_trans(sec)
             if jp(pygame.K_ESCAPE):_sec_t=0;fade_to('shop')
         for k in list(just_pressed):just_pressed[k]=False
-        # ── Render ──
+        # ── RENDER ──
         surf=pygame.Surface((W,H));sx,sy=0,0
         if shake>1:sx,sy=int(rng(-shake,shake)),int(rng(-shake,shake))
         if state=='title':d_title(surf)
@@ -3315,32 +4193,22 @@ def main():
         elif state=='netwait':d_netwait(surf)
         elif state=='shop':d_shop(surf)
         elif state=='bsel':
-            if net_mode=='client':
-                surf.fill((11,11,32));txt(surf,"Aguardando host selecionar boss...",W//2,H//2,GOLD,18,True,True)
+            if net_mode=='client':surf.fill((11,11,32));txt(surf,"Aguardando host...",W//2,H//2,GOLD,18,True,True)
             else:d_bsel(surf)
         elif state=='fight':
-            draw_bg(surf);draw_boss(surf);d_telegraphs(surf);d_bullets(surf)
-            d_wish_thunder(surf)
-            for p in players:
-                d_player(surf,p)
-                d_player_shield(surf,p)
-                d_piano_laser(surf,p)
-            d_pts(surf);draw_hud(surf)
+            draw_bg(surf);draw_boss(surf);d_telegraphs(surf);d_bullets(surf);d_wish_thunder(surf)
+            for p in players:d_player(surf,p);d_player_shield(surf,p);d_piano_laser(surf,p)
+            d_pts(surf);draw_hud(surf);d_lamina_indicator(surf);d_terminal_ultimate(surf);d_lamina_ultimate(surf)
         elif state=='trans':
-            if net_mode=='client':
-                surf.fill((11,11,32));txt(surf,"Transicao...",W//2,H//2,GOLD,18,True,True)
+            if net_mode=='client':surf.fill((11,11,32));txt(surf,"Transicao...",W//2,H//2,GOLD,18,True,True)
             else:d_trans(surf)
         elif state=='result':d_result(surf)
         elif state=='over':d_over(surf)
         elif state=='victory':d_victory(surf)
         elif state=='sectorclear':d_sectorclear(surf)
-
-        # ── Wish screen (SEMPRE por cima de tudo) ──
         if wish_active:d_wish_screen(surf)
-
         if overlay:d_overlay(surf)
-        if fadeA>0.01:
-            fs=pygame.Surface((W,H),pygame.SRCALPHA);fs.fill((0,0,0,int(clamp(fadeA,0,1)*255)));surf.blit(fs,(0,0))
+        if fadeA>0.01:fs=pygame.Surface((W,H),pygame.SRCALPHA);fs.fill((0,0,0,int(clamp(fadeA,0,1)*255)));surf.blit(fs,(0,0))
         screen.blit(surf,(sx,sy));pygame.display.flip();clock.tick(FPS)
     net_close();pygame.quit();sys.exit()
 
