@@ -258,7 +258,7 @@ ENEMY_DESC={
     23:'Chuva de fogo + invoca',24:'Teleporte + projéteis',25:'Todas as habilidades'}
 
 E_DATA={
-    0:{'w':26,'h':26,'hp':20,'spd':110,'dmg':2,'xp':2,'c':C_CRAWL,'c2':(255,120,120)},
+    0:{'w':26,'h':26,'hp':10,'spd':80,'dmg':1,'xp':2,'c':C_CRAWL,'c2':(255,120,120)},
     1:{'w':22,'h':22,'hp':10,'spd':95,'dmg':1,'xp':3,'c':C_FLY,'c2':(210,150,255)},
     2:{'w':26,'h':26,'hp':20,'spd':55,'dmg':2,'xp':5,'c':C_LEAP,'c2':(120,190,255)},
     3:{'w':34,'h':34,'hp':50,'spd':38,'dmg':4,'xp':12,'c':C_BRUTE,'c2':(220,90,70)},
@@ -290,9 +290,10 @@ E_DATA={
 class Enemy:
     def __init__(s,x,y,etype,t=0):
         d=E_DATA[etype]; s.pos=[float(x),float(y)]; s.vel=[0.,0.]
-        s.w,s.h=d['w'],d['h']; sc=1.0+t/60.0
-        s.hp=s.mhp=max(1,int(d['hp']*sc)); s.spd=d['spd']*(1.0+t/120)
-        s.dmg=d['dmg']+int(t/60); s.xp=d['xp']
+        s.w,s.h=d['w'],d['h']; sc=1.0+(t/120.)**1.3
+        s.hp=s.mhp=max(1,int(d['hp']*sc)); s.spd=d['spd']
+        s.dmg=d['dmg']+(0 if t<30 else int((t-30)/60))
+        s.xp=d['xp']
         s.col,s.col2=d['c'],d['c2']; s.et=etype
         s.active=True; s.gnd=False; s.hf=0.; s.at=random.random()*10
         s.sq_x=s.sq_y=1.0; s.pdir=sign(random.uniform(-1,1))
@@ -308,6 +309,7 @@ class Enemy:
         s.invisible=0.; s.curse_aura=0.
         # Boss-specific
         s.offscreen_t=0.; s.flee_t=0.; s.enraged=False; s.enrage_t=0.
+    
     @property
     def cx(s): return s.pos[0]+s.w*0.5
     @property
@@ -549,28 +551,54 @@ class Enemy:
             c=(min(255,int(c[0]+rage*80)),max(0,int(c[1]-rage*40)),max(0,int(c[2]-rage*40)))
         if s.frozen>0: c=(min(255,c[0]+60),min(255,c[1]+60),min(255,c[2]+100))
         alpha=120 if s.et==E_GHOST else 255
-        body_sf=pygame.Surface((int(dw)+2,int(dh)+2),pygame.SRCALPHA)
-        pygame.draw.rect(body_sf,(*c[:3],alpha),(0,0,int(dw),int(dh)),border_radius=4)
-        # Type-specific details
-        if s.et==E_BRUTE or s.is_boss:
-            sc2=tuple(min(255,c[i]+30) for i in range(3))
-            for i in range(3):
-                ly=int(dh*0.2)+i*int(dh*0.2)
-                pygame.draw.rect(body_sf,(*sc2[:3],alpha),(3,ly,int(dw)-6,2))
-        elif s.et==E_CHRG and s.state==1:
-            pygame.draw.line(body_sf,WHITE,(0,int(dh//2)),(int(dw),int(dh//2)),2)
-        elif s.et==E_SHIELD and s.shield_hp>0:
-            shx=int(dw)+2 if s.pdir>0 else -6
-            pygame.draw.rect(body_sf,(100,150,255,200),(shx,2,6,int(dh)-4),border_radius=2)
-        elif s.et==E_NECRO:
-            pygame.draw.circle(body_sf,(*C_PENTA[:3],80),(int(dw//2),int(dh//2)),int(dw//2)+5,2)
-        elif s.et==E_GHOST:
-            for i in range(4):
-                wy=int(dh*0.2)+i*int(dh*0.2)
-                pygame.draw.line(body_sf,(200,200,240,60),(0,wy),(int(dw),wy))
+        body_sf=pygame.Surface((int(dw)+4,int(dh)+4),pygame.SRCALPHA)
+        cx_l,cy_l=int(dw//2)+2,int(dh//2)+2
+        # Shape per enemy type
+        if s.et in (E_FLY,E_EXPLO,E_NECRO,E_GHOST):
+            # Circle
+            r=max(3,int(min(dw,dh)//2))
+            pygame.draw.circle(body_sf,(*c[:3],alpha),(cx_l,cy_l),r)
+            if s.et==E_NECRO:
+                pygame.draw.circle(body_sf,(*C_PENTA[:3],60),(cx_l,cy_l),r+5,2)
+            if s.et==E_GHOST:
+                for i in range(3):
+                    wy=int(dh*0.2)+i*int(dh*0.25)
+                    pygame.draw.line(body_sf,(200,200,240,50),(cx_l-r,cy_l-r+wy),(cx_l+r,cy_l-r+wy))
+        elif s.et in (E_LEAP,E_CHRG):
+            # Triangle
+            pts=[(cx_l,2),(int(dw)+2,int(dh)+2),(2,int(dh)+2)]
+            pygame.draw.polygon(body_sf,(*c[:3],alpha),pts)
+            if s.et==E_CHRG and s.state==1:
+                pygame.draw.line(body_sf,WHITE,(2,int(dh//2)+2),(int(dw)+2,int(dh//2)+2),2)
+        elif s.et in (E_ARCH,E_SWARM):
+            # Diamond
+            pts=[(cx_l,2),(int(dw)+2,cy_l),(cx_l,int(dh)+2),(2,cy_l)]
+            pygame.draw.polygon(body_sf,(*c[:3],alpha),pts)
         elif s.et==E_WRAITH:
-            pygame.draw.rect(body_sf,(200,200,255,40),(0,0,int(dw),int(dh)),1)
-        surf.blit(body_sf,(int(dx2),int(dy2)))
+            # Inverted triangle (menacing)
+            pts=[(2,2),(int(dw)+2,2),(cx_l,int(dh)+2)]
+            pygame.draw.polygon(body_sf,(*c[:3],alpha),pts)
+            pygame.draw.polygon(body_sf,(200,200,255,40),pts,1)
+        elif s.et==E_SPLIT:
+            # Hexagon
+            pts=[]
+            for i in range(6):
+                a=i/6*math.tau-math.pi/2
+                pts.append((cx_l+int(math.cos(a)*cx_l*0.8),cy_l+int(math.sin(a)*cy_l*0.8)))
+            pygame.draw.polygon(body_sf,(*c[:3],alpha),pts)
+        else:
+            # Square (crawler, brute, shield, bomber, bosses)
+            pygame.draw.rect(body_sf,(*c[:3],alpha),(2,2,int(dw),int(dh)),border_radius=4)
+            if s.et==E_BRUTE or s.is_boss:
+                sc2=tuple(min(255,c[i]+30) for i in range(3))
+                for i in range(3):
+                    ly=int(dh*0.2)+i*int(dh*0.2)
+                    pygame.draw.rect(body_sf,(*sc2[:3],alpha),(5,ly,int(dw)-4,2))
+        # Shield visual
+        if s.et==E_SHIELD and s.shield_hp>0:
+            shx=int(dw)+4 if s.pdir>0 else -8
+            pygame.draw.rect(body_sf,(100,150,255,200),(shx,4,8,int(dh)-8),border_radius=2)
+        surf.blit(body_sf,(int(dx2)-2,int(dy2)-2))
         # Boss aura — bigger, more prominent
         if s.is_boss or s.is_mb:
             aura_sz=40 if s.is_boss else 20
@@ -613,12 +641,19 @@ class Enemy:
         for p in s.proj:
             px2,py2=int(p[0]-ox),int(p[1]-oy)
             if s.et==E_CRAWL:
-                pygame.draw.circle(surf,(*C_POIS[:3],100),(px2,py2),8)
+                # Poison puddle — translucent green blob
+                ps=pygame.Surface((18,18),pygame.SRCALPHA)
+                pygame.draw.circle(ps,(80,200,60,60),(9,9),9)
+                pygame.draw.circle(ps,(100,255,80,40),(9,9),5)
+                surf.blit(ps,(px2-9,py2-9))
             elif s.et==E_ARCH:
                 pygame.draw.circle(surf,(200,255,200),(px2,py2),4)
+                pygame.draw.circle(surf,WHITE,(px2,py2),2)
             else:
                 col_p=(255,60,60) if s.is_boss else (200,200,100)
-                pygame.draw.circle(surf,col_p,(px2,py2),6 if s.is_boss else 4)
+                sz=6 if s.is_boss else 4
+                pygame.draw.circle(surf,col_p,(px2,py2),sz)
+                pygame.draw.circle(surf,WHITE,(px2,py2),max(1,sz-2))
                 
 # ═══ ATTACK OBJECT ═══
 class AtkObj:
@@ -1179,27 +1214,158 @@ def draw_attacks(surf,cam,attacks,pl):
         if not a.active: continue
         t=a.age/max(0.01,a.max_life); alpha=max(0,min(int((1-t)*220),255))
         x,y=int(a.pos[0]-ox),int(a.pos[1]-oy); w2,h2=int(a.w),int(a.h)
-        if w2<1 or h2<1: continue
-        sf=pygame.Surface((w2+6,h2+6),pygame.SRCALPHA)
-        # Summon = green outline
-        if a.lifesteal>0 and a.homing>0:
-            pygame.draw.rect(sf,(80,255,80,alpha//2),(0,0,w2+6,h2+6),2,border_radius=6)
-            pygame.draw.rect(sf,(*a.color[:3],alpha),(3,3,w2,h2),border_radius=4)
+        if w2<1 and h2<1: w2=h2=8
+        sf=pygame.Surface((max(w2,20)+8,max(h2,20)+8),pygame.SRCALPHA)
+        cc=cx_s=max(w2,20)//2+4; cy_s=max(h2,20)//2+4
+
+        # ── Summon: green outline ──
+        if a.homing>0 and a.hit_cd>=0.4:
+            pygame.draw.rect(sf,(80,255,80,alpha//2),(2,2,max(w2,14),max(h2,14)),2,border_radius=4)
+            pygame.draw.rect(sf,(*a.color[:3],alpha),(4,4,max(w2,10),max(h2,10)),border_radius=3)
+
+        # ── Freeze beam ──
         elif a.freeze_dur>0:
-            pygame.draw.line(sf,(*a.color,alpha),(w2//2+3,0),(w2//2+3,h2+6),max(2,w2))
+            pygame.draw.line(sf,(*a.color,alpha),(cx_s,0),(cx_s,max(h2,20)+8),max(3,w2))
+            pygame.draw.line(sf,(*WHITE,alpha//2),(cx_s,0),(cx_s,max(h2,20)+8),1)
+
+        # ── Expanding area (fire ring, pentagram, poison, etc) ──
         elif a.expand>0:
-            pygame.draw.circle(sf,(*a.color,alpha),(w2//2+3,h2//2+3),max(2,w2//2),max(2,int(4-t*3)))
+            radius=max(2,w2//2)
+            if a.color==C_POIS:
+                # Poison: green bubbles
+                for i in range(5):
+                    bx2=cx_s+int(math.sin(a.age*3+i)*radius*0.3)
+                    by2=cy_s+int(math.cos(a.age*4+i)*radius*0.3)
+                    pygame.draw.circle(sf,(*C_POIS[:3],alpha//3),(bx2,by2),random.randint(3,6))
+                pygame.draw.circle(sf,(*C_POIS[:3],alpha//2),(cx_s,cy_s),radius,2)
+            else:
+                pygame.draw.circle(sf,(*a.color[:3],alpha//2),(cx_s,cy_s),radius,3)
+                pygame.draw.circle(sf,(*a.color[:3],alpha//4),(cx_s,cy_s),max(1,radius-4))
+
+        # ── Thunder/Lightning ──
         elif a.color==C_THUN:
-            pygame.draw.ellipse(sf,(*a.color,alpha//2),(0,0,w2+6,h2+6))
-            pygame.draw.ellipse(sf,(*WHITE,alpha),(w2//4,h2//4,w2//2+w2//4,h2//2+h2//4))
+            # Lightning bolt effect
+            pygame.draw.circle(sf,(*C_THUN[:3],alpha//3),(cx_s,cy_s),max(4,w2//2))
+            pygame.draw.circle(sf,(*WHITE,alpha),(cx_s,cy_s),max(2,w2//4))
+            # Jagged lines
+            for i in range(4):
+                ang=i/4*math.tau+a.age*5
+                ex=cx_s+int(math.cos(ang)*w2*0.4)
+                ey=cy_s+int(math.sin(ang)*h2*0.4)
+                pygame.draw.line(sf,(*WHITE,alpha),(cx_s,cy_s),(ex,ey),2)
+
+        # ── Laser/Corridor ──
         elif a.color==C_CORR:
-            pygame.draw.rect(sf,(*a.color,alpha),(3,3,w2,h2))
-            glow=pygame.Surface((w2+10,h2+10),pygame.SRCALPHA)
-            pygame.draw.rect(glow,(*a.color[:3],alpha//3),(0,0,w2+10,h2+10))
-            surf.blit(glow,(x-5,y-5))
+            pygame.draw.rect(sf,(*a.color[:3],alpha),(2,cy_s-3,max(w2,20),6))
+            glow=pygame.Surface((max(w2,20)+12,16),pygame.SRCALPHA)
+            pygame.draw.rect(glow,(*a.color[:3],alpha//3),(0,0,max(w2,20)+12,16))
+            surf.blit(glow,(x-6,y-8))
+
+        # ── Cross boomerang ──
+        elif a.color==C_CROSS:
+            sz=max(6,w2//2)
+            pygame.draw.line(sf,(*C_CROSS,alpha),(cx_s-sz,cy_s),(cx_s+sz,cy_s),3)
+            pygame.draw.line(sf,(*C_CROSS,alpha),(cx_s,cy_s-sz),(cx_s,cy_s+sz),3)
+            pygame.draw.circle(sf,(*WHITE,alpha//2),(cx_s,cy_s),3)
+
+        # ── Axes (rotating) ──
+        elif a.color==C_AXE:
+            ang=a.age*12
+            sz=max(6,w2//2)
+            for i in range(4):
+                ea=ang+i*math.pi/2
+                ex=cx_s+int(math.cos(ea)*sz)
+                ey=cy_s+int(math.sin(ea)*sz)
+                pygame.draw.line(sf,(*C_AXE,alpha),(cx_s,cy_s),(ex,ey),3)
+            pygame.draw.circle(sf,(*WHITE,alpha//3),(cx_s,cy_s),2)
+
+        # ── Bones ──
+        elif a.color==C_BONE:
+            ang=math.atan2(a.vel[1],a.vel[0]) if abs(a.vel[0])>1 or abs(a.vel[1])>1 else 0
+            sz=max(6,w2//2)
+            ex=cx_s+int(math.cos(ang)*sz); ey=cy_s+int(math.sin(ang)*sz)
+            sx2=cx_s-int(math.cos(ang)*sz); sy2=cy_s-int(math.sin(ang)*sz)
+            pygame.draw.line(sf,(*C_BONE,alpha),(sx2,sy2),(ex,ey),3)
+            pygame.draw.circle(sf,(*C_BONE,alpha),(ex,ey),3)
+            pygame.draw.circle(sf,(*C_BONE,alpha),(sx2,sy2),3)
+
+        # ── Missiles (arrow/teardrop) ──
+        elif a.color==C_MISS:
+            ang=math.atan2(a.vel[1],a.vel[0]) if (abs(a.vel[0])>1 or abs(a.vel[1])>1) else 0
+            sz=6
+            pts=[]
+            pts.append((cx_s+int(math.cos(ang)*sz*1.5),cy_s+int(math.sin(ang)*sz*1.5)))
+            pts.append((cx_s+int(math.cos(ang+2.5)*sz),cy_s+int(math.sin(ang+2.5)*sz)))
+            pts.append((cx_s+int(math.cos(ang-2.5)*sz),cy_s+int(math.sin(ang-2.5)*sz)))
+            pygame.draw.polygon(sf,(*C_MISS,alpha),pts)
+            pygame.draw.circle(sf,(*WHITE,alpha//2),(cx_s,cy_s),2)
+
+        # ── Knives (thin lines) ──
+        elif a.color in (C_KNIFE,(240,240,255)):
+            ang=math.atan2(a.vel[1],a.vel[0]) if (abs(a.vel[0])>1 or abs(a.vel[1])>1) else 0
+            sz=8
+            ex=cx_s+int(math.cos(ang)*sz); ey=cy_s+int(math.sin(ang)*sz)
+            sx2=cx_s-int(math.cos(ang)*sz); sy2=cy_s-int(math.sin(ang)*sz)
+            pygame.draw.line(sf,(*WHITE,alpha),(sx2,sy2),(ex,ey),2)
+            pygame.draw.circle(sf,(*C_KNIFE,alpha),(ex,ey),2)
+
+        # ── Fire ──
+        elif a.color==C_FIRE:
+            for i in range(3):
+                r2=max(2,w2//2-i*3)
+                a2=max(10,alpha-i*60)
+                pygame.draw.circle(sf,(255,140+i*30,40,a2),(cx_s,cy_s-i*2),r2)
+
+        # ── Water drops ──
+        elif a.color==C_WATER:
+            pygame.draw.circle(sf,(*C_WATER[:3],alpha),(cx_s,cy_s),max(3,w2//3))
+            pygame.draw.circle(sf,(*WHITE,alpha//3),(cx_s-1,cy_s-1),max(1,w2//6))
+
+        # ── Victory Sword / Moonlight (big arc) ──
+        elif a.color in (C_VSWORD,C_MOON,C_VAND):
+            pygame.draw.rect(sf,(*a.color[:3],alpha),(2,2,max(w2,20),max(h2,20)),border_radius=6)
+            # Glow
+            pygame.draw.rect(sf,(*WHITE,alpha//4),(4,4,max(w2,16),max(h2,16)),border_radius=4)
+
+        # ── Shield pulse ──
+        elif a.color==C_LAUREL:
+            pygame.draw.circle(sf,(*C_LAUREL[:3],alpha//2),(cx_s,cy_s),max(4,w2//2),3)
+            pygame.draw.circle(sf,(*C_LAUREL[:3],alpha//4),(cx_s,cy_s),max(2,w2//3))
+
+        # ── Mortalha/Pentagrama burst (no expand) ──
+        elif a.color in (C_SHROUD,C_PENTA):
+            pygame.draw.circle(sf,(*a.color[:3],alpha//2),(cx_s,cy_s),max(4,w2//2),2)
+            for i in range(5):
+                ang=i/5*math.tau-math.pi/2
+                px3=cx_s+int(math.cos(ang)*w2*0.3)
+                py3=cy_s+int(math.sin(ang)*h2*0.3)
+                pygame.draw.circle(sf,(*a.color[:3],alpha//3),(px3,py3),3)
+
+        # ── Trail (pinion) ──
+        elif a.color==C_PINION:
+            pygame.draw.circle(sf,(*C_PINION[:3],alpha),(cx_s,cy_s),max(3,w2//2))
+            pygame.draw.circle(sf,(*WHITE,alpha//3),(cx_s,cy_s),max(1,w2//4))
+
+        # ── Generic fallback ──
         else:
-            pygame.draw.rect(sf,(*a.color,alpha),(3,3,w2,h2),border_radius=4)
-        surf.blit(sf,(x-3,y-3))
+            pygame.draw.rect(sf,(*a.color[:3],alpha),(2,2,max(w2,16),max(h2,16)),border_radius=4)
+
+        surf.blit(sf,(x-4,y-4))
+
+    # ── Orbit orbs ──
+    for w in pl.weapons:
+        if w.wtype() in ('orbit_proj','orbit'):
+            st_c=int(w.stat('ct')); st_r=w.stat('rad'); st_sz=int(w.stat('sz',8))
+            for i in range(max(1,st_c)):
+                ang=w.orbit_angle+i*(math.tau/st_c)
+                opx=pl.cx+math.cos(ang)*st_r-ox; opy=pl.cy+math.sin(ang)*st_r-oy
+                # Bible = book shape; others = circle
+                if w.color()==C_BIBLE:
+                    pygame.draw.rect(surf,w.color(),(int(opx-st_sz//2),int(opy-st_sz//2),st_sz,st_sz),border_radius=2)
+                    pygame.draw.line(surf,WHITE,(int(opx),int(opy-st_sz//2)),(int(opx),int(opy+st_sz//2)),1)
+                else:
+                    pygame.draw.circle(surf,w.color(),(int(opx),int(opy)),st_sz)
+                    pygame.draw.circle(surf,WHITE,(int(opx),int(opy)),max(1,st_sz-3))
 
 def draw_hud(surf,pl,t,kills,achs_new):
     bw2=200; bx2,by2=20,16
@@ -1220,8 +1386,15 @@ def draw_hud(surf,pl,t,kills,achs_new):
         wx=20+i*42
         col=w.color()
         if w.evolved: col=EVO_C
-        pygame.draw.rect(surf,col,(wx,wy,34,34),border_radius=5)
-        rtxt(surf,FONT_S,str(w.level),(wx+12,wy+10),WHITE)
+        # Solid color card instead of empty square
+        pygame.draw.rect(surf,col,(wx,wy,34,34),border_radius=6)
+        # Darker inner
+        inner=tuple(max(0,c-60) for c in col)
+        pygame.draw.rect(surf,inner,(wx+3,wy+3,28,28),border_radius=4)
+        rtxt(surf,FONT_S,str(w.level),(wx+12,wy+8),WHITE)
+        # Weapon initial letter
+        letter=w.name()[0].upper()
+        rtxt(surf,FONT_S,letter,(wx+18,wy+18),WHITE)
     kwy=wy
     for i,lv in enumerate(pl.know):
         if lv>0:
@@ -1436,6 +1609,12 @@ def main():
                     w.timer=max(0.1,w.stat('cd'))
                     na=w.fire(pl.cx,pl.cy,pl.face,enemies,pstats)
                     attacks.extend(na)
+                    if na and w.wtype()=='melee':
+                        # Big slash particle effect
+                        pl.part.directed([pl.cx+pl.face*30,pl.cy],
+                                        [pl.face,-0.3],6,1.0,150,.25,4,w.color())
+                        pl.part.directed([pl.cx+pl.face*30,pl.cy],
+                                        [pl.face,0.3],6,1.0,150,.25,4,w.color())
                     if na: cam.shake(2,0.05)
 
             for w in pl.weapons:
