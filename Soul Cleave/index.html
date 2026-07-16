@@ -408,7 +408,7 @@
       vida:cfg.vida,vidaMax:cfg.vida,vel:cfg.velocidade,dano:cfg.dano,
       raio:cfg.raioHitbox,kbRes:cfg.resistenciaKnockback,pts:cfg.pontos,corP:cfg.corParticula,
       kbX:0,kbY:0,flash:0,impactFlash:0,anim:rand(0,10),
-      est:'idle',tEst:rand(0.5,1.5),
+       est:chefe?'perseguindo':'idle',tEst:chefe?rand(2,3):rand(0.5,1.5),
       iPD:cfg.intervaloPulo||0,dP:cfg.duracaoPulo||0,mP:cfg.multPulo||0,vxP:0,vyP:0,
       ampE:cfg.amplitudeErratica||0,freqA:cfg.frequenciaAsas||8,
       dPrep:cfg.duracaoPreparando||0,dAtk:cfg.duracaoAtacando||0,dRcp:cfg.duracaoRecuperacao||0,
@@ -711,7 +711,7 @@
   }
 
   function desenharEspada(atk){
-    const b=jogador.especialAtivo&&!jogador.dashTimer>0;
+   const b=jogador.especialAtivo&&jogador.dashTimer<=0;
     ctx.fillStyle=atk?(b?'#ffe880':'#dce4ee'):(b?'#c8a830':'#a0a8b4');ctx.fillRect(-1.5,-42,3,28);
     ctx.beginPath();ctx.moveTo(-1.5,-42);ctx.lineTo(0,-46);ctx.lineTo(1.5,-42);ctx.fill();
     ctx.fillStyle=atk?(b?'rgba(255,240,150,0.5)':'rgba(255,255,255,0.4)'):(b?'rgba(255,240,150,0.2)':'rgba(255,255,255,0.12)');ctx.fillRect(0.3,-40,1,24);
@@ -822,8 +822,6 @@
       ctx.globalAlpha=al*0.3;ctx.fillStyle='#aa5020';ctx.beginPath();ctx.arc(0,18,raio*1.3,0,Math.PI*2);ctx.fill();ctx.restore();
     }
 
-    // Telegraph ring (preparando)
-    if(e.est==='telegraph'&&!fl){ctx.save();ctx.globalAlpha=0.4+Math.sin(e.anim*22)*0.3;ctx.strokeStyle='#cc2222';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,0,28,0,Math.PI*2);ctx.stroke();ctx.restore();}
   }
 
   function dBarraV(e){
