@@ -3,7 +3,10 @@
  - CRIAR:
 `python -m venv .venv`
 
- - ATIVAR:
+ - ATIVAR (linux):
 `source .venv/bin/activate`
+
+ - ATIVAR (winons):
+`source .venv/Scripts/activate`
 
 ## END

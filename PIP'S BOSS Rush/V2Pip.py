@@ -1677,7 +1677,7 @@ def u_bullets(dt):
     # Terminal unlock check
     if not terminal_unlocked and not crash_overlay:
         terminal_proj_peak = max(terminal_proj_peak, len(pB))
-        if terminal_proj_peak>=2:
+        if terminal_proj_peak>=25:
             crash_overlay = {'timer':0,'msg_idx':0,'next_msg':1000}
 
     # Terminal DELETE zone update
