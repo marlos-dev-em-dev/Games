@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Fases - A Torre dos Gnomos</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#16162a;color:#d4d4e0;font-family:'Nunito',sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+#topbar{background:#1e1e38;border-bottom:1px solid #2e2e4a;padding:8px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+#topbar h1{font-family:'Fredoka One';font-size:18px;color:#ffd700;white-space:nowrap}
+.sep{width:1px;height:28px;background:#3a3a5c}
+.btn{background:#2a2a48;color:#c0c0d8;border:1px solid #3a3a5c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Nunito';font-weight:600;transition:all 0.15s;white-space:nowrap}
+.btn:hover{background:#3a3a5c;border-color:#5a5a7c}
+.btn.g{border-color:#ffd700;color:#ffd700}.btn.g:hover{background:rgba(255,215,0,0.12)}
+.btn.gn{border-color:#5cb85c;color:#5cb85c}.btn.gn:hover{background:rgba(92,184,92,0.12)}
+.btn.r{border-color:#e63946;color:#e63946}.btn.r:hover{background:rgba(230,57,70,0.12)}
+.btn.b{border-color:#457b9d;color:#6cb8d9}.btn.b:hover{background:rgba(69,123,157,0.12)}
+.btn.o{border-color:#ff8844;color:#ff8844}.btn.o:hover{background:rgba(255,136,68,0.12)}
+select,input[type=text],textarea{background:#252540;color:#d4d4e0;border:1px solid #3a3a5c;border-radius:5px;padding:5px 8px;font-size:12px;font-family:'Nunito'}
+select{min-width:140px}input[type=text]{min-width:100px}
+textarea{resize:vertical;min-height:36px;width:100%}
+label.ck{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer}
+label.ck input{accent-color:#ffd700}
+#main{display:flex;flex:1;overflow:hidden}
+#tools{width:140px;background:#1a1a32;border-right:1px solid #2e2e4a;padding:8px;overflow-y:auto;flex-shrink:0}
+#tools h3{font-size:10px;color:#7777aa;text-transform:uppercase;letter-spacing:1px;margin:10px 0 5px}
+#tools h3:first-child{margin-top:2px}
+.tb{display:flex;align-items:center;gap:6px;width:100%;padding:5px 6px;margin-bottom:2px;background:transparent;border:1.5px solid transparent;border-radius:4px;cursor:pointer;font-size:10px;color:#9999bb;font-family:'Nunito';font-weight:600;transition:all 0.1s;text-align:left}
+.tb:hover{background:#22223e;border-color:#3a3a5c}
+.tb.on{background:#282848;border-color:#ffd700;color:#ffd700}
+.sw{width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.1)}
+#canvas-area{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:16px;background:#101024}
+canvas{border:2px solid #2e2e4a;border-radius:3px;cursor:crosshair;flex-shrink:0}
+#props{width:210px;background:#1a1a32;border-left:1px solid #2e2e4a;padding:10px;overflow-y:auto;flex-shrink:0}
+#props h3{font-size:10px;color:#7777aa;text-transform:uppercase;letter-spacing:1px;margin:12px 0 5px}
+#props h3:first-child{margin-top:2px}
+.pr{margin-bottom:6px}
+#acts{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid #2e2e4a}
+#info{background:#1e1e38;border-top:1px solid #2e2e4a;padding:5px 16px;font-size:10px;color:#6666aa;display:flex;gap:20px;flex-shrink:0}
+#fi{display:none}
+#exp-all{margin-top:8px;padding-top:8px;border-top:1px solid #2e2e4a}
+#exp-all .btn{width:100%;text-align:center;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div id="topbar">
+<h1>Editor de Fases</h1><div class="sep"></div>
+<select id="ls" onchange="selLv(+this.value)"></select>
+<button class="btn g" onclick="nw()">+ Nova</button>
+<button class="btn b" onclick="dup()">Duplicar</button>
+<button class="btn r" onclick="del()">Excluir</button>
+<div class="sep"></div>
+<label style="font-size:11px;color:#8888aa">Nome:</label>
+<input type="text" id="nm" placeholder="Nome da fase" onchange="setName(this.value)">
+</div>
+<div id="main">
+<div id="tools"><h3>Ferramentas</h3><div id="tl"></div></div>
+<div id="canvas-area"><canvas id="cv"></canvas></div>
+<div id="props">
+<h3>Dica</h3><div class="pr"><textarea id="ht" placeholder="Texto de dica..." onchange="setHint(this.value)"></textarea></div>
+<h3>Poderes</h3>
+<label class="ck"><input type="checkbox" id="pd" onchange="setPow()">Pulo Duplo (Bartolomeu)</label>
+<label class="ck"><input type="checkbox" id="pb" onchange="setPow()">Quebrar Pedras (Bartas)</label>
+<h3>Porta Trancada</h3><div class="pr"><select id="db" onchange="setDB(this.value)"><option value="">Sem trava</option><option value="a">Botão A</option><option value="b">Botão B</option></select></div>
+<h3>Exportar Fase Atual</h3>
+<div id="acts">
+<button class="btn g" onclick="expOne()">📄 Exportar faseN.json</button>
+<button class="btn" onclick="imp()">📂 Importar JSON</button>
+<div style="width:100%;height:2px"></div>
+<button class="btn r" onclick="clr()">🗑 Limpar Grade</button>
+</div>
+<h3 id="exp-all">Exportar Todas</h3>
+<button class="btn o" onclick="expAll()">📦 Baixar todas (sequencial)</button>
+<p style="font-size:9px;color:#555;margin-top:6px">Cada clique baixa uma fase como fase1.json, fase2.json... Coloque os arquivos na pasta <b>fases/</b> junto do jogo.</p>
+<h3 style="margin-top:14px">Atalhos</h3>
+<div style="font-size:10px;color:#6666aa;line-height:1.8">
+<b>Click esq</b> → Colocar<br><b>Click dir</b> → Apagar<br><b>Arrastar</b> → Pintar<br><b>Ctrl+Z</b> → Desfazer<br><b>Ctrl+S</b> → Salvar
+</div>
+</div>
+</div>
+<div id="info"><span id="ip">-</span><span id="it">-</span><span id="il">-</span></div>
+<input type="file" id="fi" accept=".json" onchange="handleImp(event)">
+<script>
+"use strict";
+var T=40,C=24,R=16,cv=document.getElementById('cv'),X=cv.getContext('2d');
+cv.width=C*T;cv.height=R*T;
+var PI=Math.PI,PI2=PI*2;
+var TOOLS=[
+{ch:' ',lb:'Vazio',cl:'#222238'},
+{ch:'G',lb:'Terra',cl:'#5cb85c'},
+{ch:'#',lb:'Tijolo',cl:'#8a7a6a'},
+{ch:'W',lb:'Trepadeira',cl:'#6a8a5a'},
+{ch:'q',lb:'Plataf. A',cl:'#88aacc'},
+{ch:'x',lb:'Plataf. B',cl:'#cc8844'},
+{ch:'h',lb:'Gancho',cl:'#c8a050'},
+{ch:'a',lb:'Telep. A',cl:'#8844ff'},
+{ch:'b',lb:'Telep. B',cl:'#44aaff'},
+{ch:'t',lb:'Botão A',cl:'#44aaff'},
+{ch:'u',lb:'Botão B',cl:'#ff8844'},
+{ch:'R',lb:'P. Rachada',cl:'#9a8a7a'},
+{ch:'B',lb:'Caixa',cl:'#b8945a'},
+{ch:'D',lb:'Porta',cl:'#ffd700'},
+{ch:'1',lb:'Spawn B1',cl:'#e63946'},
+{ch:'2',lb:'Spawn B2',cl:'#457b9d'}
+];
+var lvs=[],ci=0,sel='G',grid=[],drawing=false,dm=null,undo=[],hc={r:-1,c:-1};
+var TK={};for(var i=0;i<TOOLS.length;i++)TK[TOOLS[i].ch]=TOOLS[i];
+
+function initG(){grid=[];for(var r=0;r<R;r++){grid[r]=[];for(var c=0;c<C;c++)grid[r][c]=' '}}
+function g2m(){var m=[];for(var r=0;r<R;r++){var s='';for(var c=0;c<C;c++)s+=grid[r][c];m.push(s)}return m}
+function m2g(m){grid=[];for(var r=0;r<R;r++){grid[r]=[];var s=m[r]||'';for(var c=0;c<C;c++)grid[r][c]=c<s.length?s[c]:' '}}
+function sg(){if(lvs[ci])lvs[ci].map=g2m()}
+function lg(i){if(!lvs[i])return;m2g(lvs[i].map);$('nm').value=lvs[i].name||'';$('ht').value=lvs[i].hint||'';$('pd').checked=lvs[i].powers?lvs[i].powers.dj:false;$('pb').checked=lvs[i].powers?lvs[i].powers.brk:false;$('db').value=lvs[i].doorBtn||''}
+function $(id){return document.getElementById(id)}
+
+function nw(){sg();var l={name:'Fase '+(lvs.length+1),hint:'',powers:{dj:false,brk:false},map:[]};for(var r=0;r<R;r++){var s='';for(var c=0;c<C;c++)s+=' ';l.map.push(s)}lvs.push(l);ci=lvs.length-1;lg(ci);updUI()}
+function dup(){sg();if(!lvs[ci])return;var c=JSON.parse(JSON.stringify(lvs[ci]));c.name+=' (cópia)';lvs.push(c);ci=lvs.length-1;lg(ci);updUI()}
+function del(){if(lvs.length<=1)return alert('Precisa de pelo menos 1 fase.');if(!confirm('Excluir "'+lvs[ci].name+'"?'))return;lvs.splice(ci,1);if(ci>=lvs.length)ci=lvs.length-1;lg(ci);updUI();dr()}
+function selLv(i){sg();ci=i;lg(ci);updUI();dr()}
+function setName(v){if(lvs[ci]){lvs[ci].name=v;updSel()}}
+function setHint(v){if(lvs[ci])lvs[ci].hint=v}
+function setPow(){if(lvs[ci]){if(!lvs[ci].powers)lvs[ci].powers={};lvs[ci].powers.dj=$('pd').checked;lvs[ci].powers.brk=$('pb').checked}}
+function setDB(v){if(lvs[ci])lvs[ci].doorBtn=v||undefined}
+function updSel(){var s=$('ls');s.innerHTML='';for(var i=0;i<lvs.length;i++){var o=document.createElement('option');o.value=i;o.textContent=(i+1)+'. '+(lvs[i].name||'???');if(i===ci)o.selected=true;s.appendChild(o)}$('il').textContent='Fases: '+lvs.length+' | Selecionada: '+(ci+1)}
+function updUI(){updSel()}
+
+function buildTools(){var t=$('tl');t.innerHTML='';for(var i=0;i<TOOLS.length;i++){var b=document.createElement('button');b.className='tb'+(TOOLS[i].ch===sel?' on':'');b.dataset.ch=TOOLS[i].ch;b.innerHTML='<span class="sw" style="background:'+TOOLS[i].cl+'"></span>'+TOOLS[i].lb;b.onclick=(function(ch){return function(){selT(ch)}})(TOOLS[i].ch);t.appendChild(b)}}
+function selT(ch){sel=ch;var bs=document.querySelectorAll('.tb');for(var i=0;i<bs.length;i++)bs[i].classList.toggle('on',bs[i].dataset.ch===ch);var t=TK[ch];$('it').textContent='Ferramenta: '+(t?t.lb:ch)}
+function pushU(){undo.push(JSON.parse(JSON.stringify(grid)));if(undo.length>40)undo.shift()}
+function undoF(){if(undo.length>0){grid=undo.pop();dr()}}
+function clr(){if(!confirm('Limpar grade?'))return;pushU();for(var r=0;r<R;r++)for(var c=0;c<C;c++)grid[r][c]=' ';dr()}
+
+function dr(){X.clearRect(0,0,cv.width,cv.height);X.fillStyle='#181830';X.fillRect(0,0,cv.width,cv.height);
+for(var r=0;r<R;r++)for(var c=0;c<C;c++){var ch=grid[r][c],x=c*T,y=r*T;
+  if(ch===' '){if((r+c)%2===0){X.fillStyle='rgba(255,255,255,0.015)';X.fillRect(x,y,T,T)}continue}
+  if(ch==='G'){X.fillStyle='#5cb85c';X.fillRect(x,y,T,T);X.fillStyle='#6dce6d';X.fillRect(x,y,T,7)}
+  else if(ch==='#'){X.fillStyle='#8a7a6a';X.fillRect(x,y,T,T);X.strokeStyle='rgba(0,0,0,0.15)';X.lineWidth=1;X.strokeRect(x+.5,y+.5,T-1,T/2-1);X.strokeRect(x+T/4,y+T/2,T/2,T/2-1)}
+  else if(ch==='W'){X.fillStyle='#6a8a5a';X.fillRect(x,y,T,T);X.strokeStyle='#3a6a2a';X.lineWidth=2;X.beginPath();X.moveTo(x+T/3,y);X.quadraticCurveTo(x+T/2,y+T/2,x+T/3,y+T);X.stroke();X.beginPath();X.moveTo(x+T*2/3,y);X.quadraticCurveTo(x+T/2,y+T/2,x+T*2/3,y+T);X.stroke()}
+  else if(ch==='q'){X.fillStyle='#88aacc';X.fillRect(x,y,T,T);X.strokeStyle='#aaccee';X.lineWidth=1;X.strokeRect(x+1,y+1,T-2,T-2);dTx(x,y,'q','#fff',10)}
+  else if(ch==='x'){X.fillStyle='#cc8844';X.fillRect(x,y,T,T);X.strokeStyle='#eeaa66';X.lineWidth=1;X.strokeRect(x+1,y+1,T-2,T-2);dTx(x,y,'x','#fff',10)}
+  else if(ch==='h'){X.fillStyle='rgba(200,160,80,0.12)';X.fillRect(x,y,T,T);X.fillStyle='#8b7355';X.beginPath();X.arc(x+T/2,y+T/2,7,0,PI2);X.fill();X.strokeStyle='#6b5335';X.lineWidth=3;X.beginPath();X.moveTo(x+T/2,y+8);X.lineTo(x+T/2,y+T/2);X.stroke()}
+  else if(ch==='a'){dCi(x,y,'#8844ff','A')}else if(ch==='b'){dCi(x,y,'#44aaff','B')}
+  else if(ch==='t'){X.fillStyle='rgba(68,170,255,0.12)';X.fillRect(x,y,T,T);X.fillStyle='#44aaff';X.beginPath();X.ellipse(x+T/2,y+T*.7,12,5,0,0,PI2);X.fill();dTx(x,y,'BtnA','#fff',9)}
+  else if(ch==='u'){X.fillStyle='rgba(255,136,68,0.12)';X.fillRect(x,y,T,T);X.fillStyle='#ff8844';X.beginPath();X.ellipse(x+T/2,y+T*.7,12,5,0,0,PI2);X.fill();dTx(x,y,'BtnB','#fff',9)}
+  else if(ch==='R'){X.fillStyle='#9a8a7a';X.fillRect(x+2,y+2,T-4,T-4);X.strokeStyle='#7a6a5a';X.lineWidth=2;X.strokeRect(x+2,y+2,T-4,T-4);X.strokeStyle='rgba(40,30,20,0.5)';X.lineWidth=1.5;X.beginPath();X.moveTo(x+8,y+5);X.lineTo(x+T/2,y+T/2);X.lineTo(x+8,y+T-5);X.stroke()}
+  else if(ch==='B'){X.fillStyle='#b8945a';X.fillRect(x+2,y+2,T-4,T-4);X.strokeStyle='#8b6914';X.lineWidth=2;X.strokeRect(x+2,y+2,T-4,T-4)}
+  else if(ch==='D'){X.fillStyle='rgba(255,215,0,0.15)';X.fillRect(x,y,T,T);X.fillStyle='#daa520';X.fillRect(x+4,y+4,T-8,T-8);X.fillStyle='#8b5e3c';X.fillRect(x+7,y+7,T-14,T-14);X.fillStyle='#ffd700';X.beginPath();X.arc(x+T-12,y+T/2,3,0,PI2);X.fill()}
+  else if(ch==='1'){X.fillStyle='rgba(230,57,70,0.12)';X.fillRect(x,y,T,T);X.fillStyle='#e63946';X.beginPath();X.arc(x+T/2,y+T/2,13,0,PI2);X.fill();dTx(x,y,'1','#fff',14,'Fredoka One')}
+  else if(ch==='2'){X.fillStyle='rgba(69,123,157,0.12)';X.fillRect(x,y,T,T);X.fillStyle='#457b9d';X.beginPath();X.arc(x+T/2,y+T/2,13,0,PI2);X.fill();dTx(x,y,'2','#fff',14,'Fredoka One')}
+}
+if(hc.r>=0&&hc.r<R&&hc.c>=0&&hc.c<C){X.fillStyle='rgba(255,255,255,0.08)';X.fillRect(hc.c*T,hc.r*T,T,T);X.strokeStyle='rgba(255,255,255,0.4)';X.lineWidth=2;X.strokeRect(hc.c*T+1,hc.r*T+1,T-2,T-2)}
+X.strokeStyle='rgba(255,255,255,0.05)';X.lineWidth=1;for(var r=0;r<=R;r++){X.beginPath();X.moveTo(0,r*T);X.lineTo(cv.width,r*T);X.stroke()}for(var c=0;c<=C;c++){X.beginPath();X.moveTo(c*T,0);X.lineTo(c*T,cv.height);X.stroke()}}
+function dTx(x,y,t,cl,sz,fn){X.fillStyle=cl;X.font='bold '+(sz||10)+'px '+(fn||'Nunito');X.textAlign='center';X.textBaseline='middle';X.fillText(t,x+T/2,y+T/2)}
+function dCi(x,y,cl,t){X.fillStyle=cl+'18';X.fillRect(x,y,T,T);X.fillStyle=cl;X.beginPath();X.arc(x+T/2,y+T/2,12,0,PI2);X.fill();dTx(x,y,t,'#fff',12)}
+
+function gc(e){var r=cv.getBoundingClientRect();return{c:Math.floor((e.clientX-r.left)*(cv.width/r.width)/T),r:Math.floor((e.clientY-r.top)*(cv.height/r.height)/T)}}
+cv.addEventListener('mousedown',function(e){e.preventDefault();var p=gc(e);if(p.r<0||p.r>=R||p.c<0||p.c>=C)return;pushU();drawing=true;if(e.button===2){dm='e';grid[p.r][p.c]=' '}else{dm='p';grid[p.r][p.c]=sel}dr()});
+cv.addEventListener('mousemove',function(e){var p=gc(e);hc=p;if(drawing&&p.r>=0&&p.r<R&&p.c>=0&&p.c<C){if(dm==='e')grid[p.r][p.c]=' ';else grid[p.r][p.c]=sel}$('ip').textContent='Grade: '+p.c+','+p.r;dr()});
+cv.addEventListener('mouseup',function(){drawing=false});
+cv.addEventListener('mouseleave',function(){drawing=false;hc={r:-1,c:-1};dr()});
+cv.addEventListener('contextmenu',function(e){e.preventDefault()});
+document.addEventListener('keydown',function(e){if(e.ctrlKey&&e.key==='z'){e.preventDefault();undoF()}if(e.ctrlKey&&e.key==='s'){e.preventDefault();svLocal()}});
+
+function svLocal(){sg();localStorage.setItem('tg_levels',JSON.stringify(lvs));alert('Salvo no navegador!')}
+function ldLocal(){var d=localStorage.getItem('tg_levels');if(d){try{lvs=JSON.parse(d);if(lvs.length>0){ci=0;lg(0)}return true}catch(e){}}return false}
+
+/* EXPORT: individual faseN.json */
+function expOne(){sg();var l=lvs[ci];if(!l)return;dn(JSON.stringify(l,null,2),'fase'+(ci+1)+'.json','application/json')}
+
+/* EXPORT ALL: downloads one by one with delay */
+var _expQ=[],_expI=0;
+function expAll(){sg();_expQ=[];for(var i=0;i<lvs.length;i++)_expQ.push({data:JSON.stringify(lvs[i],null,2),name:'fase'+(i+1)+'.json'});_expI=0;expNext()}
+function expNext(){if(_expI>=_expQ.length){alert('Exportadas '+_expQ.length+' fases!');return}var e=_expQ[_expI];dn(e.data,e.name,'application/json');_expI++;setTimeout(expNext,600)}
+
+function imp(){$('fi').click()}
+function handleImp(e){var f=e.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(Array.isArray(d))for(var i=0;i<d.length;i++)lvs.push(d[i]);else if(d.map)lvs.push(d);ci=lvs.length-1;lg(ci);updUI();dr()}catch(er){alert('Erro: '+er.message)}};rd.readAsText(f);e.target.value=''}
+function dn(c,n,t){var b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)}
+
+buildTools();
+if(!ldLocal()){lvs=[{name:"O Começo",hint:"A/D mover · W pular · Espaço troca · Suba no outro gnomo!",powers:{dj:false,brk:false},map:["                        ","                        ","                        ","                        ","                        ","                        ","                        ","                        ","                        ","                        ","                        ","                        ","                    D   "," 1 2               ##   ","GGGGGGGGG   GGGGGGGGGGG","GGGGGGGGG   GGGGGGGGGGG"]}];ci=0}
+lg(ci);updUI();selT('G');dr();
+</script>
+</body>
+</html>

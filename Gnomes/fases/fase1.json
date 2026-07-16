@@ -1,0 +1,26 @@
+{
+  "name": "Primeiros Passos",
+  "hint": "A/D mover · W pular · Espaço troca · Suba no outro gnomo!",
+  "powers": {
+    "dj": false,
+    "brk": false
+  },
+  "map": [
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                        ",
+    "                   D    ",
+    "                  ###   ",
+    "                        ",
+    " 1 2                    ",
+    "GGGGGGGGG   GGGGGGGGGGG ",
+    "GGGGGGGGG   GGGGGGGGGGG "
+  ]
+}
