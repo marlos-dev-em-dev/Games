@@ -1,0 +1,26 @@
+{
+  "name": "Quebrando barreiras",
+  "hint": "Use Bartas para quebrar pedras rachadas",
+  "powers": {
+    "dj": true,
+    "brk": true
+  },
+  "map": [
+    "        #               ",
+    "        #               ",
+    "        #               ",
+    "        #               ",
+    "        #               ",
+    "        #               ",
+    "        #               ",
+    "        #               ",
+    "        ######          ",
+    "          RR            ",
+    "          RR         D  ",
+    "          RR        ### ",
+    "          RR            ",
+    " 12       RR            ",
+    "GGGGG   GGGGGGGGGGGGGGGG",
+    "GGGGG   GGGGGGGGGGGGGGGG"
+  ]
+}
