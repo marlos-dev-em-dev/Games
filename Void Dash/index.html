@@ -77,7 +77,7 @@ var skinHover=-1;
 var indexScroll=0,skinScroll=0,skinMaxScroll=0,shopScroll=0,shopMaxScroll=0;
 var coffeeLetterIdx=0;
 var cardPickCounts={};
-var cardLimits={vitality:3,power:3,swift:3,mend:3,rapid:3,pierce:3,shield:999,thorns:3,dashm:3,crit:3,dblshot:2,magnet:3,explosive:3,vampire:1,bulkup:3,multishot:2,lifesteal:1,glass:3,overclock:3,bigshot:3,turret:1,fireorbs:2};
+var cardLimits={vitality:3,power:3,swift:3,mend:3,rapid:3,pierce:2,shield:999,thorns:3,dashm:3,crit:3,dblshot:2,magnet:3,explosive:3,vampire:1,bulkup:3,multishot:2,lifesteal:1,glass:2,overclock:3,bigshot:3,turret:1,fireorbs:2};
 var rupturePhase=0;
 var infiniteMode=false;
 var infiniteArenaScale=0;
@@ -214,8 +214,8 @@ var allCards=[
      apply:function(){mods.maxHp+=25;P.maxHp+=25;P.hp=Math.min(P.hp+25,P.maxHp);}},
     {id:'power',name:'POWER',desc:'+20% Damage',icon:'\u2694',cost:0,col:'#ef4444',
      apply:function(){mods.dmgMult+=0.2;}},
-    {id:'swift',name:'SWIFTNESS',desc:'+12% Move Speed',icon:'\u25B6',cost:0,col:'#22d3ee',
-     apply:function(){mods.spdMult+=0.12;}},
+    {id:'swift',name:'SWIFTNESS',desc:'+25% Move Speed',icon:'\u25B6',cost:0,col:'#22d3ee',
+     apply:function(){mods.spdMult+=0.25;}},
     {id:'mend',name:'MENDING',desc:'Heal 50 HP',icon:'+',cost:0,col:'#fbbf24',
      apply:function(){P.hp=Math.min(P.hp+50,P.maxHp);}},
     {id:'rapid',name:'RAPID FIRE',desc:'25% Faster Shooting',icon:'\u2A07',cost:0,col:'#fb923c',
@@ -236,7 +236,7 @@ var allCards=[
      apply:function(){mods.magnetRange+=1;}},
     {id:'bigshot',name:'BIG SHOT',desc:'+40% Bullet Size +10% DMG',icon:'\u25CF',cost:60,col:'#f472b6',
      apply:function(){mods.bulletSize+=0.4;mods.dmgMult+=0.1;}},
-    {id:'explosive',name:'EXPLOSIVE',desc:'Bullets Explode (60px)',icon:'\u2726',cost:100,col:'#f97316',
+    {id:'explosive',name:'EXPLOSIVE',desc:'Kills trigger explosion (60px)',icon:'\u2726',cost:100,col:'#f97316',
      apply:function(){mods.explosive=60;}},
     {id:'dashm',name:'DASH MASTER',desc:'35% Faster Dash CD',icon:'\u00BB',cost:45,col:'#67e8f9',
      apply:function(){mods.dashCDBonus-=17;}},
@@ -256,7 +256,7 @@ var allCards=[
      apply:function(){activateFireOrbs();}}
 ];
 
-var MERCHANT_EXCLUSIVE=[];
+var MERCHANT_EXCLUSIVE=['turret','fireorbs'];
 
 var BADGES=[
     {id:'hunter',name:'HUNTER',icon:'\u2694',desc:'Slay 1,000 enemies across all runs',bonus:'+10% Damage',col:'#ef4444'},
@@ -562,7 +562,7 @@ function triggerCardSelect(){
 function selectCard(idx){
     var id=cardChoices[idx],card=findCard(id);
     if(card){card.apply();activeCards.push(id);cardPickCounts[id]=(cardPickCounts[id]||0)+1;addNotif(card.name+' acquired!',card.col);
-        if(id==='swift'){var swiftCount=cardPickCounts['swift']||0;if(swiftCount>=3&&G.state==='PLAYING'&&unlockedBadges.indexOf('speedtest')<0){unlockedBadges.push('speedtest');saveData();pendingNotifs.push({text:'Badge SPEEDTEST unlocked!',col:'#84cc16'});}}
+        if(id==='swift'){var swiftCount=cardPickCounts['swift']||0;if(swiftCount>=3&&unlockedBadges.indexOf('speedtest')<0){unlockedBadges.push('speedtest');saveData();pendingNotifs.push({text:'Badge SPEEDTEST unlocked!',col:'#84cc16'});}}
     }
     xp-=xpMax;if(xp<0)xp=0;xpLevel++;xpMax=Math.round(xpMax*1.25);
     if(xpLevel>maxLevel){maxLevel=xpLevel;checkSkinUnlocks();saveData();}
@@ -575,14 +575,14 @@ function deployTurret(){
     addRing(P.x,P.y,{mr:50,sp:3,c:'#94a3b8',lw:2});
 }
 function updateTurrets(){
-    var baseDmg=Math.round(15*mods.dmgMult);
+    var baseDmg=Math.round(25*mods.dmgMult);
     for(var i=0;i<turrets.length;i++){
         var t=turrets[i];t.pulse+=0.05;
         var nearest=null,nearD=280;
         for(var j=0;j<enemies.length;j++){var e=enemies[j];if(e.spawn>0)continue;var d=dst(t.x,t.y,e.x,e.y);if(d<nearD){nearD=d;nearest=e;}}
         if(nearest){
             t.ang=ang(t.x,t.y,nearest.x,nearest.y);t.fireCD--;
-            if(t.fireCD<=0){t.fireCD=35;var a=t.ang;
+            if(t.fireCD<=0){t.fireCD=17;var a=t.ang;
                 bullets.push({x:t.x+Math.cos(a)*15,y:t.y+Math.sin(a)*15,vx:Math.cos(a)*10,vy:Math.sin(a)*10,r:3*mods.bulletSize,dmg:baseDmg,life:38,trail:[],pierce:0,expl:false,explR:0,skin:currentSkin,digit:'0',letter:'T',gemIdx:rngI(0,5),devKey:devKeyChars[rngI(0,devKeyChars.length-1)],devColor:devBulletColors[rngI(0,devBulletColors.length-1)]});
                 burst(t.x+Math.cos(a)*12,t.y+Math.sin(a)*12,3,{sp:2,r:1.5,lf:8,c:'#94a3b8',a:a});
             }
@@ -604,9 +604,19 @@ function activateFireOrbs(){
     for(var i=0;i<3;i++)fireOrbs.push({ang:i*2.094,orbitR:55,dmg:Math.round(40*mods.dmgMult),pulse:rng(0,6.28),hitCD:0});
     addNotif('Fire Orbs activated!','#f97316');addRing(P.x,P.y,{mr:60,sp:3,c:'#f97316',lw:2});
 }
+function activateFireOrbs(){
+    if(fireOrbs.length>0){
+        for(var i=0;i<fireOrbs.length;i++)fireOrbs[i].orbitR+=12;
+        var newR=fireOrbs[0].orbitR;var off=fireOrbs.length*2.094;
+        for(var i=0;i<3;i++)fireOrbs.push({ang:off+i*2.094,orbitR:newR,dmg:Math.round(40*mods.dmgMult),pulse:rng(0,6.28),hitCD:0});
+    }else{
+        for(var i=0;i<3;i++)fireOrbs.push({ang:i*2.094,orbitR:65,dmg:Math.round(40*mods.dmgMult),pulse:rng(0,6.28),hitCD:0});
+    }
+    addNotif('Fire Orbs activated!','#f97316');addRing(P.x,P.y,{mr:70,sp:3,c:'#f97316',lw:2});
+}
 function updateFireOrbs(){
     for(var i=0;i<fireOrbs.length;i++){
-        var orb=fireOrbs[i];orb.ang+=0.03;orb.pulse+=0.08;if(orb.hitCD>0)orb.hitCD--;orb.dmg=Math.round(20*mods.dmgMult);
+        var orb=fireOrbs[i];orb.ang+=0.06;orb.pulse+=0.08;if(orb.hitCD>0)orb.hitCD--;orb.dmg=Math.round(20*mods.dmgMult);
         var ox=P.x+Math.cos(orb.ang)*orb.orbitR,oy=P.y+Math.sin(orb.ang)*orb.orbitR;
         if(orb.hitCD<=0){for(var j=enemies.length-1;j>=0;j--){var e=enemies[j];if(e.spawn>0||e.invT>0)continue;if(dst(ox,oy,e.x,e.y)<12+e.r){var killed=dmgE(e,orb.dmg);if(killed)killE(e,j);else addDmgN(e.x,e.y-e.r-5,orb.dmg);orb.hitCD=18;break;}}}
     }
@@ -762,7 +772,7 @@ function uptCoins(){
         if(c.life<240||mods.badgeMagnet){var d=dst(c.x,c.y,P.x,P.y),range=80+mods.magnetRange*120;
             if(d<range){var a=ang(c.x,c.y,P.x,P.y),sp=Math.max(3,(1-d/range)*12);c.vx+=Math.cos(a)*sp*0.3;c.vy+=Math.sin(a)*sp*0.3;}}
         c.x+=c.vx;c.y+=c.vy;c.life--;
-        if(dst(c.x,c.y,P.x,P.y)<25){var cv2=1*mods.coinMult;coins+=cv2;G.runCoins+=cv2;saveData();addDmgN(P.x,P.y-30,'+'+cv2,CL.gold);coinDrops.splice(i,1);continue;}
+        if(dst(c.x,c.y,P.x,P.y)<25){var cm=mods.coinMult;coins+=cm;G.runCoins+=cm;saveData();addDmgN(P.x,P.y-30,cm,CL.gold);coinDrops.splice(i,1);continue;}
         if(c.life<=0)coinDrops.splice(i,1);
     }
 }
@@ -1143,7 +1153,7 @@ function dmgE(e,d){
     if(mods.lifeSteal>0){var heal=Math.round(d*mods.lifeSteal);P.hp=Math.min(P.hp+heal,P.maxHp);}
     return e.hp<=0;
 }
-function killE(e,idx){
+function killE(e,idx,noExplode){
     burst(e.x,e.y,22+e.r*2,{sp:5,r:3.5,lf:40,c:e.gc});
     burst(e.x,e.y,12,{sp:4,r:2.5,lf:30,c:e.gc,t:'spark'});
     burst(e.x,e.y,8,{sp:2,r:3,lf:35,c:e.gc,t:'energy'});
@@ -1160,6 +1170,20 @@ function killE(e,idx){
     G.score+=e.sc;spawnCoin(e.x,e.y);addXP(e.xp);totalKills++;
     if(mods.coinMult>=2){spawnCoin(e.x+rng(-15,15),e.y+rng(-15,15));}
     if(mods.healOnKill>0)P.hp=Math.min(P.hp+mods.healOnKill,P.maxHp);
+    if(!noExplode&&mods.explosive>0){
+        var explR=mods.explosive;
+        burst(e.x,e.y,12,{sp:3,r:2.5,lf:20,c:CL.orange,t:'spark'});
+        addRing(e.x,e.y,{mr:explR,sp:5,c:CL.orange,lw:2});
+        shakeAdd(3);
+        for(var ei=0;ei<enemies.length;ei++){
+            var oe=enemies[ei];if(!oe||oe===e||oe.spawn>0)continue;
+            if(dst(e.x,e.y,oe.x,oe.y)<explR){
+                var od=Math.round(20*mods.dmgMult);oe.hp-=od;oe.hitF=6;
+                burst(oe.x,oe.y,4,{sp:2,r:2,lf:12,c:CL.orange,t:'spark'});
+                addDmgN(oe.x,oe.y-oe.r-5,od);
+            }
+        }
+    }
     if(isBossType(e.type)){for(var ci=0;ci<12;ci++)spawnCoin(e.x+rng(-30,30),e.y+rng(-30,30));enemies.splice(idx,1);triggerBossDefeat(rupturePhase);return;}
     enemies.splice(idx,1);
 }
@@ -1259,8 +1283,6 @@ function collisions(){
         for(var j=enemies.length-1;j>=0;j--){
             var e=enemies[j];if(!e)continue;if(e.spawn>0||e.invT>0)continue;
             if(hit(b.x,b.y,b.r,e.x,e.y,e.r)){
-                if(b.expl){burst(b.x,b.y,15,{sp:3.5,r:3,lf:20,c:CL.orange,t:'spark'});addRing(b.x,b.y,{mr:b.explR,sp:5,c:CL.orange,lw:2});shakeAdd(3);
-                    for(var ei=enemies.length-1;ei>=0;ei--){var oe=enemies[ei];if(oe===e||oe.spawn>0)continue;if(dst(b.x,b.y,oe.x,oe.y)<b.explR){var od=Math.round(b.dmg*0.5);if(dmgE(oe,od)){killE(oe,ei);if(ei<=j)j--;}}}}
                 var killed=dmgE(e,b.dmg);
                 if(b.pierce>0&&!killed){b.pierce--;burst(b.x,b.y,3,{sp:1.5,r:1.5,lf:10,c:getSC().bullet});}
                 else{bullets.splice(i,1);burst(b.x,b.y,5,{sp:2,r:2,lf:15,c:getSC().bullet});}
@@ -1373,7 +1395,7 @@ function drawBossDefeat(){
     cx.globalAlpha=fa*0.2;cx.fillStyle=cg;cx.beginPath();cx.arc(0,0,crystalR*3.5,0,6.28);cx.fill();
     cx.save();cx.rotate(G.time*0.015);
     cx.globalAlpha=fa*0.85;cx.fillStyle=bossDefeatSeq.crystalCol;cx.shadowColor=bossDefeatSeq.crystalCol;cx.shadowBlur=30;
-    cx.beginPath();for(var i=0;i<6;i++){var ang=6.28*i/6-Math.PI/6;i===0?cx.moveTo(Math.cos(ang)*crystalR,Math.sin(ang)*crystalR):cx.lineTo(Math.cos(ang)*crystalR,Math.sin(ang)*crystalR);}cx.closePath();cx.fill();
+    cx.beginPath();for(var i=0;i<6;i++){var ca=6.28*i/6-Math.PI/6;i===0?cx.moveTo(Math.cos(ca)*crystalR,Math.sin(ca)*crystalR):cx.lineTo(Math.cos(ca)*crystalR,Math.sin(ca)*crystalR);}cx.closePath();cx.fill();
     cx.strokeStyle='#fff';cx.lineWidth=2;cx.globalAlpha=fa*0.4;cx.stroke();
     cx.shadowBlur=0;cx.fillStyle='#fff';cx.globalAlpha=fa*0.3;cx.beginPath();cx.arc(-crystalR*0.2,-crystalR*0.2,crystalR*0.25,0,6.28);cx.fill();
     cx.restore();
@@ -1859,8 +1881,8 @@ function startGame(){
     resetMods();activeCards=[];
     initArena();initPlayer();initBG();
     addNotif('Entering the void...','#c084fc');
-    if(hasBadgeEquipped('bargain')){merchant.active=false;merchant.used=false;merchant.phase='special';merchant.boughtSpecials=0;merchant.hover=-1;merchant.bobT=0;
-        var mA,mD;do{mA=rng(0,6.28);mD=rng(arena.r*0.3,arena.r*0.6);merchant.x=arena.cx+Math.cos(mA)*mD;merchant.y=arena.cy+Math.sin(mA)*mD;}while(dst(merchant.x,merchant.y,P.x,P.y)<100);
+    if(hasBadgeEquipped('bargain')){merchant.active=true;merchant.used=true;merchant.phase='special';merchant.boughtSpecials=0;merchant.hover=-1;merchant.bobT=0;
+        var mA,mD,mt=0;do{mA=rng(0,6.28);mD=rng(arena.r*0.3,arena.r*0.6);merchant.x=arena.cx+Math.cos(mA)*mD;merchant.y=arena.cy+Math.sin(mA)*mD;mt++;}while(dst(merchant.x,merchant.y,P.x,P.y)<100&&mt<50);
         merchant.specialOffers=[];
         if(ownedCards.indexOf('turret')<0)merchant.specialOffers.push({id:'turret',name:'TURRET CARD',desc:'Deploy indestructible auto-turret',cost:700,type:'card',col:'#94a3b8',icon:'\u2316',bought:false});
         if(ownedCards.indexOf('fireorbs')<0)merchant.specialOffers.push({id:'fireorbs',name:'FIRE ORBS CARD',desc:'3 fire orbs orbit around you',cost:500,type:'card',col:'#f97316',icon:'\u2600',bought:false});
