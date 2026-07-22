@@ -83,7 +83,6 @@ var infiniteMode=false;
 var infiniteArenaScale=0;
 var bossDefeatSeq={active:false,timer:0,fromCol:'#a855f7',fromColL:'#c084fc',fromColD:'#7c3aed',toCol:'#4ade80',toColL:'#86efac',toColD:'#16a34a',crystalCol:'#a855f7',nextName:'TOXIC'};
 var victoryState={hoverR:false,hoverM:false,timer:0};
-
 var RUPTURE_PHASES=[
     {name:'VIOLET',col:'#a855f7',colL:'#c084fc',colD:'#7c3aed',bossWave:25,bossType:'boss_purple'},
     {name:'TOXIC',col:'#4ade80',colL:'#86efac',colD:'#16a34a',bossWave:50,bossType:'boss_green'},
@@ -275,6 +274,8 @@ var merchantItemsBought=[];
 var merchantTalks=0;
 var unlockedBadges=[];
 var equippedBadges=[];
+var lifeExtraUsed=false;
+var loadingTimer=0;
 var badgesHover=-1;
 var badgeSlotHover=-1;
 var badgeScroll=0;
@@ -974,10 +975,10 @@ var ET={
     wraith:{r:13,bhp:40,bsp:1.5,bdmg:20,bc:'#0f0f18',gc:'#a78bfa',shape:'star',sc:260,xp:40},
     void_king:{r:35,bhp:600,bsp:0.3,bdmg:30,bc:'#150a20',gc:'#c084fc',shape:'octagon',sc:500,xp:100},
     mini_swarmer:{r:6,bhp:12,bsp:3.0,bdmg:5,bc:'#2a2010',gc:'#fb923c',shape:'triangle',sc:25,xp:4},
-    boss_purple:{r:28,bhp:1800,bsp:0.7,bdmg:20,bc:'#1a0a2a',gc:'#a855f7',shape:'octagon',sc:500,xp:80},
-    boss_green:{r:26,bhp:3600,bsp:0.6,bdmg:15,bc:'#0a1a0a',gc:'#4ade80',shape:'octagon',sc:700,xp:120},
-    boss_yellow:{r:24,bhp:6000,bsp:0.8,bdmg:22,bc:'#1a1a0a',gc:'#fbbf24',shape:'star',sc:1000,xp:160},
-    boss_red:{r:32,bhp:10500,bsp:0.5,bdmg:25,bc:'#1a0505',gc:'#ef4444',shape:'octagon',sc:1500,xp:250}
+    boss_purple:{r:28,bhp:3600,bsp:0.7,bdmg:20,bc:'#1a0a2a',gc:'#a855f7',shape:'octagon',sc:500,xp:80},
+    boss_green:{r:26,bhp:7200,bsp:0.6,bdmg:15,bc:'#0a1a0a',gc:'#4ade80',shape:'octagon',sc:700,xp:120},
+    boss_yellow:{r:24,bhp:12000,bsp:0.8,bdmg:22,bc:'#1a1a0a',gc:'#fbbf24',shape:'star',sc:1000,xp:160},
+    boss_red:{r:32,bhp:21000,bsp:0.5,bdmg:25,bc:'#1a0505',gc:'#ef4444',shape:'octagon',sc:1500,xp:250}
 };
 
 function getMult(){return{hp:1+(wave.num-1)*0.08,sp:1+(wave.num-1)*0.015,dm:1+(wave.num-1)*0.05};}
@@ -1870,9 +1871,12 @@ function drwCardSelect(){
 }
 
 function startGame(){
+    G.state='LOADING';loadingTimer=70;
+    enemies=[];bullets=[];eBullets=[];coinDrops=[];bombs=[];turrets=[];fireOrbs=[];pts=[];rings=[];dmgNums=[];
+}
+function actuallyStartGame(){
     G.state='PLAYING';G.score=0;G.time=0;G.runCoins=0;G.paused=false;
     wave.num=0;wave.queue=[];wave.between=true;wave.delay=80;wave.msg=null;wave.msgT=0;
-    enemies=[];bullets=[];eBullets=[];coinDrops=[];bombs=[];turrets=[];fireOrbs=[];pts=[];rings=[];dmgNums=[];
     xp=0;xpMax=80;xpLevel=0;
     runExcludedCards=[];
     merchantBoughtThisRun=[];
@@ -1909,6 +1913,7 @@ function update(){
         }
     }
     switch(G.state){
+        case'LOADING':loadingTimer--;if(loadingTimer<=0)actuallyStartGame();break;
         case'MENU':uptTitle();break;
         case'PLAYING':
             if(G.paused)break;
@@ -1940,6 +1945,16 @@ function draw(){
     vfxDistort();drwBG();
 
     switch(G.state){
+        case'LOADING':
+            drwBG();
+            var prog=clamp(1-loadingTimer/70,0,1);
+            cx.save();cx.font='bold 28px monospace';cx.textAlign='center';
+            cx.fillStyle='rgba(168,85,247,0.6)';cx.shadowColor=CL.neon;cx.shadowBlur=20;
+            cx.fillText('ENTERING THE VOID',cv.width/2,cv.height/2-20);cx.shadowBlur=0;
+            var bhw=250,bhh=4,bhx=(cv.width-bhw)/2,bhy=cv.height/2+15;
+            cx.fillStyle='rgba(255,255,255,0.06)';cx.fillRect(bhx,bhy,bhw,bhh);
+            cx.fillStyle=CL.neonL;cx.shadowColor=CL.neon;cx.shadowBlur=8;cx.fillRect(bhx,bhy,bhw*prog,bhh);cx.shadowBlur=0;
+            cx.restore();break;
         case'MENU':drwTitle();break;
         case'PLAYING':
             drwArena();drwRings();drawTurrets();drawFireOrbs();
