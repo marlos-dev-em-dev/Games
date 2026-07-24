@@ -1,207 +1,225 @@
 // ═══════════════════════════════════════════════════════════════
-// data.js - MOCK, constantes, conversao
+// data.js — ALL GAME DATA
 // ═══════════════════════════════════════════════════════════════
 
-var $ = function(i){ return document.getElementById(i) };
+// ── CANVAS ──
+var CN=15,RN=12,CL=50;
+var W=CN*CL,H=RN*CL;
+var HM=5;
 
-var SUB = { massDmg:'\uD83D\uDCA5', areaDmg:'\uD83C\uDF00', support:'\uD83D\uDEE1\uFE0F', controller:'\uD83D\uDD2E', farm:'\uD83D\uDCB0', damage:'\u26A1', control:'\u2744\uFE0F', utility:'\u2728', mod:'\uD83D\uDD27' };
-var RC = { common:2, rare:3, epic:4, mystic:5, legendary:6 };
-var RCLR = { common:'#888', rare:'#4a9eff', epic:'#9b59b6', mystic:'#2ecc71', legendary:'#f39c12' };
+// ── FACTIONS ──
+var EI={normal:'\u2694\uFE0F',elite:'\u26A1',boss:'\uD83D\uDC79',shop:'\uD83D\uDED2',event:'\u2753',chest:'\uD83C\uDFF0',skull:'\uD83D\uDC80'};
+var ECL={normal:'#888888',elite:'#ff9f43',boss:'#e84855',shop:'#2ecc71',event:'#a29bfe',chest:'#ffd93d',skull:'#e84855'};
 
-var CN=12, RN=8, CL=60, W=CN*CL, H=RN*CL, HM=5;
-var WP = [[-1,1],[5,1],[5,3],[1,3],[1,5],[7,5],[7,3],[11,3],[12,3]];
-var pathCells = [], pathSet = {};
-
-var ENC = { sword:{wv:5,gold:6,hps:.15}, crossed:{wv:10,gold:9,hps:.18}, skull:{wv:15,gold:16,hps:.2}, boss:{wv:20,gold:40,hps:.18} };
-var BOSS_LIVES = { sword:5, crossed:20, skull:40, boss:-1 };
-var EI = { sword:'\u2694\uFE0F', crossed:'\u2694\u2694\uFE0F', skull:'\uD83D\uDC80', event:'\u2753', shop:'\uD83C\uDFEA', campfire:'\uD83D\uDD25', boss:'\uD83D\uDC51', start:'\uD83C\uDFE0' };
-var ECL = { sword:'#4ecdc4', crossed:'#ff9f43', skull:'#e84855', event:'#a29bfe', shop:'#ffd93d', campfire:'#ff6b6b', boss:'#ff0044', start:'#555' };
-
-var STAR_COST = { 1:10, 2:20, 3:35, 4:50 };
-var UPG_COST = { 1:20, 2:40 };
-var REM_COST = [5, 10, 15];
-var PRIO_ORDER = ['first','last','strong','weak','close'];
-var SPEEDS = [1, 2, 3, 5];
-var DIFFS = { normal:{n:'Normal',hm:1,gm:1}, hard:{n:'Dificil',hm:1.3,gm:1.5}, nightmare:{n:'Pesadelo',hm:1.8,gm:2.5} };
-
-var CARDS={}, ENEMIES={}, RELICS={}, POTS={};
-
-// ═══ MOCK DATA ═══
-
-var CARDS_MOCK = {
-arrow:{name:'Torre Flechas',type:'tower',sub_type:'massDmg',icon:'\uD83C\uDFF9',color:'#4ecdc4',description:'Flechas rapidas.',rarity:'common',cost:2,damage:15,range:2.5,attack_speed:1.2,projectile_speed:6,shape:'diamond',target_type:'grounded',trigger:{chance:.08,type:'draw'},ultimate:{name:'Tri-Shot',icon:'\uD83C\uDFAF',description:'3 flechas.',effect:'tri_shot'}},
-frost:{name:'Obelisco Gelo',type:'tower',sub_type:'controller',icon:'\u2744\uFE0F',color:'#74b9ff',description:'Desacelera 35%.',rarity:'common',cost:2,damage:10,range:2.5,attack_speed:.85,projectile_speed:5,shape:'hexagon',target_type:'hybrid',slow:.35,slow_duration:2,ultimate:{name:'Blizzard',icon:'\uD83C\uDF28\uFE0F',description:'Aura lentidao.',effect:'blizzard'}},
-venom:{name:'Poco Veneno',type:'tower',sub_type:'areaDmg',icon:'\u2620\uFE0F',color:'#6bcb77',description:'Veneno empilhavel.',rarity:'common',cost:2,damage:6,range:2.5,attack_speed:.9,projectile_speed:5,shape:'triangle',target_type:'grounded',poison_damage:4,poison_duration:4,ultimate:{name:'Praga',icon:'\u2622\uFE0F',description:'Veneno 3x.',effect:'plague'}},
-shadow:{name:'Vigia',type:'tower',sub_type:'damage',icon:'\uD83D\uDC41',color:'#8888aa',description:'Rapido. Frenzy.',rarity:'common',cost:2,damage:8,range:2.5,attack_speed:1.5,projectile_speed:8,shape:'star',target_type:'grounded',frenzy:true,ultimate:{name:'Devastacao',icon:'\uD83D\uDC80',description:'Stun 0.25s/hit.',effect:'devastacao'}},
-flame:{name:'Altar Chamas',type:'tower',sub_type:'areaDmg',icon:'\uD83D\uDD25',color:'#ff6b6b',description:'Explosivos.',rarity:'rare',cost:3,damage:22,range:2,attack_speed:.6,projectile_speed:5,shape:'circle',target_type:'grounded',splash_radius:1.2,ultimate:{name:'Firestorm',icon:'\uD83C\uDF0B',description:'Splash x2.',effect:'firestorm'}},
-spark:{name:'Para-Raios',type:'tower',sub_type:'controller',icon:'\u26A1',color:'#ffd93d',description:'Raios cadeia.',rarity:'rare',cost:3,damage:18,range:3,attack_speed:.7,shape:'star',target_type:'hybrid',chain:3,chain_range:2,ultimate:{name:'Tempestade',icon:'\u26C8\uFE0F',description:'Chain x2.',effect:'tempestade'}},
-sniper:{name:'Torre Sniper',type:'tower',sub_type:'massDmg',icon:'\uD83C\uDFAF',color:'#3498db',description:'Alcance enorme. Crit 3%.',rarity:'rare',cost:3,damage:40,range:4,attack_speed:.4,projectile_speed:12,shape:'diamond',target_type:'hybrid',trigger:{chance:.03,type:'crit',multiplier:2},ultimate:{name:'Headshot',icon:'\uD83D\uDC80',description:'3o tiro 5x.',effect:'headshot'}},
-cannon:{name:'Canhao Arcano',type:'tower',sub_type:'massDmg',icon:'\uD83D\uDCA5',color:'#e17055',description:'Dano massivo.',rarity:'epic',cost:4,damage:45,range:2.5,attack_speed:.3,projectile_speed:4,shape:'circle',target_type:'grounded',splash_radius:1.5,ultimate:{name:'Nuclear',icon:'\u2622\uFE0F',description:'Atordoa 2s.',effect:'nuclear'}},
-guardian:{name:'Guardiao',type:'tower',sub_type:'support',icon:'\uD83D\uDEE1\uFE0F',color:'#a29bfe',description:'Invoca Golem.',rarity:'epic',cost:4,damage:20,range:2,attack_speed:.7,projectile_speed:5,shape:'diamond',target_type:'grounded',tribute:{trigger:'enemy_pass',description:'Golem 300HP.',cooldown:12,execute:function(tw){spawnAllyGolem(tw)}},ultimate:{name:'Exercito',icon:'\u2694\uFE0F',description:'Golem 600HP.',effect:'army'}},
-archmage:{name:'Torre Arcana',type:'tower',sub_type:'areaDmg',icon:'\uD83D\uDD2E',color:'#fd79a8',description:'Chain+splash.',rarity:'legendary',cost:6,damage:30,range:3.5,attack_speed:.6,projectile_speed:6,shape:'star',target_type:'hybrid',chain:4,chain_range:2.5,splash_radius:1.2,ultimate:{name:'Maestria',icon:'\uD83C\uDF1F',description:'2 projeteis.',effect:'double_shot'}},
-mercado:{name:'Mercado',type:'tower',sub_type:'farm',icon:'\uD83C\uDFEA',color:'#ffd93d',description:'Gera 2 au/onda.',rarity:'common',cost:2,damage:0,range:0,attack_speed:0,shape:'circle',target_type:'grounded',gold_per_wave:2},
-mina:{name:'Mina Ouro',type:'tower',sub_type:'farm',icon:'\u26CF\uFE0F',color:'#f39c12',description:'Gera 3 au/onda +1/star.',rarity:'rare',cost:3,damage:0,range:0,attack_speed:0,shape:'circle',target_type:'grounded',gold_per_wave:3},
-idol:{name:'Idolo',type:'tower',sub_type:'support',icon:'\uD83C\uDFA4',color:'#e84855',description:'Buff ativo. Nao ataca.',rarity:'rare',cost:3,damage:0,range:0,attack_speed:0,shape:'diamond',target_type:'grounded',active_skill:{name:'Inspiracao',icon:'\uD83C\uDFA4',description:'+40% dmg torres, 8s',cooldown:20,effect:'buff_all'}},
-cleric:{name:'Clerigo',type:'tower',sub_type:'support',icon:'\u271D\uFE0F',color:'#44ff44',description:'Cura ativa. Nao ataca.',rarity:'rare',cost:3,damage:0,range:0,attack_speed:0,shape:'hexagon',target_type:'grounded',active_skill:{name:'Curar',icon:'\u271D\uFE0F',description:'+3 HP jogador',cooldown:15,effect:'heal_player'}},
-lancador:{name:'Lancador',type:'tower',sub_type:'areaDmg',icon:'\uD83E\uDD4A',color:'#e17055',description:'Splash+sangramento.',rarity:'common',cost:2,damage:18,range:2,attack_speed:.7,projectile_speed:5,shape:'triangle',target_type:'grounded',splash_radius:1,bleed_damage:6,bleed_duration:3},
-laser:{name:'Torre Laser',type:'tower',sub_type:'damage',icon:'\uD83D\uDD34',color:'#ff3838',description:'Raio em linha. Queima.',rarity:'rare',cost:4,damage:25,range:4,attack_speed:.5,shape:'star',target_type:'hybrid',burn_damage:5,burn_duration:4,laser:true},
-devorador:{name:'Devorador',type:'tower',sub_type:'damage',icon:'\uD83E\uDD96',color:'#6bcb77',description:'Devora 1 inimigo. CD 25s.',rarity:'epic',cost:5,damage:10,range:2,attack_speed:.3,shape:'triangle',target_type:'grounded',devour:true},
-amplificador:{name:'Amplificador',type:'tower',sub_type:'support',icon:'\uD83D\uDD0A',color:'#74b9ff',description:'Buff alcance ativo.',rarity:'rare',cost:3,damage:0,range:0,attack_speed:0,shape:'hexagon',target_type:'grounded',active_skill:{name:'Expandir',icon:'\uD83D\uDD0A',description:'+50% rng adjacentes, 10s',cooldown:25,effect:'range_buff'}},
-teleportador:{name:'Teleportador',type:'tower',sub_type:'controller',icon:'\uD83C\uDF00',color:'#00cec9',description:'Manda inimigos pra tras.',rarity:'epic',cost:4,damage:0,range:0,attack_speed:0,shape:'star',target_type:'grounded',active_skill:{name:'Warp',icon:'\uD83C\uDF00',description:'3 inimigos voltam',cooldown:30,effect:'teleport_back'}},
-impositor:{name:'Impositor',type:'tower',sub_type:'damage',icon:'\u2694\uFE0F',color:'#e84855',description:'Executa abaixo 15% HP.',rarity:'epic',cost:4,damage:20,range:2.5,attack_speed:.8,projectile_speed:7,shape:'diamond',target_type:'grounded',execute_threshold:.15},
-vampiro:{name:'Vampiro',type:'tower',sub_type:'damage',icon:'\uD83E\uDDDB',color:'#9b59b6',description:'Cura 1HP por kill no range.',rarity:'rare',cost:3,damage:15,range:2,attack_speed:1,projectile_speed:6,shape:'star',target_type:'grounded',lifesteal:1},
-protetor:{name:'Protetor',type:'tower',sub_type:'support',icon:'\uD83D\uDEE1\uFE0F',color:'#a29bfe',description:'Overcharge ativo.',rarity:'epic',cost:4,damage:0,range:0,attack_speed:0,shape:'diamond',target_type:'grounded',active_skill:{name:'Overcharge',icon:'\u26A1',description:'2x spd torres, 6s',cooldown:30,effect:'overcharge'}},
-fireball:{name:'Bola Fogo',type:'spell',sub_type:'damage',icon:'\u2604\uFE0F',color:'#ff6b6b',description:'Dano area.',rarity:'common',cost:2,spell_damage:60,splash_radius:2,levels:[{spell_damage:80,splash_radius:2.5},{spell_damage:100,splash_radius:3}]},
-surge:{name:'Surto Arcano',type:'spell',sub_type:'utility',icon:'\u2728',color:'#a29bfe',description:'Compra cartas.',rarity:'common',cost:2,draw_count:2,levels:[{draw_count:2,cost:1},{draw_count:3,cost:1}]},
-lightning:{name:'Raio',type:'spell',sub_type:'damage',icon:'\uD83C\uDF29\uFE0F',color:'#ffd93d',description:'Dano cadeia.',rarity:'common',cost:2,spell_damage:45,splash_radius:1.5,levels:[{spell_damage:65},{spell_damage:90}]},
-frost_nova:{name:'Geada',type:'spell',sub_type:'control',icon:'\uD83D\uDC8E',color:'#74b9ff',description:'Congela.',rarity:'rare',cost:3,freeze_duration:3,levels:[{freeze_duration:3,spell_damage:25},{freeze_duration:4,spell_damage:50}]},
-barrier:{name:'Barreira',type:'spell',sub_type:'utility',icon:'\uD83D\uDEE1\uFE0F',color:'#a29bfe',description:'Vidas.',rarity:'rare',cost:3,heal_amount:3,levels:[{heal_amount:5},{heal_amount:8}]},
-meteor:{name:'Meteoro',type:'spell',sub_type:'damage',icon:'\uD83C\uDF0B',color:'#d63031',description:'Dano massivo. EXHAUST.',rarity:'epic',cost:4,spell_damage:120,splash_radius:3,exhaust:true,levels:[{spell_damage:160,splash_radius:3.5},{spell_damage:200,splash_radius:4}]},
-timewarp:{name:'Distorcao',type:'spell',sub_type:'control',icon:'\u231B',color:'#00cec9',description:'Congela tudo.',rarity:'mystic',cost:5,freeze_duration:5,levels:[{freeze_duration:5},{freeze_duration:7}]},
-apocalypse:{name:'Apocalipse',type:'spell',sub_type:'damage',icon:'\uD83D\uDC80',color:'#ff3838',description:'Dano TODOS.',rarity:'legendary',cost:6,spell_damage:200,splash_radius:99,levels:[{spell_damage:280},{spell_damage:360}]},
-super_nutrient:{name:'Super Nutriente',type:'spell',sub_type:'utility',icon:'\uD83C\uDF3F',color:'#2ecc71',description:'+50% dmg torres, 8s.',rarity:'rare',cost:3,effect:'buff_all'},
-ventania:{name:'Ventania',type:'spell',sub_type:'damage',icon:'\uD83C\uDF2C\uFE0F',color:'#74b9ff',description:'Mata todos voadores.',rarity:'common',cost:2,effect:'kill_flying'},
-mina_arcana:{name:'Mina Arcana',type:'spell',sub_type:'damage',icon:'\uD83E\uDDEA',color:'#e17055',description:'Armadilha no path. 200dmg.',rarity:'common',cost:1,spell_damage:200,splash_radius:.8,target_mode:'path'},
-hipnose:{name:'Hipnose',type:'spell',sub_type:'control',icon:'\uD83D\uDC41\u200D\uD83D\uDC41',color:'#a29bfe',description:'Converte 1 inimigo.',rarity:'epic',cost:4,splash_radius:2,effect:'convert'},
-purificar:{name:'Purificar',type:'spell',sub_type:'utility',icon:'\u2728',color:'#ffd93d',description:'Remove escudo de todos.',rarity:'rare',cost:2,effect:'remove_shields'},
-distortion:{name:'Distorcao Massa',type:'spell',sub_type:'control',icon:'\uD83C\uDF00',color:'#00cec9',description:'Manda todos pra tras.',rarity:'rare',cost:3,effect:'teleport_all'},
-overcharge:{name:'Sobrecarga',type:'mod',sub_type:'mod',icon:'\u2B06\uFE0F',color:'#fdcb6e',description:'Dobra dano.',rarity:'rare',cost:3,damage_multiplier:2,levels:[{damage_multiplier:2.5},{damage_multiplier:3}]},
-haste:{name:'Runa Agilidade',type:'mod',sub_type:'mod',icon:'\u23E9',color:'#fdcb6e',description:'Dobra vel.',rarity:'rare',cost:3,speed_multiplier:2,levels:[{speed_multiplier:2.5},{speed_multiplier:3}]},
-fortify:{name:'Fortificar',type:'mod',sub_type:'mod',icon:'\uD83C\uDFD7\uFE0F',color:'#a29bfe',description:'+50% alcance.',rarity:'common',cost:2,range_bonus:.5,levels:[{range_bonus:.75},{range_bonus:1}]}
+var FACTIONS={
+  neutral:{name:'Neutro',icon:'\u2694\uFE0F',color:'#888',bonus:null},
+  holy:{name:'Sagrado',icon:'\u271D\uFE0F',color:'#ffd93d',bonus:'Torres sagradas +15% dano'},
+  abyssal:{name:'Abissal',icon:'\uD83D\uDC79',color:'#9b59b6',bonus:'Dano dark +20%'},
+  mechanical:{name:'Mecanico',icon:'\u2699\uFE0F',color:'#74b9ff',bonus:'-15% CD torres'},
+  wild:{name:'Selvagem',icon:'\uD83D\uDC3B',color:'#6bcb77',bonus:'Inimigos -10% HP'},
+  undead:{name:'Morto-vivo',icon:'\uD83D\uDC80',color:'#e84855',bonus:'Poison +25% duracao'}
 };
 
-var ENEMIES_MOCK = {
-crawler:{name:'Rastejador',health:35,speed:55,gold:2,color:'#555566',size:.55},
-swift:{name:'Veloz',health:22,speed:95,gold:3,color:'#8888aa',size:.4},
-brute:{name:'Bruto',health:140,speed:35,gold:6,color:'#774444',size:.85},
-wraith:{name:'Espectro',health:55,speed:65,gold:4,color:'#6644aa',size:.55,regeneration:3},
-titan:{name:'Tita',health:400,speed:28,gold:30,color:'#aa2233',size:1.1,boss:true},
-golem:{name:'Golem',health:800,speed:20,gold:50,color:'#884422',size:1.3,boss:true},
-phoenix:{name:'Fenix',health:80,speed:70,gold:8,color:'#ff9944',size:.5,flying:true},
-shield_brute:{name:'Bruto Blindado',health:100,speed:40,gold:7,color:'#5bc0ff',size:.75,shield:60},
-healer:{name:'Curandeiro',health:40,speed:50,gold:5,color:'#44cc88',size:.5,heal_range:2.5,heal_amount:8},
-aura_buffer:{name:'Aura',health:60,speed:45,gold:6,color:'#cc44cc',size:.6,aura_speed:1.4},
-weakness_mob:{name:'Maldito',health:50,speed:55,gold:4,color:'#ff44aa',size:.55},
-armored:{name:'Blindado',health:80,speed:45,gold:5,color:'#888899',size:.75,armor:5},
-stealth:{name:'Furtivo',health:45,speed:60,gold:6,color:'#333344',size:.5,stealth:true},
-corrupted:{name:'Corrompido',health:120,speed:40,gold:8,color:'#441144',size:.7,corrupted:true}
+// ── ENCOUNTERS ──
+var ENC={normal:{wv:5,icon:'\u2694\uFE0F',name:'Normal'},elite_enc:{wv:3,icon:'\u26A1',name:'Elite'},boss:{wv:5,icon:'\uD83D\uDC79',name:'Boss'},skull:{wv:7,icon:'\uD83D\uDC80',name:'Chefe'}};
+
+// ── DIFFICULTY ──
+var DIFF_MULT={easy:{hp:.7,spd:.8,g:1.2},normal:{hp:1,spd:1,g:1},hard:{hp:1.4,spd:1.15,g:.8},impossible:{hp:2,spd:1.3,g:.6}};
+
+// ── ENEMIES ──
+var ENEMIES={
+// Basic
+crawler:{name:'Rastejante',hp:40,sp:40,g:3,xp:1,cl:'#888',z:.8,faction:'neutral',tags:[],ai:'walker',armor:0,mr:0,fly:0,size:'small'},
+runner:{name:'Veloz',hp:25,sp:80,g:4,xp:1,cl:'#e17055',z:.7,faction:'neutral',tags:[],ai:'walker',armor:0,mr:0,fly:0,size:'small'},
+tank:{name:'Tanque',hp:120,sp:25,g:6,xp:2,cl:'#636e72',z:1.1,faction:'neutral',tags:[],ai:'walker',armor:8,mr:0,fly:0,size:'medium'},
+flyer:{name:'Voador',hp:30,sp:55,g:5,xp:1,cl:'#74b9ff',z:.6,faction:'neutral',tags:[],ai:'walker',armor:0,mr:3,fly:1,size:'small'},
+healer:{name:'Curandeira',hp:35,sp:35,g:5,xp:2,cl:'#44ff44',z:.8,faction:'neutral',tags:[],ai:'healer',armor:0,mr:5,fly:0,size:'small',healAura:8,healAuraRange:2},
+shielder:{name:'Escudeiro',hp:60,sp:30,g:5,xp:2,cl:'#5bc0ff',z:.9,faction:'neutral',tags:[],ai:'walker',armor:5,mr:5,fly:0,size:'medium',shield:30},
+splitter:{name:'Divisor',hp:50,sp:35,g:4,xp:1,cl:'#ff9f43',z:.85,faction:'neutral',tags:[],ai:'walker',armor:3,mr:0,fly:0,size:'medium',summonOnKill:{type:'crawler',count:2}},
+stealth:{name:'Fantasma',hp:20,sp:60,g:5,xp:2,cl:'#666688',z:.7,faction:'neutral',tags:[],ai:'walker',armor:0,mr:8,fly:0,size:'small',stealth:true},
+
+// Holy
+paladin:{name:'Paladino',hp:90,sp:30,g:7,xp:3,cl:'#ffd93d',z:1,faction:'holy',tags:['holy'],ai:'walker',armor:10,mr:8,fly:0,size:'medium'},
+priest:{name:'Sacerdote',hp:45,sp:30,g:6,xp:3,cl:'#ffeaa7',z:.85,faction:'holy',tags:['holy'],ai:'healer',armor:0,mr:12,fly:0,size:'small',healAura:12,healAuraRange:2.5},
+angel:{name:'Anjo',hp:60,sp:50,g:8,xp:3,cl:'#fff',z:.9,faction:'holy',tags:['holy','light'],ai:'walker',armor:5,mr:10,fly:1,size:'medium'},
+
+// Abyssal
+imp:{name:'Diabrete',hp:25,sp:65,g:5,xp:2,cl:'#9b59b6',z:.65,faction:'abyssal',tags:['demon'],ai:'walker',armor:0,mr:5,fly:0,size:'small'},
+demon:{name:'Demônio',hp:100,sp:30,g:8,xp:3,cl:'#6c5ce7',z:1.1,faction:'abyssal',tags:['demon','lava_demon'],ai:'walker',armor:5,mr:10,fly:0,size:'medium'},
+shadow:{name:'Sombra',hp:35,sp:55,g:6,xp:2,cl:'#444466',z:.75,faction:'abyssal',tags:['shadow'],ai:'walker',armor:0,mr:15,fly:0,size:'small',stealth:true},
+warlock:{name:'Bruxo',hp:50,sp:25,g:7,xp:3,cl:'#a29bfe',z:.9,faction:'abyssal',tags:['demon'],ai:'summoner',armor:0,mr:12,fly:0,size:'medium',summons:{type:'imp',count:2,cooldown:10}},
+
+// Mechanical
+drone:{name:'Drone',hp:30,sp:50,g:5,xp:2,cl:'#74b9ff',z:.6,faction:'mechanical',tags:['mechanical'],ai:'walker',armor:8,mr:3,fly:1,size:'small'},
+golem:{name:'Golem',hp:150,sp:18,g:8,xp:3,cl:'#636e72',z:1.2,faction:'mechanical',tags:['mechanical'],ai:'walker',armor:15,mr:0,fly:0,size:'large'},
+omega:{name:'Omega',hp:200,sp:22,g:10,xp:4,cl:'#dfe6e9',z:1.3,faction:'mechanical',tags:['mechanical'],ai:'walker',armor:20,mr:10,fly:0,size:'large',towerDisable:2},
+
+// Wild
+wolf:{name:'Lobo',hp:30,sp:70,g:4,xp:1,cl:'#b2bec3',z:.7,faction:'wild',tags:['beast'],ai:'walker',armor:0,mr:0,fly:0,size:'small'},
+treant:{name:'Treant',hp:130,sp:15,g:7,xp:3,cl:'#00b894',z:1.1,faction:'wild',tags:['plant'],ai:'walker',armor:5,mr:8,fly:0,size:'large'},
+beast:{name:'Besta',hp:80,sp:45,g:6,xp:2,cl:'#fdcb6e',z:1,faction:'wild',tags:['beast'],ai:'berserker',armor:3,mr:3,fly:0,size:'medium'},
+
+// Undead
+skeleton:{name:'Esqueleto',hp:20,sp:45,g:3,xp:1,cl:'#dfe6e9',z:.7,faction:'undead',tags:['undead'],ai:'walker',armor:2,mr:0,fly:0,size:'small'},
+zombie:{name:'Zumbi',hp:70,sp:20,g:4,xp:1,cl:'#636e72',z:.85,faction:'undead',tags:['undead'],ai:'walker',armor:0,mr:0,fly:0,size:'medium',re:2},
+lich:{name:'Lich',hp:80,sp:25,g:8,xp:3,cl:'#a29bfe',z:.95,faction:'undead',tags:['undead'],ai:'summoner',armor:0,mr:15,fly:0,size:'medium',summons:{type:'skeleton',count:3,cooldown:8}},
+wraith:{name:'Espectro',hp:40,sp:60,g:6,xp:2,cl:'#666688',z:.7,faction:'undead',tags:['undead','ghost'],ai:'walker',armor:0,mr:20,fly:0,size:'small',stealth:true},
+
+// ── ELITES ──
+elite_crawler:{name:'Crawler Alpha',hp:150,sp:50,g:15,xp:5,cl:'#ff9f43',z:1,faction:'neutral',tags:[],ai:'walker',armor:5,mr:5,fly:0,size:'medium',elite:true},
+elite_demon:{name:'Demonio Menor',hp:250,sp:35,g:20,xp:6,cl:'#e84855',z:1.1,faction:'abyssal',tags:['demon'],ai:'berserker',armor:8,mr:12,fly:0,size:'medium',elite:true},
+elite_golem:{name:'Golem Antigo',hp:400,sp:20,g:25,xp:7,cl:'#b2bec3',z:1.3,faction:'mechanical',tags:['mechanical'],ai:'walker',armor:25,mr:5,fly:0,size:'large',elite:true},
+elite_lich:{name:'Arquimago',hp:200,sp:30,g:20,xp:6,cl:'#a29bfe',z:1,faction:'undead',tags:['undead'],ai:'summoner',armor:0,mr:20,fly:0,size:'medium',elite:true,summons:{type:'skeleton',count:2,cooldown:6}},
+
+// ── BOSSES ──
+boss_lich:{name:'Rei Lich',hp:800,sp:20,g:50,xp:20,cl:'#a29bfe',z:1.5,faction:'undead',tags:['undead','boss'],ai:'boss',armor:5,mr:25,fly:0,size:'giant',bo:true,phases:1,bossDrop:'crown_lich',
+  summons:{type:'skeleton',count:3,cooldown:6},abilityCDs:[]},
+boss_omega:{name:'Omega Supremo',hp:1200,sp:15,g:60,xp:25,cl:'#dfe6e9',z:1.6,faction:'mechanical',tags:['mechanical','boss'],ai:'boss',armor:30,mr:15,fly:0,size:'giant',bo:true,phases:1,bossDrop:'nucleo_mecanico',
+  towerDisable:3,summons:{type:'drone',count:2,cooldown:8}},
+boss_treant:{name:'Treant Ancestral',hp:1000,sp:12,g:55,xp:22,cl:'#00b894',z:1.7,faction:'wild',tags:['plant','boss'],ai:'boss',armor:10,mr:15,fly:0,size:'giant',bo:true,phases:1,bossDrop:'semente_ancestral',
+  healAura:15,healAuraRange:3,summons:{type:'wolf',count:3,cooldown:7}},
+boss_demon:{name:'Senhor Demônio',hp:1500,sp:18,g:70,xp:30,cl:'#e84855',z:1.8,faction:'abyssal',tags:['demon','lava_demon','boss'],ai:'boss',armor:15,mr:20,fly:0,size:'giant',bo:true,phases:2,bossDrop:'chifre_demoniaco',
+  auraDmg:5,auraRange:2,summons:{type:'warlock',count:1,cooldown:12}}
 };
 
-var RELICS_MOCK = {
-mana_crystal:{name:'Cristal Mana',icon:'\uD83D\uDC8E',description:'+1 mana',effect:'maxMana',value:1},
-war_drum:{name:'Tambor',icon:'\uD83E\uDD41',description:'+20% dano',effect:'twDmg',value:.2},
-swift_totem:{name:'Totem',icon:'\uD83C\uDFC3',description:'+20% vel',effect:'twSpd',value:.2},
-golden_clover:{name:'Trevo',icon:'\uD83C\uDF40',description:'+3 au/onda',effect:'wvGold',value:3},
-iron_heart:{name:'Coracao',icon:'\u2764\uFE0F',description:'+10 HP',effect:'maxHp',value:10},
-arcane_lens:{name:'Lente',icon:'\uD83D\uDD0D',description:'+25% rng',effect:'twRng',value:.25},
-lucky_ring:{name:'Anel',icon:'\uD83D\uDC8D',description:'+5 au/no',effect:'ndGold',value:5},
-blood_gem:{name:'Gema',icon:'\uD83E\uDE78',description:'+1 dmg/onda',effect:'stkDmg',value:1},
-golden_key:{name:'Chave',icon:'\uD83D\uDD11',description:'+2 locks',effect:'maxLocks',value:2},
-infinite_key:{name:'Chave Inf',icon:'\uD83D\uDDDD\uFE0F',description:'locks inf',effect:'infLocks',value:1}
+// ═══════════════════ STATUS DATABASE (GDD Cap.2) ═══════════════════
+
+var STATUS_DB={
+burn:{name:'Burn',desc:'Em chamas.',cat:'dot',positive:false,canStack:true,maxStacks:20,tickRate:.5,baseDmg:2,baseDur:3,priority:5,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:['fire_elemental','lava_demon'],interactions:{removes:['freeze'],consumes:['wet']},visual:{color:'#ff6600',icon:'\uD83D\uDD25'}},
+poison:{name:'Poison',desc:'Veneno. Ignora armadura.',cat:'dot',positive:false,canStack:true,maxStacks:99,tickRate:.5,baseDmg:1.5,baseDur:4,priority:3,refreshRule:'refresh',bossMult:.75,eliteMult:1,immune:[],interactions:{},visual:{color:'#6bcb77',icon:'\u2620\uFE0F'}},
+bleed:{name:'Bleed',desc:'Sangramento.',cat:'dot',positive:false,canStack:true,maxStacks:30,tickRate:.5,baseDmg:2.5,baseDur:3,priority:2,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:['undead','mechanical'],interactions:{},visual:{color:'#e84855',icon:'\u2764\uFE0F'}},
+toxic_burn:{name:'Toxic Burn',desc:'Queima toxica.',cat:'dot',positive:false,canStack:true,maxStacks:10,tickRate:.5,baseDmg:4,baseDur:3,priority:6,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#44aa44',icon:'\u2622\uFE0F'}},
+corruption:{name:'Corruption',desc:'Corrupcao.',cat:'curse',positive:false,canStack:true,maxStacks:20,tickRate:1,baseDmg:1,baseDur:5,priority:4,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{onDeath:'spread_corruption'},visual:{color:'#662266',icon:'\uD83D\uDC80'}},
+freeze:{name:'Freeze',desc:'Congelado.',cat:'cc',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:2,priority:10,refreshRule:'ignore',bossMult:.3,eliteMult:.6,immune:['ice_elemental'],interactions:{removedBy:['burn'],appliesOnEnd:'slow'},visual:{color:'#74b9ff',icon:'\u2744\uFE0F'}},
+slow:{name:'Slow',desc:'Lentidao.',cat:'cc',positive:false,canStack:true,maxStacks:1,tickRate:0,baseDmg:0,baseDur:3,priority:1,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{maxEffect:.8,minSpeed:.2},visual:{color:'#74b9ff',icon:'\u23F1\uFE0F'}},
+stun:{name:'Stun',desc:'Atordoado.',cat:'cc',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:1.5,priority:9,refreshRule:'refresh',bossMult:.25,eliteMult:.5,immune:[],interactions:{},visual:{color:'#ffd93d',icon:'\u2B50'}},
+root:{name:'Root',desc:'Enraizado.',cat:'cc',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:2,priority:7,refreshRule:'refresh',bossMult:.3,eliteMult:.6,immune:[],interactions:{},visual:{color:'#3d5c3d',icon:'\uD83C\uDF33'}},
+fear:{name:'Fear',desc:'Medo.',cat:'cc',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:2,priority:8,refreshRule:'refresh',bossMult:0,eliteMult:.5,immune:[],interactions:{bossConverts:'slow',failsWith:['root']},visual:{color:'#6666aa',icon:'\uD83D\uDC7B'}},
+sleep:{name:'Sleep',desc:'Dormindo.',cat:'cc',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:4,priority:11,refreshRule:'ignore',bossMult:0,eliteMult:0,immune:[],interactions:{breakOnDamage:true},visual:{color:'#dfe6e9',icon:'\uD83D\uDCA4'}},
+confusion:{name:'Confusion',desc:'Confuso.',cat:'cc',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:3,priority:6,refreshRule:'refresh',bossMult:0,eliteMult:.5,immune:[],interactions:{},visual:{color:'#e17055',icon:'\uD83D\uDD73\uFE0F'}},
+shock:{name:'Shock',desc:'Choque.',cat:'debuff',positive:false,canStack:true,maxStacks:10,tickRate:0,baseDmg:0,baseDur:4,priority:4,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#ffd93d',icon:'\u26A1'}},
+silence:{name:'Silence',desc:'Silenciado.',cat:'debuff',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:3,priority:5,refreshRule:'refresh',bossMult:.4,eliteMult:.7,immune:[],interactions:{},visual:{color:'#636e72',icon:'\uD83D\uDD07'}},
+blind:{name:'Blind',desc:'Cego.',cat:'debuff',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:3,priority:3,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#2d3436',icon:'\uD83D\uDE36\u200D\uD83C\uDF2B\uFE0F'}},
+curse:{name:'Curse',desc:'Maldicao.',cat:'debuff',positive:false,canStack:true,maxStacks:10,tickRate:0,baseDmg:0,baseDur:5,priority:4,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#5b3b8b',icon:'\uD83D\uDC80'}},
+exposed:{name:'Exposed',desc:'Exposto.',cat:'debuff',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:4,priority:3,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#d63031',icon:'\u26A0\uFE0F'}},
+vulnerable:{name:'Vulnerable',desc:'Vulneravel.',cat:'debuff',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:4,priority:4,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#e84855',icon:'\uD83D\uDCA2'}},
+weak:{name:'Weak',desc:'Fraco.',cat:'debuff',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:4,priority:2,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#ff44aa',icon:'\uD83D\uDCAA'}},
+fragile:{name:'Fragile',desc:'Fragil.',cat:'debuff',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:4,priority:3,refreshRule:'refresh',bossMult:.5,eliteMult:.75,immune:[],interactions:{},visual:{color:'#fab1a0',icon:'\uD83D\uDC94'}},
+wet:{name:'Wet',desc:'Molhado.',cat:'utility',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:5,priority:1,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#74b9ff',icon:'\uD83D\uDCA7'}},
+oil:{name:'Oil',desc:'Oleo.',cat:'utility',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:6,priority:1,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#8b6914',icon:'\uD83E\uDDF2'}},
+mark:{name:'Mark',desc:'Marcado.',cat:'utility',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:6,priority:2,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#ff9f43',icon:'\uD83C\uDFAF'}},
+infection:{name:'Infection',desc:'Infectado.',cat:'curse',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:10,priority:3,refreshRule:'refresh',bossMult:0,eliteMult:.5,immune:[],interactions:{onDeath:'spread_poison'},visual:{color:'#44aa44',icon:'\uD83E\uDDA0'}},
+shield:{name:'Shield',desc:'Escudo.',cat:'defense',positive:true,canStack:true,maxStacks:1,tickRate:0,baseDmg:0,baseDur:99,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#5bc0ff',icon:'\uD83D\uDEE1\uFE0F'}},
+barrier:{name:'Barrier',desc:'Barreira.',cat:'defense',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:99,priority:0,refreshRule:'ignore',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#a29bfe',icon:'\uD83D\uDEE1\uFE0F'}},
+invulnerable:{name:'Invulnerable',desc:'Invulneravel.',cat:'defense',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:2,priority:99,refreshRule:'ignore',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#ffd93d',icon:'\u2728'}},
+regen:{name:'Regen',desc:'Regeneracao.',cat:'buff',positive:true,canStack:true,maxStacks:5,tickRate:1,baseDmg:0,baseDur:5,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#44ff44',icon:'\u2764\uFE0F'}},
+haste:{name:'Haste',desc:'Acelerado.',cat:'buff',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:5,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#00cec9',icon:'\u23E9'}},
+reflect:{name:'Reflect',desc:'Reflete dano.',cat:'defense',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:5,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#a29bfe',icon:'\uD83D\uDD04'}},
+stone:{name:'Stone',desc:'Pedra.',cat:'transform',positive:false,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:5,priority:8,refreshRule:'ignore',bossMult:0,eliteMult:0,immune:[],interactions:{},visual:{color:'#888899',icon:'\uD83E\uDEA8'}},
+lifesteal:{name:'Lifesteal',desc:'Roubo de vida.',cat:'buff',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:5,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#9b59b6',icon:'\uD83E\uDDDB'}},
+rage:{name:'Rage',desc:'Furia.',cat:'buff',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:6,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#e84855',icon:'\uD83D\uDD25'}},
+berserk:{name:'Berserk',desc:'Frenesi.',cat:'buff',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:99,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#ff3838',icon:'\uD83D\uDCA2'}},
+arcane_charge:{name:'Arcane Charge',desc:'Carga Arcana.',cat:'buff',positive:true,canStack:true,maxStacks:10,tickRate:0,baseDmg:0,baseDur:8,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{},visual:{color:'#a29bfe',icon:'\uD83D\uDD2E'}},
+holy_blessing:{name:'Holy Blessing',desc:'Bencao.',cat:'blessing',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:5,priority:0,refreshRule:'refresh',bossMult:1,eliteMult:1,immune:[],interactions:{removesAllDebuffs:true},visual:{color:'#ffd93d',icon:'\u271D\uFE0F'}},
+taunt:{name:'Taunt',desc:'Provocacao.',cat:'utility',positive:true,canStack:false,maxStacks:1,tickRate:0,baseDmg:0,baseDur:4,priority:0,refreshRule:'refresh',bossMult:0,eliteMult:0,immune:[],interactions:{},visual:{color:'#ff9f43',icon:'\uD83D\uDDE3\uFE0F'}}
+};
+var STATUS_ORDER=['buff','debuff','cc','dot','defense','utility','transform','curse','blessing','summon'];
+
+// ═══════════════════ RELICS (GDD Cap.3) ═══════════════════
+
+var RELICS={
+bolsa_mercador:{n:'Bolsa do Mercador',ic:'\uD83D\uDCB0',d:'+100 ouro inicio.',cat:'economia',rarity:'common',effect:'startGold',value:100,trigger:'start',unique:false,corrupted:false},
+moeda_antiga:{n:'Moeda Antiga',ic:'\uD83E\uDE99',d:'+1 ouro por kill.',cat:'economia',rarity:'common',effect:'killGold',value:1,trigger:'on_kill',unique:false,corrupted:false},
+bolsa_sem_fundo:{n:'Bolsa Sem Fundo',ic:'\uD83C\uDF92',d:'Sem limite ouro.',cat:'economia',rarity:'epic',effect:'noGoldCap',value:1,trigger:'passive',unique:true,corrupted:false},
+coroa_comerciante:{n:'Coroa Comerciante',ic:'\uD83D\uDC51',d:'Loja -15%.',cat:'loja',rarity:'rare',effect:'shopDiscount',value:.15,trigger:'passive',unique:false,corrupted:false},
+livro_descontos:{n:'Livro Descontos',ic:'\uD83D\uDCD6',d:'Compra -1 proxima.',cat:'loja',rarity:'rare',effect:'shopCascade',value:1,trigger:'on_buy',unique:false,corrupted:false},
+selo_comprador:{n:'Selo Comprador',ic:'\uD83D\uDCE3',d:'+1 carta loja.',cat:'loja',rarity:'uncommon',effect:'shopExtra',value:1,trigger:'passive',unique:false,corrupted:false},
+biblioteca_infinita:{n:'Biblioteca Infinita',ic:'\uD83D\uDCDA',d:'10% carta evolui.',cat:'loja',rarity:'legendary',effect:'shopUpgrade',value:.1,trigger:'on_buy',unique:true,corrupted:false},
+lente_cacador:{n:'Lente Cacador',ic:'\uD83D\uDD2D',d:'+25% crit.',cat:'ataque',rarity:'rare',effect:'critBoost',value:.25,trigger:'passive',unique:false,corrupted:false},
+martelo_ancestral:{n:'Martelo Ancestral',ic:'\uD83D\uDD28',d:'Perfurante explode.',cat:'ataque',rarity:'epic',effect:'pierceExplosion',value:.6,trigger:'on_hit',unique:false,corrupted:false},
+coracao_tita:{n:'Coracao Tita',ic:'\u2764\uFE0F',d:'Torres grandes +40%.',cat:'ataque',rarity:'legendary',effect:'giantBoost',value:.4,trigger:'passive',unique:true,corrupted:false},
+olho_cacador:{n:'Olho Cacador',ic:'\uD83D\uDC41\uFE0F',d:'+25% dano >90% HP.',cat:'ataque',rarity:'uncommon',effect:'highHpBonus',value:.25,trigger:'on_hit',unique:false,corrupted:false},
+bandeira_guerra:{n:'Bandeira Guerra',ic:'\uD83C\uDFF4',d:'Kill -> adjacentes +5% spd.',cat:'ataque',rarity:'rare',effect:'killSpeedBuff',value:.05,trigger:'on_kill',unique:false,corrupted:false},
+coroa_tempestade:{n:'Coroa Tempestade',ic:'\u26C8\uFE0F',d:'10% raio no kill.',cat:'ataque',rarity:'epic',effect:'killLightning',value:.1,trigger:'on_kill',unique:false,corrupted:false},
+mascara_vampiro:{n:'Mascara Vampiro',ic:'\uD83E\uDDDB',d:'3% lifesteal torres.',cat:'ataque',rarity:'epic',effect:'towerLifesteal',value:.03,trigger:'on_hit',unique:false,corrupted:false},
+escama_carmesim:{n:'Escama Carmesim',ic:'\uD83D\uDC0D',d:'Burn +50% dur.',cat:'status',rarity:'legendary',effect:'burnBoost',value:.5,trigger:'on_status',unique:true,corrupted:false},
+fragmento_glacial:{n:'Fragmento Glacial',ic:'\u2744\uFE0F',d:'Freeze +50%.',cat:'status',rarity:'legendary',effect:'freezeBoost',value:.5,trigger:'on_status',unique:true,corrupted:false},
+nucleo_eletrico:{n:'Nucleo Eletrico',ic:'\u26A1',d:'Shock +1 ricochete.',cat:'status',rarity:'epic',effect:'shockChain',value:1,trigger:'on_status',unique:false,corrupted:false},
+veneno_absoluto:{n:'Veneno Absoluto',ic:'\u2620\uFE0F',d:'Poison ignora resist.',cat:'status',rarity:'legendary',effect:'poisonPierce',value:.25,trigger:'on_status',unique:true,corrupted:false},
+chama_eterna:{n:'Chama Eterna',ic:'\uD83D\uDD25',d:'Burn permanente.',cat:'status',rarity:'legendary',effect:'burnPermanent',value:1,trigger:'on_status',unique:true,corrupted:false},
+cristal_prismatico:{n:'Cristal Prismatico',ic:'\uD83D\uDC8E',d:'20% status extra.',cat:'status',rarity:'divine',effect:'statusPrism',value:.2,trigger:'on_status',unique:true,corrupted:false},
+cristal_arcano:{n:'Cristal Arcano',ic:'\uD83D\uDD2E',d:'Magias +30% range.',cat:'magia',rarity:'rare',effect:'spellBoost',value:.3,trigger:'passive',unique:false,corrupted:false},
+grimorio_vivo:{n:'Grimorio Vivo',ic:'\uD83D\uDCD5',d:'20% magia gratis.',cat:'magia',rarity:'epic',effect:'spellFree',value:.2,trigger:'on_cast',unique:false,corrupted:false},
+tomo_sabedoria:{n:'Tomo Sabedoria',ic:'\uD83D\uDCD3',d:'Magica +1lv.',cat:'magia',rarity:'uncommon',effect:'spellLevel',value:1,trigger:'on_acquire',unique:false,corrupted:false},
+espelho_arcano:{n:'Espelho Arcano',ic:'\uD83D\uDD2E',d:'Copia magia 30%.',cat:'magia',rarity:'legendary',effect:'spellMirror',value:.3,trigger:'on_cast',unique:true,corrupted:false},
+relogio_antigo:{n:'Relogio Antigo',ic:'\u231A',d:'30s -> desacelera 4s.',cat:'tempo',rarity:'rare',effect:'timeSlow',value:30,trigger:'periodic',unique:false,corrupted:false},
+ampulheta_quebrada:{n:'Ampulheta',ic:'\u231B',d:'-20% cooldowns.',cat:'tempo',rarity:'legendary',effect:'cdReduction',value:.2,trigger:'passive',unique:true,corrupted:false},
+nucleo_temporal:{n:'Nucleo Temporal',ic:'\u23F0',d:'Kill elite -> refresh.',cat:'tempo',rarity:'divine',effect:'eliteRefresh',value:1,trigger:'on_elite_kill',unique:true,corrupted:false},
+semente_primordial:{n:'Semente Primordial',ic:'\uD83C\uDF31',d:'Cura dobrada.',cat:'defesa',rarity:'rare',effect:'doubleHeal',value:2,trigger:'passive',unique:false,corrupted:false},
+olho_verdade:{n:'Olho Verdade',ic:'\uD83D\uDC41',d:'Revela furtivos.',cat:'controle',rarity:'epic',effect:'revealStealth',value:1,trigger:'passive',unique:false,corrupted:false},
+anel_eco:{n:'Anel do Eco',ic:'\uD83D\uDC8D',d:'15% repetir skill.',cat:'controle',rarity:'epic',effect:'skillEcho',value:.15,trigger:'on_skill',unique:false,corrupted:false},
+nucleo_deserto:{n:'Nucleo Deserto',ic:'\u2B50',d:'Lentos +10% dano.',cat:'controle',rarity:'epic',effect:'slowBonus',value:.1,trigger:'on_hit',unique:false,corrupted:false},
+coracao_sombrio:{n:'Coracao Sombrio',ic:'\uD83D\uDC80',d:'Boss kill +5% dmg.',cat:'boss',rarity:'legendary',effect:'bossKillBoost',value:.05,trigger:'on_boss_kill',unique:false,corrupted:false},
+fragmento_abismo:{n:'Fragmento Abismo',ic:'\uD83D\uDD73\uFE0F',d:'Elite/Boss -10% CC resist.',cat:'boss',rarity:'legendary',effect:'bossControl',value:.1,trigger:'passive',unique:true,corrupted:false},
+reliquia_corrompida:{n:'Reliquia Corrompida',ic:'\uD83D\uDC80',d:'+20% inim, +30% ouro, +15% dmg.',cat:'corrupta',rarity:'corrupted',effect:'corrupted_basic',value:.2,trigger:'passive',unique:false,corrupted:true},
+calice_maldito:{n:'Calice Maldito',ic:'\uD83C\uDF77',d:'Magias -1 mana, -1HP.',cat:'corrupta',rarity:'corrupted',effect:'corrupted_mana',value:1,trigger:'on_cast',unique:false,corrupted:true},
+orbe_caos:{n:'Orbe Caos',ic:'\uD83C\uDF00',d:'60s -> evento aleatorio.',cat:'corrupta',rarity:'unique',effect:'chaos_orb',value:60,trigger:'periodic',unique:true,corrupted:true},
+caixa_pandora:{n:'Caixa Pandora',ic:'\uD83C\uDF81',d:'Ao obter: +3 reliquias.',cat:'corrupta',rarity:'unique',effect:'pandora',value:3,trigger:'on_acquire',unique:true,corrupted:true},
+crown_lich:{n:'Coroa do Lich',ic:'\uD83D\uDC51',d:'+30% dano torres.',cat:'ataque',rarity:'legendary',effect:'twDmg',value:.3,trigger:'passive',unique:true,corrupted:false},
+nucleo_mecanico:{n:'Nucleo Omega',ic:'\u2699\uFE0F',d:'-20% CD torres.',cat:'tempo',rarity:'legendary',effect:'twCd',value:.2,trigger:'passive',unique:true,corrupted:false},
+semente_ancestral:{n:'Semente Ancestral',ic:'\uD83C\uDF31',d:'+20 HP max.',cat:'defesa',rarity:'legendary',effect:'maxHp',value:20,trigger:'start',unique:true,corrupted:false},
+chifre_demoniaco:{n:'Chifre Demônio',ic:'\uD83D\uDE08',d:'+50% dano boss.',cat:'boss',rarity:'legendary',effect:'bossDmg',value:.5,trigger:'passive',unique:true,corrupted:false},
+mana_crystal:{n:'Cristal Mana',ic:'\uD83D\uDC8E',d:'+1 mana.',cat:'magia',rarity:'rare',effect:'maxMana',value:1,trigger:'start',unique:false,corrupted:false},
+war_drum:{n:'Tambor',ic:'\uD83E\uDD41',d:'+20% dano torres.',cat:'ataque',rarity:'rare',effect:'twDmg',value:.2,trigger:'passive',unique:false,corrupted:false},
+swift_totem:{n:'Totem',ic:'\uD83C\uDFC3',d:'+20% spd torres.',cat:'ataque',rarity:'rare',effect:'twSpd',value:.2,trigger:'passive',unique:false,corrupted:false},
+golden_clover:{n:'Trevo',ic:'\uD83C\uDF40',d:'+3 ouro/onda.',cat:'economia',rarity:'rare',effect:'wvGold',value:3,trigger:'passive',unique:false,corrupted:false},
+arcane_lens:{n:'Lente Arcana',ic:'\uD83D\uDD0D',d:'+25% range torres.',cat:'ataque',rarity:'rare',effect:'twRng',value:.25,trigger:'passive',unique:false,corrupted:false},
+lucky_ring:{n:'Anel Sorte',ic:'\uD83D\uDC8D',d:'+5 ouro/no.',cat:'economia',rarity:'rare',effect:'ndGold',value:5,trigger:'passive',unique:false,corrupted:false},
+blood_gem:{n:'Gema Sangrenta',ic:'\uD83E\uDE78',d:'+1 dmg/onda torres.',cat:'ataque',rarity:'rare',effect:'stkDmg',value:1,trigger:'on_wave',unique:false,corrupted:false},
+golden_key:{n:'Chave Ouro',ic:'\uD83D\uDD11',d:'+2 locks.',cat:'controle',rarity:'rare',effect:'maxLocks',value:2,trigger:'passive',unique:false,corrupted:false},
+infinite_key:{n:'Chave Infinita',ic:'\uD83D\uDDDD\uFE0F',d:'Locks infinitos.',cat:'controle',rarity:'legendary',effect:'infLocks',value:1,trigger:'passive',unique:true,corrupted:false},
+crown_thorns:{n:'Coroa Espinhos',ic:'\uD83D\uDC51',d:'-8HP inimigos.',cat:'ataque',rarity:'rare',effect:'spawnDmg',value:8,trigger:'on_spawn',unique:false,corrupted:false},
+eternity_glass:{n:'Vidro Eterno',ic:'\u231B',d:'+2 mana inicial.',cat:'magia',rarity:'rare',effect:'startMana',value:2,trigger:'start',unique:false,corrupted:false},
+blood_chalice:{n:'Calice Sangue',ic:'\uD83C\uDFC6',d:'Torres curam 0.5/kill.',cat:'ataque',rarity:'rare',effect:'twHeal',value:.5,trigger:'on_kill',unique:false,corrupted:false},
+doom_clock:{n:'Relogio Morte',ic:'\uD83D\uDC80',d:'+50%dmg, -20HP.',cat:'corrupta',rarity:'corrupted',effect:'doomClock',value:.5,trigger:'start',unique:true,corrupted:true}
 };
 
-var POTS_MOCK = {
-health:{name:'Pocao Vida',icon:'\u2764\uFE0F\uD83E\uDDEA',description:'+25 HP',effect:'heal',value:25},
-mana:{name:'Pocao Mana',icon:'\uD83D\uDC8E\uD83E\uDDEA',description:'+3 mp',effect:'mana',value:3},
-strength:{name:'Pocao Forca',icon:'\u2694\uFE0F\uD83E\uDDEA',description:'+50% dmg',effect:'str',value:.5,duration:30}
-};
+// ═══════════════════ EVENTS (GDD Cap.3) ═══════════════════
 
-var EVENTS_DATA = [
-{title:'Bau Misterioso',description:'Runas.',choices:[{text:'Abrir',effect:'relic'},{text:'Forcar (+15$)',effect:'gold15'}]},
-{title:'Altar Antigo',description:'Sacrificio.',choices:[{text:'-10HP -> epica+',effect:'sacrifice'},{text:'+5$',effect:'gold5'}]},
-{title:'Mercador',description:'Misterioso.',choices:[{text:'Rara (20$)',effect:'buyrare'},{text:'Recusar',effect:'nothing'}]},
-{title:'Fonte Arcana',description:'Magica.',choices:[{text:'+5 HP max',effect:'hpup'},{text:'+10$',effect:'gold10'}]},
-{title:'Encruzilhada',description:'Sinos.',choices:[{text:'+2 cartas',effect:'addcards'},{text:'+20$',effect:'gold20'}]},
-{title:'Fonte de Cura',description:'Cristalina.',choices:[{text:'+15 HP',effect:'heal15'},{text:'+5 HP max',effect:'hpup'}]},
-{title:'Ferreiro',description:'Ferramentas.',choices:[{text:'Upgrade aleatoria',effect:'uprandom'},{text:'+10$',effect:'gold10'}]},
-{title:'Corvo',description:'Presente.',choices:[{text:'Rara gratis',effect:'addrare'},{text:'+15$',effect:'gold15'}]},
-{title:'Cristal',description:'Brilho.',choices:[{text:'Comer (-5HP, +25$)',effect:'crystal'},{text:'Ignorar',effect:'nothing'}]},
-{title:'Jardim',description:'Descanso.',choices:[{text:'+20 HP',effect:'heal20'},{text:'Rara',effect:'addrare'}]},
-{title:'Mercador Viajante',description:'Negocio.',choices:[{text:'Pocao (5$)',effect:'buypot5'},{text:'Recusar',effect:'nothing'}]},
-{title:'Armadilha',description:'Perigo!',choices:[{text:'-8 HP',effect:'lose8hp'},{text:'-15$',effect:'pay15'}]},
-{title:'Estrela Cadente',description:'Desejo.',choices:[{text:'Desejar',effect:'wish'},{text:'Ignorar',effect:'nothing'}]},
-{title:'Necromante',description:'Sombrio.',choices:[{text:'-10HP +1 epica',effect:'sacrifice'},{text:'+8$',effect:'gold8'}]},
-{title:'Peregrino',description:'Jornada.',choices:[{text:'+2 cartas',effect:'addcards'},{text:'+25$',effect:'gold25'}]}
+var EVENTS_DATA=[
+{id:'bau_misterioso',title:'Ba\u00FA Misterioso',description:'Um ba\u00FA lacrado com runas.',type:'bau',rarity:'common',choices:[{text:'Abrir (gratis)',fn:'bau_gratis'},{text:'Abrir pagando 15$',fn:'bau_pago',cost:15},{text:'Ignorar',fn:'nothing'}]},
+{id:'altar_antigo',title:'Altar Antigo',description:'Um altar pede sacrificio.',type:'global',rarity:'common',choices:[{text:'-10HP -> reliquia rara',fn:'altar_sacrifice'},{text:'-25$ -> 2 cartas',fn:'altar_magic',cost:25},{text:'Ignorar',fn:'nothing'}]},
+{id:'fonte_arcana',title:'Fonte Arcana',description:'Energia magica.',type:'global',rarity:'common',choices:[{text:'+3 mana, -5HP',fn:'fonte_mana'},{text:'1 reliquia comum',fn:'fonte_relic_common'},{text:'+15 HP',fn:'heal15'}]},
+{id:'acampamento',title:'Acampamento',description:'Local seguro.',type:'global',rarity:'common',choices:[{text:'Curar 20 HP',fn:'heal20'},{text:'Melhorar 1 carta',fn:'uprandom'},{text:'Remover 1 carta',fn:'remove_card'}]},
+{id:'festival',title:'Festival',description:'Festival de cartas.',type:'global',rarity:'common',choices:[{text:'Escolher 1 de 3',fn:'festival_cards'},{text:'1 reliquia comum',fn:'fonte_relic_common'},{text:'+30 ouro',fn:'gold30'}]},
+{id:'maquina_estranha',title:'Maquina',description:'Maquina de sucata.',type:'global',rarity:'common',choices:[{text:'20$ -> carta',fn:'maquina_20',cost:20},{text:'40$ -> carta rara',fn:'maquina_40',cost:40},{text:'Desligar',fn:'nothing'}]},
+{id:'ferreiro',title:'Ferreiro',description:'Melhorar ou destruir.',type:'loja',rarity:'uncommon',choices:[{text:'Melhorar 1',fn:'uprandom'},{text:'Destruir -> 50$',fn:'ferreiro_destroy'},{text:'Melhorar 2, -10HP',fn:'ferreiro_double'}]},
+{id:'poco_misterioso',title:'Poco',description:'Brilho estranho.',type:'global',rarity:'uncommon',choices:[{text:'20$ (50% 35$)',fn:'poco_20',cost:20},{text:'40$ (50% reliquia)',fn:'poco_40',cost:40},{text:'Ignorar',fn:'nothing'}]},
+{id:'ruinas',title:'Ruinas',description:'Ruinas esquecidas.',type:'mapa',rarity:'uncommon',choices:[{text:'Explorar (50% reliquia)',fn:'ruinas_explore'},{text:'Reforcar (-10% spd)',fn:'ruinas_reinforce'},{text:'Ignorar',fn:'nothing'}]},
+{id:'eclipse',title:'Eclipse',description:'A luz some.',type:'global',rarity:'uncommon',choices:[{text:'Aceitar (+25% range luz)',fn:'eclipse_accept'},{text:'Resistir (-10HP, carta)',fn:'eclipse_resist'}]},
+{id:'lua_vermelha',title:'Lua Vermelha',description:'Lua fica vermelha.',type:'global',rarity:'uncommon',choices:[{text:'Aceitar (+20% ouro)',fn:'lua_accept'},{text:'Quebrar (elite)',fn:'lua_break'}]},
+{id:'chuva_dourada',title:'Chuva Dourada',description:'Chuva de ouro.',type:'global',rarity:'uncommon',choices:[{text:'Coletar (+50$)',fn:'chuva_collect'},{text:'Ignorar',fn:'nothing'}]},
+{id:'aposta',title:'Aposta',description:'Comerciante propoe.',type:'global',rarity:'uncommon',choices:[{text:'25$ (50% 60$)',fn:'aposta_25',cost:25},{text:'50$ (50% reliquia)',fn:'aposta_50',cost:50},{text:'Nao',fn:'nothing'}]},
+{id:'mercador_ambulante',title:'Mercador',description:'Vendedor fora da loja.',type:'loja',rarity:'rare',choices:[{text:'Item (25$)',fn:'mercador_buy',cost:25},{text:'Vender carta (x2)',fn:'mercador_sell'},{text:'Roubar (elite)',fn:'mercador_steal'}]},
+{id:'portal',title:'Portal',description:'Portal instavel.',type:'mapa',rarity:'rare',choices:[{text:'Entrar (+recompensa)',fn:'portal_enter'},{text:'Selar (carta rara)',fn:'portal_seal'},{text:'Ignorar',fn:'nothing'}]},
+{id:'arena',title:'Arena',description:'Combate opcional.',type:'batalha',rarity:'rare',choices:[{text:'Lutar (Elite->reliquia)',fn:'arena_enter'},{text:'Recusar (-10$)',fn:'arena_refuse'}]},
+{id:'ritual',title:'Ritual',description:'Ritual sombrio.',type:'global',rarity:'rare',choices:[{text:'Comum->Rara',fn:'ritual_upgrade'},{text:'-15HP->reliquia rara',fn:'ritual_hp'},{text:'Recusar',fn:'nothing'}]},
+{id:'santuario',title:'Santuario',description:'Purificacao.',type:'global',rarity:'epic',choices:[{text:'Remover corrompida',fn:'santuario_purify'},{text:'+20HP, remover carta',fn:'santuario_heal'},{text:'Ignorar',fn:'nothing'}]},
+{id:'corrupcao',title:'Corrupcao',description:'Area contaminada.',type:'global',rarity:'epic',choices:[{text:'Aceitar (+15%dmg, maldicao)',fn:'corrupcao_aceitar'},{text:'Resistir (-10HP, reliquia)',fn:'corrupcao_resistir'}]},
+{id:'templo',title:'Templo',description:'Templo testa voce.',type:'global',rarity:'epic',choices:[{text:'Desafio (reliquia epica)',fn:'templo_challenge'},{text:'Pagar 30$',fn:'templo_pay',cost:30},{text:'Ignorar',fn:'nothing'}]},
+{id:'o_viajante',title:'Viajante',description:'Estranho oferece troca.',type:'global',rarity:'epic',choices:[{text:'Trocar reliquia',fn:'viajante_relic'},{text:'Trocar carta',fn:'viajante_card'},{text:'Recusar',fn:'nothing'}]},
+{id:'o_colecionador',title:'Colecionador',description:'Quer sua peca.',type:'secreto',rarity:'secret',choices:[{text:'Reliquia->superior',fn:'colecionador_relic'},{text:'Carta rara->epica',fn:'colecionador_card'},{text:'Recusar',fn:'nothing'}]},
+{id:'o_vazio',title:'O Vazio',description:'Buraco negro.',type:'secreto',rarity:'secret',choices:[{text:'Todas reliquias->unica',fn:'vazio_all'},{text:'Metade ouro',fn:'vazio_gold'},{text:'Sair',fn:'nothing'}]},
+{id:'o_desenvolvedor',title:'Desenvolvedor',description:'Observa a Run.',type:'secreto',rarity:'secret',choices:[{text:'Pedir ajuda (3 lendarias)',fn:'dev_help'},{text:'Desafio (boss)',fn:'dev_challenge'},{text:'Ir embora',fn:'nothing'}]},
+{id:'a_divindade',title:'Divindade',description:'Bencao elemental.',type:'secreto',rarity:'secret',choices:[{text:'Fogo (+1lv fire)',fn:'divindade_fire'},{text:'Gelo (+1lv ice)',fn:'divindade_ice'},{text:'Raio (+1lv lightning)',fn:'divindade_lightning'}]}
 ];
 
-// ═══ CONVERSION ═══
+// ═══════════════════ POTIONS ═══════════════════
 
-function initCards(){
-  for(var id in CARDS_MOCK){
-    var m=CARDS_MOCK[id];
-    var c={id:id,name:m.name,type:m.type,sub:m.sub_type,icon:m.icon,color:m.color,desc:m.description,rarity:m.rarity,cost:m.cost||RC[m.rarity]||2};
-    c.damage=m.damage||0; c.range=m.range||0; c.atkSpd=m.attack_speed||0;
-    c.pSpd=m.projectile_speed||6; c.shape=m.shape||'circle';
-    c.tgtType=m.target_type||'grounded';
-    c.slow=m.slow||0; c.slowDur=m.slow_duration||0;
-    c.spl=m.type==='spell'?0:(m.splash_radius||0);
-    c.splRad=m.type==='spell'?(m.splash_radius||0):0;
-    c.splDmg=m.spell_damage||0;
-    c.poisDmg=m.poison_damage||0; c.poisDur=m.poison_duration||0;
-    c.bleedDmg=m.bleed_damage||0; c.bleedDur=m.bleed_duration||0;
-    c.burnDmg=m.burn_damage||0; c.burnDur=m.burn_duration||0;
-    c.chn=m.chain||0; c.chr=m.chain_range||0;
-    c.frenzy=m.frenzy||false; c.exhaust=m.exhaust||false;
-    c.execThresh=m.execute_threshold||0; c.lifeSteal=m.lifesteal||0;
-    c.farmGold=m.gold_per_wave||0; c.targetMode=m.target_mode||'cell';
-    c.effect=m.effect||null; c.laser=m.laser||false; c.devour=m.devour||false;
-    c.frzDur=m.freeze_duration||0; c.drawN=m.draw_count||0;
-    c.life=m.heal_amount||0; c.dmgMul=m.damage_multiplier||0;
-    c.spdMul=m.speed_multiplier||0; c.rngBon=m.range_bonus||0;
-    if(m.trigger) c.trigger={ch:m.trigger.chance,tp:m.trigger.type,mult:m.trigger.multiplier||0};
-    if(m.ultimate) c.ultimate={name:m.ultimate.name,icon:m.ultimate.icon,desc:m.ultimate.description,effect:m.ultimate.effect};
-    if(m.tribute) c.tribute={trigger:m.tribute.trigger,desc:m.tribute.description,cd:m.tribute.cooldown,execute:m.tribute.execute};
-    if(m.active_skill) c.activeSkill={name:m.active_skill.name,icon:m.active_skill.icon,desc:m.active_skill.description,cd:m.active_skill.cooldown,effect:m.active_skill.effect};
-    if(m.levels) c.levels=m.levels.map(function(lv){
-      var o={};
-      for(var k in lv){
-        if(k==='spell_damage') o.splDmg=lv[k];
-        else if(k==='splash_radius'){ if(m.type==='spell') o.splRad=lv[k]; else o.spl=lv[k]; }
-        else if(k==='freeze_duration') o.frzDur=lv[k];
-        else if(k==='draw_count') o.drawN=lv[k];
-        else if(k==='heal_amount') o.life=lv[k];
-        else if(k==='damage_multiplier') o.dmgMul=lv[k];
-        else if(k==='speed_multiplier') o.spdMul=lv[k];
-        else if(k==='range_bonus') o.rngBon=lv[k];
-        else o[k]=lv[k];
-      }
-      return o;
-    });
-    CARDS[id]=c;
-  }
-}
-
-function initEnemies(){
-  for(var id in ENEMIES_MOCK){
-    var m=ENEMIES_MOCK[id];
-    ENEMIES[id]={hp:m.health,sp:m.speed,g:m.gold,cl:m.color,z:m.size,bo:m.boss?1:0,fly:m.flying?1:0,re:m.regeneration||0,shield:m.shield||0,armor:m.armor||0,healR:m.heal_range||0,healAmt:m.heal_amount||0,auraSpd:m.aura_speed||0,stealth:m.stealth||false,corrupted:m.corrupted||false};
-  }
-}
-
-function initRelics(){
-  for(var id in RELICS_MOCK){
-    var m=RELICS_MOCK[id];
-    RELICS[id]={n:m.name,ic:m.icon,d:m.description,ef:m.effect,v:m.value};
-  }
-}
-
-function initPots(){
-  for(var id in POTS_MOCK){
-    var m=POTS_MOCK[id];
-    POTS[id]={n:m.name,ic:m.icon,d:m.description,ef:m.effect,v:m.value,dur:m.duration||0};
-  }
-}
-
-function initGameData(){ initCards(); initEnemies(); initRelics(); initPots(); }
-
-function genPath(){
-  pathCells=[]; pathSet={};
-  for(var i=0;i<WP.length-1;i++){
-    var x=WP[i][0],y=WP[i][1],tx=WP[i+1][0],ty=WP[i+1][1];
-    if(i===0){ pathCells.push([x,y]); pathSet[x+','+y]=1; }
-    while(x!==tx||y!==ty){
-      if(x!==tx) x+=(tx>x?1:-1); else y+=(ty>y?1:-1);
-      pathCells.push([x,y]); pathSet[x+','+y]=1;
-    }
-  }
-}
+var POTS={
+heal_pot:{n:'Pocao Vida',ic:'\uD83E\uDDEA',d:'+30 HP.',type:'heal',value:30},
+rage_pot:{n:'Pocao Furia',ic:'\uD83C\uDF77',d:'Torres +30% 10s.',type:'buff',value:.3,dur:10},
+shield_pot:{n:'Pocao Escudo',ic:'\uD83E\uDDF2',d:'+25 escudo.',type:'shield',value:25},
+gold_pot:{n:'Pocao Ouro',ic:'\uD83E\uDDFA',d:'+30 ouro.',type:'gold',value:30},
+mana_pot:{n:'Pocao Mana',ic:'\uD83D\uDD2E',d:'+3 mana.',type:'mana',value:3}
+};

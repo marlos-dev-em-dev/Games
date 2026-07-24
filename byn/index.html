@@ -1,109 +1,185 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arcane Siege</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Rogue Card TD</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#08070d;color:#e8e0d0;font-family:'Crimson Pro',Georgia,serif;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:6px;overflow-x:hidden}
-#W{position:relative;width:720px;transform-origin:top center}
-canvas{display:block;background:#0a0a12;border:2px solid #2a2540;border-radius:4px;width:720px;height:480px}
-#hd{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:rgba(18,17,26,.95);border:1px solid #2a2540;border-bottom:none;font-family:'Cinzel',serif;font-size:11px;border-radius:4px 4px 0 0;flex-wrap:wrap;gap:4px}
-.si{display:flex;align-items:center;gap:3px;white-space:nowrap}.si b{color:#d4a843;font-weight:700}
-#rb{display:flex;gap:4px}.ri{font-size:14px;cursor:help}
-#pb{display:flex;gap:3px}.po{font-size:16px;cursor:pointer;padding:2px;border-radius:3px;border:1px solid transparent;transition:all .15s}.po:hover{border-color:#d4a843;transform:scale(1.15)}
-#cb{display:none;justify-content:center;align-items:center;gap:8px;padding:6px;background:#12111a;border:1px solid #2a2540;border-top:none}
-#gldWrap{position:relative;display:inline-flex;align-items:center;gap:3px;font-family:'Cinzel',serif;font-weight:900;font-size:18px;color:#ffd93d;text-shadow:0 0 8px rgba(255,217,61,.3)}
-.gldF{position:absolute;left:50%;transform:translateX(-50%);bottom:100%;font-family:'Cinzel',serif;font-weight:700;font-size:13px;pointer-events:none;white-space:nowrap;animation:gldUp 1s ease-out forwards;z-index:20}
-@keyframes gldUp{0%{opacity:1;margin-bottom:0}100%{opacity:0;margin-bottom:22px}}
-#sw{font-family:'Cinzel',serif;font-weight:700;font-size:12px;padding:6px 20px;background:linear-gradient(135deg,#d4a843,#f0c860);color:#08070d;border:none;border-radius:4px;cursor:pointer;transition:all .2s}
-#sw:hover:not(:disabled){transform:scale(1.05)}#sw:disabled{opacity:.3;cursor:default;background:#333}
-.tb{font-family:'Cinzel',serif;font-weight:700;font-size:10px;padding:5px 12px;border:2px solid #2a2540;border-radius:4px;cursor:pointer;transition:all .15s;background:#1a1725;color:#7a7080}
-.tb:hover{border-color:#d4a843;color:#e8e0d0}.tb.on{border-color:#2ecc71;color:#2ecc71}
-#hi{font-size:10px;color:#7a7080;font-style:italic;margin-left:4px}
-#hn{display:none;justify-content:center;gap:4px;padding:6px 4px;min-height:140px;background:rgba(18,17,26,.6);border:1px solid #2a2540;border-top:none;border-radius:0 0 4px 4px;overflow-x:auto}
-.cr{width:95px;height:135px;background:#1a1725;border:2px solid #2a2540;border-radius:8px;cursor:pointer;transition:transform .18s,border-color .18s;position:relative;padding:4px 3px;display:flex;flex-direction:column;user-select:none;flex-shrink:0;touch-action:manipulation}
-.cr:hover{transform:translateY(-10px) scale(1.05);border-color:#d4a843;z-index:10}
-.cr.sl{transform:translateY(-13px) scale(1.07);border-color:#f0c860;box-shadow:0 0 16px rgba(240,200,96,.4)}
-.cr.nd{opacity:.4;filter:grayscale(.3)}.cr.locked{border-color:#ffd93d!important;box-shadow:0 0 10px rgba(255,217,61,.35)}
-.cp{position:absolute;top:-6px;left:-6px;width:20px;height:20px;background:#d4a843;color:#08070d;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;font-family:'Cinzel',serif;border:2px solid #08070d}
-.cl{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;font-family:'Cinzel',serif;border:2px solid #08070d}
-.lv2{background:#2ecc71;color:#000}.lv3{background:#f39c12;color:#000}
-.lk{position:absolute;bottom:2px;right:2px;font-size:11px;cursor:pointer;opacity:.5;z-index:2;transition:opacity .15s}.lk:hover{opacity:1}
-.sbi{position:absolute;top:2px;right:2px;font-size:10px;opacity:.6;z-index:1}
-.ce{text-align:center;font-size:20px;padding:4px 0 1px}
-.cn{font-family:'Cinzel',serif;font-weight:700;font-size:8px;text-align:center;color:#e8e0d0;line-height:1.1}
-.cd{font-size:7px;color:#7a7080;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;line-height:1.2}
-.ct{font-size:7px;color:#d4a843;text-align:center;border-top:1px solid #2a2540;padding-top:1px;font-weight:600}
-.rc{border-color:#666}.rr{border-color:#4a9eff}.re{border-color:#9b59b6}.rm{border-color:#2ecc71}.rl{border-color:#f39c12}
-.ov{position:absolute;inset:0;background:rgba(8,7,13,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;border-radius:4px;overflow-y:auto;padding:16px}.ov.h{display:none}
-.mt{font-family:'Cinzel',serif;font-weight:900;font-size:36px;color:#d4a843;text-shadow:0 0 25px rgba(212,168,67,.3);letter-spacing:3px}
-.mf{color:#7a7080;font-size:11px;margin:5px 0 16px;max-width:380px;text-align:center;line-height:1.4;font-style:italic}
-.mb{font-family:'Cinzel',serif;font-weight:700;font-size:15px;padding:10px 32px;background:linear-gradient(135deg,#d4a843,#f0c860);color:#08070d;border:none;border-radius:4px;cursor:pointer;transition:all .2s;letter-spacing:2px;margin:4px}.mb:hover{transform:scale(1.05);box-shadow:0 0 18px rgba(212,168,67,.4)}
-.mb-ab{font-size:12px;padding:8px 24px;background:linear-gradient(135deg,#a29bfe,#6c5ce7);letter-spacing:1px}
-.bn{font-family:'Cinzel',serif;font-weight:700;font-size:11px;padding:8px 18px;border:2px solid #2a2540;border-radius:4px;cursor:pointer;transition:all .15s;background:#1a1725;color:#e8e0d0;margin:3px}.bn:hover{border-color:#d4a843}.bn:disabled{opacity:.3;cursor:default}
-.ba{background:linear-gradient(135deg,#d4a843,#f0c860);color:#08070d;border:none}
-.bo{font-family:'Cinzel',serif;font-weight:900;font-size:28px;margin-bottom:10px}
-.oi{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:10px 0}
-.oC{width:110px;background:#1a1725;border:2px solid #2a2540;border-radius:8px;padding:8px;text-align:center;cursor:pointer;transition:all .2s}.oC:hover{transform:translateY(-5px);border-color:#d4a843}
-.oC .ic{font-size:28px}.oC .nm{font-size:10px;margin:4px 0}.oC .ds{font-size:9px;margin-bottom:4px;display:block}.oC .pr{font-weight:700;color:#d4a843;font-size:12px}
-.oR{width:130px;background:#1a1725;border:2px solid #ff9f43;border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:all .2s}.oR:hover{transform:translateY(-5px)}.oR .ic{font-size:28px}.oR .nm{font-size:10px;font-family:'Cinzel',serif;font-weight:700;color:#ff9f43;margin:4px 0}.oR .ds{font-size:9px;color:#7a7080;display:block;margin-bottom:4px}.oR .pr{font-weight:700;color:#d4a843;font-size:12px}
-.et{color:#e8e0d0;font-size:14px;max-width:400px;text-align:center;line-height:1.5;margin:12px 0}
-.en{font-family:'Cinzel',serif;font-weight:700;font-size:20px;color:#a29bfe}
-#pp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#12111a;border:2px solid #d4a843;border-radius:8px;padding:12px;z-index:50;min-width:220px;text-align:center}#pp.h{display:none}
-.pn{font-family:'Cinzel',serif;font-weight:700;font-size:12px;color:#d4a843;margin-bottom:4px}
-.pd{font-size:10px;color:#e8e0d0;margin-bottom:8px;line-height:1.5}
-.pbt{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
-.pprio{display:inline-flex;gap:2px;margin:4px 0;flex-wrap:wrap;justify-content:center}
-.pprio span{cursor:pointer;padding:3px 6px;font-size:9px;border-radius:3px;border:1px solid #2a2540;transition:all .15s;color:#666}
+body{background:#050508;font-family:'Cinzel',serif;color:#d4a843;overflow:hidden;height:100vh;display:flex;align-items:center;justify-content:center}
+#W{width:760px;position:relative;transform-origin:center center}
+
+/* OVERLAYS */
+.ov{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(5,5,8,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;overflow-y:auto;padding:20px}
+.h{display:none!important}
+
+/* TYPOGRAPHY */
+.bo{font-size:24px;font-weight:900;color:#d4a843;text-align:center;margin-bottom:12px;text-shadow:0 0 20px #d4a84340}
+.en{font-size:18px;font-weight:700;text-align:center;margin:8px 0}
+.et{font-size:13px;color:#aaa;text-align:center;margin:6px 0;line-height:1.5}
+
+/* BUTTONS */
+.bn{display:block;width:280px;padding:10px;margin:6px auto;font-family:'Cinzel',serif;font-size:13px;font-weight:700;background:transparent;color:#d4a843;border:2px solid #d4a84340;border-radius:4px;cursor:pointer;transition:all .15s;letter-spacing:1px}
+.bn:hover{border-color:#d4a843;background:#d4a84315;letter-spacing:2px}
+.bn:disabled{opacity:.3;cursor:default;border-color:#333;color:#555}
+.bn:disabled:hover{background:transparent;letter-spacing:1px}
+.ba{border-color:#d4a84390}
+.ba:hover{background:#d4a84320}
+.bs{display:inline-block;padding:4px 10px;font-family:'Cinzel',serif;font-size:11px;font-weight:700;background:transparent;color:#d4a843;border:1px solid #d4a84340;border-radius:3px;cursor:pointer;transition:all .15s;margin:2px}
+.bs:hover{border-color:#d4a843;background:#d4a84315}
+.bs.on{background:#d4a84330;border-color:#d4a843}
+.bs:disabled{opacity:.3;cursor:default}
+
+/* GAME AREA */
+#oG{position:relative;width:760px}
+#ib{display:flex;justify-content:space-between;align-items:center;padding:4px 10px;font-size:11px;background:#0a0a12;border-bottom:1px solid #d4a84315;height:28px}
+#ib span{display:inline-flex;align-items:center;gap:3px}
+.hp-bar{width:70px;height:5px;background:#222;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:4px}
+.hp-fill{height:100%;border-radius:3px;transition:width .3s}
+
+#cv{display:block;background:#0a0a12;cursor:crosshair}
+
+/* COMBAT CONTAINER */
+#cb{display:none;flex-direction:column}
+#hud{display:flex;align-items:center;gap:6px;padding:3px 8px;background:#0d0d15;border-top:1px solid #d4a84315;min-height:30px;font-size:10px}
+#hi{color:#555;font-size:9px;flex:1;text-align:right}
+
+/* HAND */
+#hn{display:flex;padding:5px 6px;gap:4px;justify-content:center;background:#08080f;border-top:1px solid #d4a84310;min-height:75px;overflow-x:auto}
+.hc{width:95px;min-width:95px;padding:5px;background:#111;border:2px solid #333;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;position:relative;flex-shrink:0}
+.hc:hover{border-color:#d4a84360;transform:translateY(-2px)}
+.hc.sel{border-color:#d4a843;background:#1a1510;box-shadow:0 0 10px #d4a84330}
+.hc.lock{border-color:#e84855}
+.hc .ic{font-size:20px;line-height:1}
+.hc .nm{font-size:9px;font-weight:700;color:#ddd;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hc .cs{font-size:10px;color:#74b9ff;font-weight:700}
+.hc .lv{position:absolute;top:2px;right:3px;font-size:8px;color:#ffd93d}
+.hc .lk{position:absolute;top:2px;left:3px;font-size:8px;color:#e84855}
+.rc{border-color:#444}.rr{border-color:#4a9eff}.re{border-color:#9b59b6}.rl{border-color:#ffd93d}
+
+/* RELICS & POTIONS */
+#rb{display:flex;align-items:center;gap:4px;padding:3px 10px;background:#08080f;border-top:1px solid #d4a84310;min-height:26px;flex-wrap:wrap;font-size:10px}
+.ri{font-size:15px;cursor:help;padding:0 2px}
+.pi{font-size:14px;cursor:pointer;padding:0 2px;opacity:.7;transition:opacity .15s}
+.pi:hover{opacity:1}
+
+/* POPUP */
+#pp{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:2px solid #d4a84360;border-radius:8px;padding:14px;z-index:200;width:320px;max-height:80vh;overflow-y:auto;box-shadow:0 0 30px #000a}
+#pN{font-size:15px;font-weight:900;text-align:center;margin-bottom:6px;color:#d4a843}
+#pD{font-size:10px;color:#aaa;margin-bottom:8px;line-height:1.5}
+#pB{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.pprio{display:inline-flex;gap:2px;flex-wrap:wrap}
+.pprio span{font-size:9px;padding:2px 5px;border:1px solid #333;border-radius:2px;cursor:pointer;color:#666;transition:all .15s}
 .pprio span:hover{border-color:#d4a843;color:#d4a843}
-.pprio span.act{border-color:#d4a843;color:#d4a843;font-weight:700;background:rgba(212,168,67,.15)}
-.dcSel{border-color:#ffd93d!important;box-shadow:0 0 10px rgba(255,217,61,.3)}
-.tutTxt{text-align:left;font-size:11px;line-height:1.8;max-width:380px}
-.tutTxt b{color:#d4a843}
-#wvPrev{font-size:9px;color:#7a7080;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-@media(max-height:800px){#W{transform:scale(.8)}}
-@media(max-width:500px){#W{transform:scale(.55)}}
+.pprio span.act{border-color:#d4a843;color:#d4a843;background:#d4a84320}
+
+/* OPTION ITEMS */
+.oi{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0;max-height:55vh;overflow-y:auto;padding:4px}
+.oC,.oR{width:125px;padding:7px;background:#111;border:2px solid #333;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s}
+.oC:hover,.oR:hover{border-color:#d4a84360;transform:translateY(-1px)}
+.oC .ic,.oR .ic{font-size:22px}
+.oC .nm,.oR .nm{font-size:10px;font-weight:700;color:#ddd;margin:3px 0}
+.oC .ds,.oR .ds{font-size:9px;color:#888;margin:2px 0;min-height:20px}
+.oC .pr,.oR .pr{font-size:11px;color:#ffd93d;font-weight:700}
+
+/* FACTION CARDS */
+.fc{width:130px;padding:10px;background:#111;border:2px solid #333;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s}
+.fc:hover{border-color:#d4a84360;transform:translateY(-1px)}
+.fc .fi{font-size:26px}
+.fc .fn{font-size:11px;font-weight:700;margin:4px 0}
+.fc .fb{font-size:9px;color:#888}
+
+/* DIFFICULTY */
+.db{width:220px;padding:12px;margin:5px auto;font-family:'Cinzel',serif;font-size:14px;font-weight:700;background:transparent;border:2px solid #d4a84340;border-radius:4px;cursor:pointer;text-align:center;transition:all .15s}
+.db:hover{border-color:#d4a843;background:#d4a84315}
+.db .dd{font-size:10px;color:#777;display:block;margin-top:4px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0a12}::-webkit-scrollbar-thumb{background:#d4a84330;border-radius:2px}
 </style>
 </head>
 <body>
 <div id="W">
-<div id="hd">
-<span class="si">\u2764\uFE0F <b id="vHP">80/80</b></span>
-<span class="si" id="siDob">$ <b id="vDob">20</b></span>
-<span class="si" id="siM" style="display:none">Mp <b id="vM">5/5</b></span>
-<span class="si" id="siW" style="display:none">W <b id="vW">0/0</b></span>
-<span class="si" id="siP" style="display:none">Pilha <b id="vP">0</b></span>
-<span id="pb"></span><span id="rb"></span>
+
+<!-- MAIN MENU -->
+<div id="oM" class="ov">
+<div style="font-size:30px;font-weight:900;color:#d4a843;text-align:center;text-shadow:0 0 40px #d4a84350;line-height:1.2">ROGUE CARD<br>TOWER DEFENSE</div>
+<div class="et" style="margin:20px 0;font-size:14px">Construa. Defenda. Sobreviva.</div>
+<button class="bn ba" onclick="startGame()">JOGAR</button>
+<button class="bn" id="bAb" style="display:none" onclick="startAbismo()">O ABISMO</button>
 </div>
-<canvas id="cv" width="720" height="480"></canvas>
+
+<!-- DIFFICULTY -->
+<div id="oDiff" class="ov h">
+<div class="bo">DIFICULDADE</div>
+<div class="db" onclick="pickDiff('easy')">FACIL<span class="dd">-30% HP inimigos, +20% ouro</span></div>
+<div class="db" onclick="pickDiff('normal')">NORMAL<span class="dd">Equilibrado</span></div>
+<div class="db" onclick="pickDiff('hard')">DIFICIL<span class="dd">+40% HP, +15% spd, -20% ouro</span></div>
+<div class="db" onclick="pickDiff('impossible')">IMPOSSIVEL<span class="dd">+100% HP, +30% spd, -40% ouro</span></div>
+</div>
+
+<!-- FACTION SELECT -->
+<div id="oFac" class="ov h">
+<div class="bo">FACCAO</div>
+<div class="et">Escolha sua faccao para esta run.</div>
+<div class="oi" id="facList"></div>
+</div>
+
+<!-- TUTORIAL -->
+<div id="oTut" class="ov h">
+<div class="bo">CONTROLES</div>
+<div class="et" style="text-align:left;max-width:320px;line-height:1.8">
+<b>1-5</b> Selecionar carta<br>
+<b>Clique grid</b> Posicionar torre / Lancar magia<br>
+<b>Ctrl+Clique</b> Auto-upgrade<br>
+<b>Q</b> Trocar prioridade da torre<br>
+<b>Espaco</b> Velocidade 1x/2x/4x<br>
+<b>A</b> Auto-onda<br>
+<b>D</b> Ver deck (no mapa)<br>
+<b>Botao direito / Esc</b> Cancelar selecao
+</div>
+<button class="bn ba" onclick="closeTutorial()">ENTENDI</button>
+</div>
+
+<!-- GAME AREA -->
+<div id="oG">
+<div id="ib">
+<span id="siDob">$: <span id="vDob">20</span></span>
+<span id="siM" style="display:none">Mana: <span id="vM">5/5</span></span>
+<span id="siW" style="display:none">Onda: <span id="vW">0/0</span></span>
+<span id="siP" style="display:none">Pilha: <span id="vP">0</span></span>
+<span>HP: <span id="vHP">80/80</span><span class="hp-bar"><span class="hp-fill" id="hpFill" style="width:100%;background:#4ecdc4"></span></span></span>
+</div>
+<canvas id="cv"></canvas>
 <div id="cb">
-<div id="gldWrap"><span id="gldAu">0</span></div>
-<div id="wvPrev"></div>
-<button id="sw" onclick="startWave()">INICIAR ONDA 1</button>
-<button class="tb" id="bA" onclick="toggleAuto()">AUTO</button>
-<button class="tb" id="bS" onclick="toggleSpeed()">1x</button>
+<div id="hud">
+<button id="sw" class="bs ba" onclick="startWave()">INICIAR ONDA 1</button>
+<button id="bA" class="bs" onclick="toggleAuto()">AUTO</button>
+<button id="bS" class="bs" onclick="toggleSpeed()">1x</button>
 <span id="hi"></span>
 </div>
 <div id="hn"></div>
-<div id="oM" class="ov"><div class="mt">ARCANE SIEGE</div><div class="mf">Roguelike TD</div><button class="mb" onclick="startGame()">ROGUELIKE</button><button class="mb mb-ab" id="btnAb" disabled style="opacity:.3;cursor:default;margin-top:10px">O ABISMO</button></div>
-<div id="oDiff" class="ov h"><div class="bo">DIFICULDADE</div><div class="et">Escolha a dificuldade</div><button class="bn ba" onclick="pickDiff('normal')">NORMAL</button><button class="bn" style="border-color:#ffd93d;color:#ffd93d" onclick="pickDiff('hard')">DIFICIL (x1.5$)</button><button class="bn" style="border-color:#e84855;color:#e84855" onclick="pickDiff('nightmare')">PESADELO (x2.5$)</button></div>
-<div id="oTut" class="ov h"><div class="bo" style="font-size:22px">COMO JOGAR</div><div class="tutTxt"><b>1-5:</b> Selecionar carta<br><b>Clique grid:</b> Colocar torre<br><b>Ctrl+Clique:</b> Com auto-upgrade<br><b>Duplo clique:</b> Trancar carta<br><b>T:</b> Trancar | <b>Q:</b> Alvo | <b>U:</b> Upgrade<br><b>Espaco:</b> Speed | <b>A:</b> Auto | <b>D:</b> Deck<br><br><b style="color:#74b9ff">Hybrid (H):</b> Acerta voadores<br><b style="color:#ff9f43">Frenzy:</b> Reset ao matar<br><b style="color:#5bc0ff">Escudo:</b> Barra azul<br><b style="color:#888899">Armadura:</b> Reduz dano flat<br><b style="color:#333344">Furtivo:</b> Revelado perto de torre<br><b style="color:#441144">Corrompido:</b> Imune slow/stun<br><b style="color:#ff0000">Sangramento:</b> Dano alto curto<br><b style="color:#ff6600">Queimadura:</b> Dano em area<br><b style="color:#6bcb77">Veneno:</b> Empilha ate 3x<br><b style="color:#ff44aa">Fraqueza:</b> +30% dano recebido<br><b style="color:#ffd93d">Skills Ativas:</b> Popup da torre</div><button class="bn ba" onclick="dismissTutorial()">ENTENDI</button></div>
-<div id="oR" class="ov h"></div>
+</div>
+<div id="rb"></div>
+</div>
+
+<!-- TOWER POPUP -->
+<div id="pp" class="h"><div id="pN"></div><div id="pD"></div><div id="pB"></div></div>
+
+<!-- OVERLAYS -->
 <div id="oSh" class="ov h"></div>
-<div id="oCf" class="ov h"></div>
 <div id="oEv" class="ov h"></div>
 <div id="oDk" class="ov h"></div>
-<div id="oG" class="ov h"></div>
+<div id="oR" class="ov h"></div>
+<div id="oCf" class="ov h"></div>
 <div id="oV" class="ov h"></div>
 <div id="oDC" class="ov h"></div>
-<div id="pp" class="h"><div class="pn" id="pN"></div><div class="pd" id="pD"></div><div class="pbt" id="pB"></div></div>
 </div>
+
 <script src="data.js"></script>
-<script src="run.js"></script>
 <script src="cards.js"></script>
+<script src="run.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>
