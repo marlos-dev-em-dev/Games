@@ -1,0 +1,47 @@
+{
+  "h_guardiao": [
+    {
+      "name": "Deck 1",
+      "cards": [
+        "guardiao",
+        "guardiao",
+        "sentinela",
+        "sentinela",
+        "druida",
+        "druida",
+        "arqueira",
+        "arqueira",
+        "titan_floresta",
+        "titan_floresta",
+        "paladino",
+        "ranger",
+        "ranger",
+        "fenix",
+        "ancao",
+        "bencao",
+        "bencao",
+        "raio_solar",
+        "escudo_luz",
+        "crescimento",
+        "titan_floresta",
+        "escudo_luz",
+        "arqueira",
+        "druida",
+        "druida",
+        "ranger",
+        "fenix",
+        "fenix",
+        "paladino",
+        "crescimento"
+      ]
+    },
+    {
+      "name": "Deck 2",
+      "cards": []
+    },
+    {
+      "name": "Deck 3",
+      "cards": []
+    }
+  ]
+}

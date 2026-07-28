@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Slay Of Tower</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;font-family:'Cinzel',serif;color:#d4a843;overflow:hidden;height:100vh;display:flex;align-items:center;justify-content:center}
+#W{width:760px;position:relative;transform-origin:center center}
+
+/* OVERLAYS */
+.ov{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(5,5,8,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;overflow-y:auto;padding:20px}
+.h{display:none!important}
+
+/* TYPOGRAPHY */
+.bo{font-size:24px;font-weight:900;color:#d4a843;text-align:center;margin-bottom:12px;text-shadow:0 0 20px #d4a84340}
+.en{font-size:18px;font-weight:700;text-align:center;margin:8px 0}
+.et{font-size:13px;color:#aaa;text-align:center;margin:6px 0;line-height:1.5}
+
+/* BUTTONS */
+.bn{display:block;width:280px;padding:10px;margin:6px auto;font-family:'Cinzel',serif;font-size:13px;font-weight:700;background:transparent;color:#d4a843;border:2px solid #d4a84340;border-radius:4px;cursor:pointer;transition:all .15s;letter-spacing:1px}
+.bn:hover{border-color:#d4a843;background:#d4a84315;letter-spacing:2px}
+.bn:disabled{opacity:.3;cursor:default;border-color:#333;color:#555}
+.bn:disabled:hover{background:transparent;letter-spacing:1px}
+.ba{border-color:#d4a84390}
+.ba:hover{background:#d4a84320}
+.bs{display:inline-block;padding:4px 10px;font-family:'Cinzel',serif;font-size:11px;font-weight:700;background:transparent;color:#d4a843;border:1px solid #d4a84340;border-radius:3px;cursor:pointer;transition:all .15s;margin:2px}
+.bs:hover{border-color:#d4a843;background:#d4a84315}
+.bs.on{background:#d4a84330;border-color:#d4a843}
+.bs:disabled{opacity:.3;cursor:default}
+
+/* GAME AREA */
+#oG{position:relative;width:760px}
+#ib{display:flex;justify-content:space-between;align-items:center;padding:4px 10px;font-size:11px;background:#0a0a12;border-bottom:1px solid #d4a84315;height:28px}
+#ib span{display:inline-flex;align-items:center;gap:3px}
+.hp-bar{width:70px;height:5px;background:#222;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:4px}
+.hp-fill{height:100%;border-radius:3px;transition:width .3s}
+
+#cv{display:block;background:#0a0a12;cursor:crosshair}
+
+/* COMBAT CONTAINER */
+#cb{display:none;flex-direction:column}
+#hud{display:flex;align-items:center;gap:6px;padding:3px 8px;background:#0d0d15;border-top:1px solid #d4a84315;min-height:30px;font-size:10px}
+#hi{color:#555;font-size:9px;flex:1;text-align:right}
+
+/* HAND */
+#hn{display:flex;padding:5px 6px;gap:4px;justify-content:center;background:#08080f;border-top:1px solid #d4a84310;min-height:75px;overflow-x:auto}
+.hc{width:95px;min-width:95px;padding:5px;background:#111;border:2px solid #333;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;position:relative;flex-shrink:0}
+.hc:hover{border-color:#d4a84360;transform:translateY(-2px)}
+.hc.sel{border-color:#d4a843;background:#1a1510;box-shadow:0 0 10px #d4a84330}
+.hc.lock{border-color:#e84855}
+.hc .ic{font-size:20px;line-height:1}
+.hc .nm{font-size:9px;font-weight:700;color:#ddd;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hc .cs{font-size:10px;color:#74b9ff;font-weight:700}
+.hc .lv{position:absolute;top:2px;right:3px;font-size:8px;color:#ffd93d}
+.hc .lk{position:absolute;top:2px;left:3px;font-size:8px;color:#e84855}
+.rc{border-color:#444}.rr{border-color:#4a9eff}.re{border-color:#9b59b6}.rl{border-color:#ffd93d}
+
+/* RELICS & POTIONS */
+#rb{display:flex;align-items:center;gap:4px;padding:3px 10px;background:#08080f;border-top:1px solid #d4a84310;min-height:26px;flex-wrap:wrap;font-size:10px}
+.ri{font-size:15px;cursor:help;padding:0 2px}
+.pi{font-size:14px;cursor:pointer;padding:0 2px;opacity:.7;transition:opacity .15s}
+.pi:hover{opacity:1}
+
+/* POPUP */
+#pp{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:2px solid #d4a84360;border-radius:8px;padding:14px;z-index:200;width:320px;max-height:80vh;overflow-y:auto;box-shadow:0 0 30px #000a}
+#pN{font-size:15px;font-weight:900;text-align:center;margin-bottom:6px;color:#d4a843}
+#pD{font-size:10px;color:#aaa;margin-bottom:8px;line-height:1.5}
+#pB{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.pprio{display:inline-flex;gap:2px;flex-wrap:wrap}
+.pprio span{font-size:9px;padding:2px 5px;border:1px solid #333;border-radius:2px;cursor:pointer;color:#666;transition:all .15s}
+.pprio span:hover{border-color:#d4a843;color:#d4a843}
+.pprio span.act{border-color:#d4a843;color:#d4a843;background:#d4a84320}
+
+/* OPTION ITEMS */
+.oi{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0;max-height:55vh;overflow-y:auto;padding:4px}
+.oC,.oR{width:125px;padding:7px;background:#111;border:2px solid #333;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s}
+.oC:hover,.oR:hover{border-color:#d4a84360;transform:translateY(-1px)}
+.oC .ic,.oR .ic{font-size:22px}
+.oC .nm,.oR .nm{font-size:10px;font-weight:700;color:#ddd;margin:3px 0}
+.oC .ds,.oR .ds{font-size:9px;color:#888;margin:2px 0;min-height:20px}
+.oC .pr,.oR .pr{font-size:11px;color:#ffd93d;font-weight:700}
+
+/* FACTION CARDS */
+.fc{width:130px;padding:10px;background:#111;border:2px solid #333;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s}
+.fc:hover{border-color:#d4a84360;transform:translateY(-1px)}
+.fc .fi{font-size:26px}
+.fc .fn{font-size:11px;font-weight:700;margin:4px 0}
+.fc .fb{font-size:9px;color:#888}
+
+/* DIFFICULTY */
+.db{width:220px;padding:12px;margin:5px auto;font-family:'Cinzel',serif;font-size:14px;font-weight:700;background:transparent;border:2px solid #d4a84340;border-radius:4px;cursor:pointer;text-align:center;transition:all .15s}
+.db:hover{border-color:#d4a843;background:#d4a84315}
+.db .dd{font-size:10px;color:#777;display:block;margin-top:4px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0a12}::-webkit-scrollbar-thumb{background:#d4a84330;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="W">
+
+<!-- MAIN MENU -->
+<div id="oM" class="ov">
+<div style="font-size:30px;font-weight:900;color:#d4a843;text-align:center;text-shadow:0 0 40px #d4a84350;line-height:1.2">ROGUE CARD<br>TOWER DEFENSE</div>
+<div class="et" style="margin:20px 0;font-size:14px">Construa. Defenda. Sobreviva.</div>
+<button class="bn ba" onclick="startGame()">JOGAR</button>
+<button class="bn" id="bAb" style="display:none" onclick="startAbismo()">O ABISMO</button>
+</div>
+
+<!-- DIFFICULTY -->
+<div id="oDiff" class="ov h">
+<div class="bo">DIFICULDADE</div>
+<div class="db" onclick="pickDiff('easy')">FACIL<span class="dd">-30% HP inimigos, +20% ouro</span></div>
+<div class="db" onclick="pickDiff('normal')">NORMAL<span class="dd">Equilibrado</span></div>
+<div class="db" onclick="pickDiff('hard')">DIFICIL<span class="dd">+40% HP, +15% spd, -20% ouro</span></div>
+<div class="db" onclick="pickDiff('impossible')">IMPOSSIVEL<span class="dd">+100% HP, +30% spd, -40% ouro</span></div>
+</div>
+
+<!-- FACTION SELECT -->
+<div id="oFac" class="ov h">
+<div class="bo">FACCAO</div>
+<div class="et">Escolha sua faccao para esta run.</div>
+<div class="oi" id="facList"></div>
+</div>
+
+<!-- TUTORIAL -->
+<div id="oTut" class="ov h">
+<div class="bo">CONTROLES</div>
+<div class="et" style="text-align:left;max-width:320px;line-height:1.8">
+<b>1-5</b> Selecionar carta<br>
+<b>Clique grid</b> Posicionar torre / Lancar magia<br>
+<b>Ctrl+Clique</b> Auto-upgrade<br>
+<b>Q</b> Trocar prioridade da torre<br>
+<b>Espaco</b> Velocidade 1x/2x/4x<br>
+<b>A</b> Auto-onda<br>
+<b>D</b> Ver deck (no mapa)<br>
+<b>Botao direito / Esc</b> Cancelar selecao
+</div>
+<button class="bn ba" onclick="closeTutorial()">ENTENDI</button>
+</div>
+
+<!-- GAME AREA -->
+<div id="oG">
+<div id="ib">
+<span id="siDob">$: <span id="vDob">20</span></span>
+<span id="siM" style="display:none">Mana: <span id="vM">5/5</span></span>
+<span id="siW" style="display:none">Onda: <span id="vW">0/0</span></span>
+<span id="siP" style="display:none">Pilha: <span id="vP">0</span></span>
+<span>HP: <span id="vHP">80/80</span><span class="hp-bar"><span class="hp-fill" id="hpFill" style="width:100%;background:#4ecdc4"></span></span></span>
+</div>
+<canvas id="cv"></canvas>
+<div id="cb">
+<div id="hud">
+<button id="sw" class="bs ba" onclick="startWave()">INICIAR ONDA 1</button>
+<button id="bA" class="bs" onclick="toggleAuto()">AUTO</button>
+<button id="bS" class="bs" onclick="toggleSpeed()">1x</button>
+<span id="hi"></span>
+</div>
+<div id="hn"></div>
+</div>
+<div id="rb"></div>
+</div>
+
+<!-- TOWER POPUP -->
+<div id="pp" class="h"><div id="pN"></div><div id="pD"></div><div id="pB"></div></div>
+
+<!-- OVERLAYS -->
+<div id="oSh" class="ov h"></div>
+<div id="oEv" class="ov h"></div>
+<div id="oDk" class="ov h"></div>
+<div id="oR" class="ov h"></div>
+<div id="oCf" class="ov h"></div>
+<div id="oV" class="ov h"></div>
+<div id="oDC" class="ov h"></div>
+</div>
+
+<script src="data.js"></script>
+<script src="cards.js"></script>
+<script src="run.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>

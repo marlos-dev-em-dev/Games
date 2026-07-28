@@ -1,150 +1,101 @@
 // ═══════════════════════════════════════════════════════════════
-// cards.js — CAR DATABASE & CARD UTILITIES
+// cards.js - Deck, hand, card play
 // ═══════════════════════════════════════════════════════════════
 
-var STAR_COST=[0,5,10,20,35,50];
-var RARITY_COST={common:10,rare:20,epic:35,legendary:80};
-var PRIO_ORDER=['nearest','strongest','weakest','fastest','first','boss'];
+var lastClickT=0, lastClickI=-1;
 
-var CARDS={
+function initDeck(){ G.player.deck=[]; var ids=['arrow','arrow','arrow','arrow','frost','frost','shadow','fireball','fireball','surge','overcharge']; for(var i=0;i<ids.length;i++)G.player.deck.push({id:ids[i],lv:1}) }
+function shDraw(){ G.cb.drawPile=shf(G.player.deck.map(function(c){return{id:c.id,lv:c.lv,locked:false}})); G.cb.hand=[]; G.cb.discardPile=[] }
+function drawCards(n){ var C=G.cb; for(var i=0;i<n;i++){if(C.hand.length>=HM)break;if(!C.drawPile.length){if(!C.discardPile.length)break;C.drawPile=shf(C.discardPile.slice());for(var j=0;j<C.drawPile.length;j++)C.drawPile[j].locked=false;C.discardPile=[]}C.hand.push(C.drawPile.pop())} rHd();uH() }
+function discHand(){ var C=G.cb,kept=[]; for(var i=0;i<C.hand.length;i++){if(C.hand[i].locked)kept.push(C.hand[i]);else C.discardPile.push(C.hand[i])} C.hand=kept;rHd() }
+function toggleLock(idx){ var C=G.cb; if(idx<0||idx>=C.hand.length)return; if(C.hand[idx].locked)C.hand[idx].locked=false; else if(countLocked()<maxLocks())C.hand[idx].locked=true; rHd() }
 
-// ═══════════════════ TOWERS ═══════════════════
-
-archer:{name:'Arqueiro',icon:'\uD83C\uDFF9',desc:'Torre basica. Dano fisico rapido.',type:'tower',sub:'damage',
-  rarity:'common',cost:1,color:'#2ecc71',shape:'triangle',
-  dmg:8,range:3,spd:1.2,dmgType:'physical'},
-
-mage:{name:'Mago',icon:'\uD83D\uDD2E',desc:'Dano magico.',type:'tower',sub:'damage',
-  rarity:'common',cost:1,color:'#9b59b6',shape:'diamond',
-  dmg:10,range:2.5,spd:.8,dmgType:'magical'},
-
-cannon:{name:'Canhao',icon:'\uD83D\uDCA3',desc:'Dano em area.',type:'tower',sub:'damage',
-  rarity:'rare',cost:2,color:'#e74c3c',shape:'circle',
-  dmg:15,range:2,spd:.5,dmgType:'physical',splDmg:10,splRad:1.5},
-
-tesla:{name:'Tesla',icon:'\u26A1',desc:'Corrente eletrica.',type:'tower',sub:'damage',
-  rarity:'rare',cost:2,color:'#ffd93d',shape:'star',
-  dmg:12,range:2.5,spd:.7,dmgType:'lightning',chain:3,chainRange:2},
-
-ice_tower:{name:'Torre de Gelo',icon:'\u2744\uFE0F',desc:'Congela inimigos.',type:'tower',sub:'status',
-  rarity:'rare',cost:2,color:'#74b9ff',shape:'hexagon',
-  dmg:5,range:2.5,spd:.6,dmgType:'ice',slow:.4,slowDur:2,freeze:true,freezeDur:1.5},
-
-fire_tower:{name:'Torre de Fogo',icon:'\uD83D\uDD25',desc:'Area de queimadura.',type:'tower',sub:'damage',
-  rarity:'rare',cost:2,color:'#ff6600',shape:'circle',
-  dmg:6,range:2,spd:.5,dmgType:'fire',splDmg:4,splRad:1.2,burnDmg:3,burnDur:3},
-
-poison_tower:{name:'Torre de Veneno',icon:'\u2620\uFE0F',desc:'Veneno acumulativo.',type:'tower',sub:'status',
-  rarity:'rare',cost:2,color:'#6bcb77',shape:'hexagon',
-  dmg:4,range:2.5,spd:.8,dmgType:'physical',poisonDmg:2,poisonDur:4},
-
-sniper:{name:'Atirador',icon:'\uD83C\uDFAF',desc:'Longo alcance, alto dano.',type:'tower',sub:'damage',
-  rarity:'rare',cost:2,color:'#d4a843',shape:'diamond',
-  dmg:30,range:5,spd:.3,dmgType:'physical'},
-
-farm:{name:'Fazenda',icon:'\uD83C\uDF3E',desc:'Gera ouro por onda.',type:'tower',sub:'farm',
-  rarity:'common',cost:1,color:'#ffd93d',shape:'circle',
-  dmg:0,range:0,spd:0,dmgType:'physical',farmGold:3},
-
-bleed_tower:{name:'Torre Sangrenta',icon:'\u2764\uFE0F',desc:'Sangramento.',type:'tower',sub:'status',
-  rarity:'rare',cost:2,color:'#e84855',shape:'triangle',
-  dmg:7,range:2.5,spd:.9,dmgType:'physical',bleedDmg:3,bleedDur:3},
-
-holy_tower:{name:'Torre Sagrada',icon:'\u271D\uFE0F',desc:'Dano sagrado. Ignora armadura.',type:'tower',sub:'damage',
-  rarity:'epic',cost:3,color:'#ffd93d',shape:'star',
-  dmg:18,range:3,spd:.6,dmgType:'holy',armPrc:true},
-
-shadow_tower:{name:'Torre Sombria',icon:'\uD83D\uDC7B',desc:'Dano escuro. Perfurante.',type:'tower',sub:'damage',
-  rarity:'epic',cost:3,color:'#6c5ce7',shape:'diamond',
-  dmg:14,range:3,spd:.8,dmgType:'dark',pierce:2},
-
-support_tower:{name:'Suporte',icon:'\uD83D\uDCE1',desc:'Buff aura. +dano vizinhas.',type:'tower',sub:'support',
-  rarity:'rare',cost:2,color:'#00cec9',shape:'hexagon',
-  dmg:0,range:2.5,spd:0,dmgType:'physical',buffAura:{type:'dmg',value:.2,range:2}},
-
-laser:{name:'Laser',icon:'\uD83D\uDD34',desc:'Raio continuo.',type:'tower',sub:'damage',
-  rarity:'epic',cost:3,color:'#ff3838',shape:'star',
-  dmg:20,range:3.5,spd:.4,dmgType:'fire',laser:true},
-
-mine_layer:{name:'Minas',icon:'\uD83E\uDEA7',desc:'Coloca minas no caminho.',type:'tower',sub:'damage',
-  rarity:'rare',cost:2,color:'#e17055',shape:'triangle',
-  dmg:0,range:3,spd:0,dmgType:'physical',mineDmg:40,mineRate:5},
-
-necro:{name:'Necromante',icon:'\uD83D\uDC80',desc:'Invoca esqueleto.',type:'tower',sub:'summon',
-  rarity:'epic',cost:3,color:'#666688',shape:'diamond',
-  dmg:5,range:2,spd:.5,dmgType:'dark',summon:{type:'skeleton_ally',interval:12,hp:50,dmg:5}},
-
-berserker:{name:'Berserker',icon:'\uD83D\uDCA2',desc:'Mais dano em alvos feridos.',type:'tower',sub:'damage',
-  rarity:'epic',cost:3,color:'#ff3838',shape:'star',
-  dmg:12,range:2.5,spd:1,dmgType:'physical',execThresh:.3},
-
-frost_nova:{name:'Nova Glacial',icon:'\u2744\uFE0F',desc:'Pulso de gelo AOE.',type:'tower',sub:'status',
-  rarity:'epic',cost:3,color:'#a29bfe',shape:'hexagon',
-  dmg:8,range:2,spd:.3,dmgType:'ice',nova:true,novaCD:3,freezeDur:2},
-
-// ═══════════════════ SPELLS ═══════════════════
-
-fireball:{name:'Bola de Fogo',icon:'\uD83D\uDD25',desc:'Explosao de fogo.',type:'spell',sub:'damage',
-  rarity:'common',cost:2,color:'#ff6600',
-  splDmg:25,splRad:1.5,dmgType:'fire',burnDmg:4,burnDur:3},
-
-freeze_nova:{name:'Congelamento',icon:'\u2744\uFE0F',desc:'Congela todos os inimigos.',type:'spell',sub:'control',
-  rarity:'rare',cost:3,color:'#74b9ff',
-  splDmg:5,splRad:99,dmgType:'ice',freeze:true,freezeDur:2},
-
-lightning:{name:'Raio',icon:'\u26A1',desc:'Raio devastador.',type:'spell',sub:'damage',
-  rarity:'rare',cost:3,color:'#ffd93d',
-  splDmg:50,splRad:1,dmgType:'lightning',stun:1.5},
-
-heal_spell:{name:'Cura',icon:'\u2764\uFE0F',desc:'Restaura 25 HP.',type:'spell',sub:'utility',
-  rarity:'common',cost:2,color:'#44ff44',
-  splDmg:0,splRad:0,dmgType:'physical',healAmt:25},
-
-meteor:{name:'Meteoro',icon:'\u2604\uFE0F',desc:'Destruição massiva.',type:'spell',sub:'damage',
-  rarity:'legendary',cost:5,color:'#e84855',
-  splDmg:100,splRad:2.5,dmgType:'fire',burnDmg:8,burnDur:4,stun:1,exhaust:true},
-
-storm:{name:'Tempestade',icon:'\u26C8\uFE0F',desc:'5 raios aleatórios.',type:'spell',sub:'damage',
-  rarity:'epic',cost:4,color:'#74b9ff',
-  splDmg:20,splRad:3,dmgType:'lightning',hits:5},
-
-poison_cloud:{name:'Nuvem Toxica',icon:'\u2620\uFE0F',desc:'Area de veneno.',type:'spell',sub:'damage',
-  rarity:'rare',cost:2,color:'#6bcb77',
-  splDmg:5,splRad:2,dmgType:'physical',poisonDmg:4,poisonDur:5},
-
-shield_spell:{name:'Escudo',icon:'\uD83D\uDEE1\uFE0F',desc:'+30 escudo.',type:'spell',sub:'utility',
-  rarity:'rare',cost:2,color:'#5bc0ff',
-  splDmg:0,splRad:0,dmgType:'physical',shieldAmt:30},
-
-// ═══════════════════ MODIFIERS ═══════════════════
-
-mod_scope:{name:'Luneta',icon:'\uD83D\uDD0D',desc:'+40% alcance.',type:'mod',sub:'mod',
-  rarity:'common',cost:0,color:'#888',modRange:.4},
-
-mod_speed:{name:'Overclock',icon:'\u23E9',desc:'+30% velocidade.',type:'mod',sub:'mod',
-  rarity:'common',cost:0,color:'#888',modSpd:.3},
-
-mod_crit:{name:'Mira',icon:'\uD83C\uDFAF',desc:'+20% critico.',type:'mod',sub:'mod',
-  rarity:'rare',cost:0,color:'#ffd93d',modCrit:.2},
-
-mod_chain:{name:'Corrente',icon:'\u26D3\uFE0F',desc:'+2 correntes.',type:'mod',sub:'mod',
-  rarity:'rare',cost:0,color:'#ffd93d',modChain:2},
-
-mod_pierce:{name:'Perfurante',icon:'\uD83D\uDDE1\uFE0F',desc:'+2 perfuracoes.',type:'mod',sub:'mod',
-  rarity:'rare',cost:0,color:'#d4a843',modPierce:2},
-
-mod_lifesteal:{name:'Vampirico',icon:'\uD83E\uDDDB',desc:'Cura 5% do dano.',type:'mod',sub:'mod',
-  rarity:'epic',cost:0,color:'#9b59b6',modLifesteal:.05}
-};
-
-// ═══════════════════ CARD UTILITY ═══════════════════
-
-function lvStats(id,lv){
-  var c=CARDS[id];if(!c)return null;
-  var s={};for(var k in c)s[k]=c[k];
-  if(lv>=2){s.dmg=Math.floor(s.dmg*1.35);s.range*=1.1;s.spd*=1.1;if(s.splDmg)s.splDmg=Math.floor(s.splDmg*1.35);if(s.cost>1)s.cost--}
-  if(lv>=3){s.dmg=Math.floor(s.dmg*1.3);s.range*=1.15;s.spd*=1.15;if(s.splDmg)s.splDmg=Math.floor(s.splDmg*1.3);if(s.cost>1)s.cost--}
-  return s;
+function handleCardTap(idx){
+  var now=Date.now();
+  if(lastClickI===idx&&now-lastClickT<350){toggleLock(idx);lastClickT=0;lastClickI=-1}
+  else{onCardClick(idx);lastClickT=now;lastClickI=idx}
 }
 
-function maxSt(lv){return lv>=3?5:lv>=2?4:3}
+function onCardClick(i){
+  var C=G.cb;if(G.state!=='COMBAT'&&G.state!=='WAVE')return;
+  var en=C.hand[i],card=CARDS[en.id];if(!card)return;
+  var ls=lvStats(en.id,en.lv),cost=ls.cost||card.cost;
+  if(C.mana<cost){fMn();return}
+  C.selTower=null;clP();
+  if(isInst(card,ls)){playInst(i);return}
+  C.selCard=C.selCard===i?null:i;rHd();
+}
+
+function isInst(card,ls){
+  if(card.type!=='spell')return false;
+  if(card.effect){if(card.effect==='buff_all'||card.effect==='kill_flying'||card.effect==='remove_shields'||card.effect==='teleport_all')return true}
+  if(!ls.splDmg&&!ls.splRad&&!card.effect)return true;
+  if(ls.splRad&&ls.splRad>=99)return true;
+  if(ls.frzDur||card.frzDur)return true;
+  return false;
+}
+
+function playInst(i){
+  var C=G.cb,en=C.hand[i],card=CARDS[en.id],ls=lvStats(en.id,en.lv),cost=ls.cost||card.cost;
+  C.mana-=cost;C.hand.splice(i,1);
+  if(card.exhaust){for(var d=G.player.deck.length-1;d>=0;d--){if(G.player.deck[d].id===en.id&&G.player.deck[d].lv===en.lv){G.player.deck.splice(d,1);break}}}
+  else C.discardPile.push(en);
+  if(ls.frzDur||card.frzDur){var dur=ls.frzDur||card.frzDur;for(var j=0;j<C.enemies.length;j++){if(!C.enemies[j].corrupted){C.enemies[j].sva=Math.max(C.enemies[j].sva,1);C.enemies[j].stm=Math.max(C.enemies[j].stm,dur)}}C.shake=8;spP(W/2,H/2,'#74b9ff',25);if(ls.splDmg)for(var j=0;j<C.enemies.length;j++)dmgE(C.enemies[j],ls.splDmg)}
+  var eff=card.effect;
+  if(eff==='buff_all'){for(var j=0;j<C.towers.length;j++){C.towers[j].tempBuff=1.5;C.towers[j].tempBuffTimer=8}spP(W/2,H/2,'#2ecc71',25)}
+  if(eff==='kill_flying'){for(var j=C.enemies.length-1;j>=0;j--){if(C.enemies[j].fly){kE(C.enemies[j]);C.enemies.splice(j,1)}}spP(W/2,H/2,'#74b9ff',25)}
+  if(eff==='remove_shields'){for(var j=0;j<C.enemies.length;j++){C.enemies[j].shield=0;C.enemies[j].armor=0}spP(W/2,H/2,'#ffd93d',20)}
+  if(eff==='teleport_all'){for(var j=0;j<C.enemies.length;j++){var e=C.enemies[j];if(!e.bo){e.pi=Math.max(0,e.pi-5);var pos=cc(pathCells[e.pi][0],pathCells[e.pi][1]);e.x=pos[0];e.y=pos[1]}}spP(W/2,H/2,'#00cec9',25)}
+  var dr=ls.drawN||card.drawN;if(dr)drawCards(dr);
+  var lf=ls.life||card.life;if(lf){G.player.hp=Math.min(G.player.hp+lf,G.player.maxHp);fTx(W/2,H/2,'+'+lf+' HP','#e84855')}
+  sfx('sp');C.selCard=null;rHd();uH();
+}
+
+function handleGrid(c,r,ctrl){
+  var C=G.cb;
+  if(C.selCard!==null){
+    var en=C.hand[C.selCard],card=CARDS[en.id];
+    if(card.type==='tower'){if(canBuild(c,r))placeTwr(c,r,C.selCard,ctrl)}
+    else if(card.type==='spell'){
+      if(card.target_mode==='path'){if(pathSet[c+','+r])placeMine(c,r,C.selCard)}
+      else if(card.effect==='convert'){castConvert(c,r,C.selCard)}
+      else if(card.splDmg||card.splRad)castSpell(c,r,C.selCard)
+    }
+    else if(card.type==='mod'){var tw=C.grid[c][r];if(tw)applyMod(tw,C.selCard)}
+  }else{var tw=C.grid[c][r];if(tw)showTP(tw);else clP()}
+}
+
+function castSpell(c,r,i){
+  var C=G.cb,en=C.hand[i],card=CARDS[en.id],ls=lvStats(en.id,en.lv),cost=ls.cost||card.cost;
+  C.mana-=cost;C.hand.splice(i,1);
+  if(card.exhaust){for(var d=G.player.deck.length-1;d>=0;d--){if(G.player.deck[d].id===en.id&&G.player.deck[d].lv===en.lv){G.player.deck.splice(d,1);break}}}
+  else C.discardPile.push(en);
+  var sd=ls.splDmg||card.splDmg,sr=ls.splRad||card.splRad,tx=c*CL+CL/2,ty=r*CL+CL/2,rad=sr>=99?9999:sr*CL;
+  for(var j=0;j<C.enemies.length;j++){var e=C.enemies[j];if(sr>=99||dst(tx,ty,e.x,e.y)<=rad)dmgE(e,sd)}
+  spP(tx,ty,card.color,sr>=99?30:20);C.shake=6;sfx('sp');C.selCard=null;rHd();uH();
+}
+
+function placeMine(c,r,i){
+  var C=G.cb,en=C.hand[i],card=CARDS[en.id],ls=lvStats(en.id,en.lv),cost=ls.cost||card.cost;
+  C.mana-=cost;C.hand.splice(i,1);C.discardPile.push(en);
+  var pos=cc(c,r);
+  C.mines.push({x:pos[0],y:pos[1],damage:ls.splDmg||card.splDmg||200,radius:CL*(ls.splRad||card.splRad||.8),lifetime:30});
+  spP(pos[0],pos[1],card.color,10);sfx('sp');C.selCard=null;rHd();uH();
+}
+
+function castConvert(c,r,i){
+  var C=G.cb,en=C.hand[i],card=CARDS[en.id],ls=lvStats(en.id,en.lv),cost=ls.cost||card.cost;
+  C.mana-=cost;C.hand.splice(i,1);C.discardPile.push(en);
+  var tx=c*CL+CL/2,ty=r*CL+CL/2,rad=(ls.splRad||card.splRad||1.5)*CL,strongest=null,maxHP=0;
+  for(var j=0;j<C.enemies.length;j++){var e=C.enemies[j];if(!e.bo&&dst(tx,ty,e.x,e.y)<=rad&&e.hp>maxHP){strongest=e;maxHP=e.hp}}
+  if(strongest){var ei=C.enemies.indexOf(strongest);if(ei>=0)C.enemies.splice(ei,1);C.allies.push({x:strongest.x,y:strongest.y,hp:strongest.hp,maxHp:strongest.mh,dmg:20,range:CL*1.5,dmgTm:0,pi:strongest.pi,sz:strongest.z*.6});spP(strongest.x,strongest.y,'#a29bfe',15);fTx(strongest.x,strongest.y-15,'CONVERTIDO!','#a29bfe')}
+  sfx('sp');C.selCard=null;rHd();uH();
+}
+
+function applyMod(tw,i){
+  var C=G.cb,en=C.hand[i],card=CARDS[en.id],ls=lvStats(en.id,en.lv);
+  C.mana-=(ls.cost||card.cost);C.hand.splice(i,1);C.discardPile.push(en);
+  var dm=ls.dmgMul||card.dmgMul,sm=ls.spdMul||card.spdMul,rb=ls.rngBon||card.rngBon;
+  if(dm)tw.dMul*=dm;if(sm)tw.sMul*=sm;if(rb)tw.rMul+=rb;
+  spP(tw.x,tw.y,card.color,12);sfx('p');C.selCard=null;rHd();uH();
+}
