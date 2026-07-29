@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeathAlive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}
+body{display:flex;align-items:center;justify-content:center;font-family:'Crimson Pro',serif;color:#d4ccc4}
+#ts{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;background:#0a0a0a;transition:opacity 1.5s ease}
+#ts.hide{opacity:0;pointer-events:none}
+.tt{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(40px,8vw,68px);letter-spacing:6px;user-select:none}
+.td{color:#666;opacity:0;animation:ru .8s ease forwards}
+.ta{color:#9b2020;opacity:0;animation:ru .8s ease .8s forwards;text-shadow:0 0 30px rgba(155,32,32,.4),0 0 60px rgba(100,20,20,.2)}
+@keyframes ru{from{opacity:0;transform:translateY(15px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+.tsb{font-style:italic;font-size:clamp(14px,2.5vw,18px);color:#555;margin-top:16px;opacity:0;animation:fi 1s ease 2s forwards}
+.tp{font-family:'Cinzel',serif;font-size:clamp(11px,1.5vw,13px);color:#444;margin-top:50px;letter-spacing:3px;opacity:0;animation:fi 1s ease 2.5s forwards,bk 2s ease-in-out 3.5s infinite}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes bk{0%,100%{opacity:.4}50%{opacity:1}}
+.pp{position:absolute;width:2px;height:2px;background:#6b1515;border-radius:50%;opacity:0;animation:tf var(--d) ease-in-out var(--dl) infinite}
+@keyframes tf{0%{opacity:0;transform:translateY(0) scale(0)}20%{opacity:.5;transform:translateY(-20vh) scale(1)}80%{opacity:.2}100%{opacity:0;transform:translateY(-100vh) scale(.5)}}
+canvas{display:none;background:#0a0a0a}
+canvas.on{display:block}
+#ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;pointer-events:none;opacity:0;transition:opacity .6s ease}
+#ov.show{opacity:1}
+#ob{position:absolute;inset:0;background:rgba(10,10,10,.88)}
+#oc{position:relative;z-index:1;text-align:center;padding:30px;max-width:620px}
+#o1{font-family:'Cinzel',serif;font-weight:700;font-size:clamp(17px,2.8vw,26px);color:#d4ccc4;margin-bottom:12px;line-height:1.6}
+#o2{font-style:italic;font-weight:300;font-size:clamp(14px,2.2vw,19px);color:#999;line-height:1.7}
+#o3{font-family:'Cinzel',serif;font-size:11px;color:#444;letter-spacing:2px;margin-top:30px;opacity:0;transition:opacity .6s ease}
+#o3.show{opacity:1}
+#en{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;background:#0a0a0a}
+#en.on{display:flex}
+.et{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(30px,6vw,52px);letter-spacing:5px;margin-bottom:30px;opacity:0;animation:ru .8s ease .3s forwards}
+.ed{color:#666}.ea{color:#9b2020;text-shadow:0 0 25px rgba(155,32,32,.3)}
+#etx{font-weight:300;font-size:clamp(15px,2.5vw,20px);color:#777;text-align:center;line-height:2.2;max-width:520px;padding:20px;opacity:0;animation:fi 1.2s ease 1s forwards}
+#edc{font-family:'Cinzel',serif;font-size:13px;color:#555;letter-spacing:2px;margin-top:15px;opacity:0;animation:fi 1s ease 2.5s forwards}
+.ep{font-family:'Cinzel',serif;font-size:12px;color:#444;letter-spacing:3px;margin-top:40px;opacity:0;animation:fi 1s ease 4s forwards,bk 2s ease-in-out 5s infinite}
+</style>
+</head>
+<body>
+
+<div id="ts">
+  <div class="tt"><span class="td">Death</span><span class="ta">Alive</span></div>
+  <div class="tsb">Vencer é uma derrota</div>
+  <div class="tp">PRESSIONE ENTER PARA COMEÇAR</div>
+</div>
+
+<canvas id="cv"></canvas>
+
+<div id="ov">
+  <div id="ob"></div>
+  <div id="oc"><div id="o1"></div><div id="o2"></div><div id="o3">PRESSIONE ENTER PARA CONTINUAR</div></div>
+</div>
+
+<div id="en">
+  <div class="et"><span class="ed">Death</span><span class="ea">Alive</span></div>
+  <div id="etx">Placeholder</div>
+  <div id="edc">MORTES: <span id="dc">0</span></div>
+  <div class="ep">PRESSIONE ENTER PARA JOGAR NOVAMENTE</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══ §1  CANVAS ═══ */
+const GW=800,GH=600;
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const dkCv=document.createElement('canvas'),dk=dkCv.getContext('2d');
+function resize(){const s=Math.min(innerWidth/GW,innerHeight/GH);cv.width=GW;cv.height=GH;cv.style.width=(GW*s|0)+'px';cv.style.height=(GH*s|0)+'px';cv.style.position='absolute';cv.style.left=((innerWidth-GW*s)/2)+'px';cv.style.top=((innerHeight-GH*s)/2)+'px';dkCv.width=GW;dkCv.height=GH}
+resize();addEventListener('resize',resize);
+
+/* ═══ §2  FULLSCREEN ═══ */
+function goFS(){document.documentElement.requestFullscreen().catch(()=>{})}
+function toggleFS(){if(!document.fullscreenElement)goFS();else document.exitFullscreen().catch(()=>{})}
+document.addEventListener('keydown',e=>{if(e.code==='KeyF')toggleFS()});
+cv.addEventListener('dblclick',toggleFS);document.addEventListener('fullscreenchange',resize);
+
+/* ═══ §3  AUDIO ═══ */
+let au=null;
+function initAu(){if(!au)try{au=new(AudioContext||webkitAudioContext)}catch(e){}if(au&&au.state==='suspended')au.resume();}
+function tone(f,d,t,v,dl){if(!au)return;try{const T=au.currentTime+(dl||0),o=au.createOscillator(),g=au.createGain();o.type=t||'sine';o.frequency.setValueAtTime(f,T);g.gain.setValueAtTime(v||.05,T);g.gain.exponentialRampToValueAtTime(.001,T+d);o.connect(g);g.connect(au.destination);o.start(T);o.stop(T+d)}catch(e){}}
+function sfxD(){tone(150,.4,'sawtooth',.04);tone(100,.5,'sine',.03,.1)}
+function sfxT(){tone(440,.15,'sine',.05);tone(550,.15,'sine',.05,.15);tone(180,.4,'sawtooth',.03,.5)}
+function sfxW(){tone(330,.2,'sine',.04);tone(440,.2,'sine',.04,.2);tone(550,.2,'sine',.04,.4);tone(880,.5,'sine',.03,.8)}
+function sfxS(){tone(60+Math.random()*30,.04,'sine',.01)}
+
+/* ═══ §4  INPUT ═══ */
+const K={};
+document.addEventListener('keydown',e=>{K[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='Enter')onEnter()});
+document.addEventListener('keyup',e=>{K[e.code]=false});
+function onEnter(){
+  if(gs==='title'){initAu();startGame()}
+  else if(gs==='msg'&&st>2500){hideMsg();gs='fade';st=0}
+  else if(gs==='transition'&&st>14000)location.reload();
+  else if(gs==='end')location.reload();
+}
+
+/* ═══ §5  TITLE PARTICLES ═══ */
+(function(){const t=document.getElementById('ts');for(let i=0;i<30;i++){const p=document.createElement('div');p.className='pp';p.style.left=Math.random()*100+'%';p.style.bottom='-5px';p.style.setProperty('--d',(6+Math.random()*8)+'s');p.style.setProperty('--dl',Math.random()*6+'s');t.appendChild(p)}})();
+
+/* ═══ §6  STATE ═══ */
+let gs='title',st=0,lvl=0,pl=null,pts=[],deaths=0,done=false,nxt=0,msg=null,fade=1,lt=0,sT=0;
+const dust=[];
+for(let i=0;i<30;i++)dust.push({x:Math.random()*GW,y:Math.random()*GH,sp:.04+Math.random()*.08,sz:.5+Math.random(),a:.04+Math.random()*.08});
+
+/* ═══ §7  LEVELS ═══ */
+const LV=[
+
+/* ── Fase 1: O Despertar ── */
+{name:'Andar I',sub:'O Despertar',sx:80,sy:280,
+ w:[[0,0,800,15],[0,585,800,15],[0,0,15,600],[785,0,15,600],[300,100,15,220]],
+ hz:[{x:50,y:420,w:120,h:90,t:'real'}],
+ ex:[{x:620,y:200,w:120,h:150,t:'trap'}],
+ mh:null,dr:null,
+ tx:[{x:400,y:570,s:13,t:'"A verdadeira saída não é uma porta."'}],
+ lb:[{x:680,y:185,t:'SAÍDA',c:'#c4a24a',g:1,s:14}],
+ dk:false,lr:0,
+ dm:{l1:'A morte não é algo que devemos temer:',l2:'quando estamos aqui, ela não está; quando ela está, nós já não estamos. — Epicuro'},
+ tm:{l1:'Vencer aqui...',l2:'...é perder. Procure outra saída.'},
+ fm:null,rm:null},
+
+/* ── Fase 2: A Escuridão ── */
+{name:'Andar II',sub:'A Escuridão',sx:80,sy:280,
+ w:[[0,0,800,15],[0,585,800,15],[0,0,15,600],[785,0,15,600],
+    [200,100,15,200],[400,280,15,200],[580,80,15,200],[280,430,200,15]],
+ hz:[{x:80,y:80,w:70,h:55,t:'fake'},{x:620,y:80,w:70,h:55,t:'fake'},
+     {x:350,y:400,w:70,h:55,t:'fake'},{x:150,y:300,w:70,h:55,t:'fake'},
+     {x:500,y:180,w:70,h:55,t:'fake'},{x:280,y:150,w:70,h:55,t:'fake'},
+     {x:600,y:350,w:70,h:55,t:'fake'},
+     {x:680,y:460,w:55,h:50,t:'real'}],
+ ex:[{x:360,y:160,w:90,h:90,t:'trap'}],
+ mh:null,dr:null,
+ tx:[{x:400,y:570,s:12,t:'"Na escuridão, a verdade se esconde."'}],
+ lb:[{x:405,y:145,t:'SAÍDA',c:'#c4a24a',g:1,s:14}],
+ dk:true,lr:120,
+ dm:{l1:'A morte nos dá a sabedoria',l2:'de não desperdiçar a vida.'},
+ tm:{l1:'A porta te enganou.',l2:'A escuridão guarda a saída.'},
+ fm:{l1:'Essa não é a verdade...',l2:'Procure na escuridão.'},
+ rm:null},
+
+/* ── Fase 3: A Inversão ── */
+{name:'Andar III',sub:'A Inversão',sx:30,sy:30,
+ w:[[0,0,800,15],[0,585,800,15],[0,0,15,600],[785,0,15,600]],
+ hz:[],
+ ex:[{x:745,y:530,w:40,h:55,t:'death_exit'}],
+ mh:[
+   /* Blocos que patrulham perto das paredes */
+   {ix:300,iy:42,w:35,h:35,a:'x',min:100,max:650,sp:1.3,ph:0,col:'yellow'},
+   {ix:42,iy:250,w:35,h:35,a:'y',min:80,max:420,sp:1.4,ph:1,col:'yellow'},
+   {ix:700,iy:400,w:35,h:35,a:'x',min:400,max:720,sp:1.2,ph:2,col:'yellow'},
+   /* Bloco que fecha o canto inferior direito */
+   {ix:700,iy:480,w:35,h:35,a:'x',min:500,max:720,sp:1.5,ph:3,col:'yellow'},
+   /* Cluster central */
+   {ix:300,iy:200,w:35,h:35,a:'x',min:120,max:520,sp:1.8,ph:0,col:'yellow'},
+   {ix:500,iy:280,w:35,h:35,a:'x',min:200,max:650,sp:2.0,ph:1.2,col:'yellow'},
+   {ix:350,iy:150,w:35,h:35,a:'y',min:80,max:350,sp:1.6,ph:0.5,col:'yellow'},
+   {ix:450,iy:380,w:35,h:35,a:'x',min:180,max:600,sp:1.9,ph:2.5,col:'yellow'},
+   {ix:250,iy:350,w:35,h:35,a:'y',min:200,max:500,sp:1.7,ph:1,col:'yellow'},
+   {ix:550,iy:200,w:35,h:35,a:'y',min:100,max:450,sp:2.1,ph:3,col:'yellow'}
+ ],
+ dr:null,
+ tx:[{x:400,y:290,s:14,t:'"Nem tudo é o que parece."'}],
+ lb:[{x:765,y:520,t:'SAÍDA',c:'#8b0000',g:1,s:12}],
+ dk:false,lr:0,
+ dm:{l1:'A vida só pode ser compreendida olhando para trás,',l2:'mas deve ser vivida olhando para frente. — Kierkegaard'},
+ tm:null,fm:null,rm:null},
+
+/* ── Fase 4: A Escolha ── */
+{name:'Andar IV',sub:'A Escolha',sx:400,sy:450,
+ w:[[0,0,800,15],[0,585,800,15],[0,0,15,600],[785,0,15,600],
+    [200,15,10,220],[400,15,10,220],[600,15,10,220]],
+ hz:[],ex:[],mh:null,
+ dr:[{x:20,y:20,w:175,h:210,lb:'Vida',t:'trap',
+      mg:{l1:'A vida é o tempo sagrado',l2:'que temos para aprender e errar.'}},
+     {x:215,y:20,w:180,h:210,lb:'Morte',t:'death'},
+     {x:415,y:20,w:180,h:210,lb:'Verdade',t:'trap',
+      mg:{l1:'A verdade é um dom supremo',l2:'que cabe ao mortal desejar.'}},
+     {x:615,y:20,w:165,h:210,lb:'Mentira',t:'trap',
+      mg:{l1:'Quem escolhe a mentira para se proteger,',l2:'acaba se afastando da própria paz.'}}],
+ tx:[{x:400,y:520,s:14,t:'"Uma porta é a resposta."'},
+     {x:400,y:545,s:14,t:'"Escolha sabiamente."'}],
+ lb:[{x:107,y:120,t:'Vida',c:'#888',g:0,s:18},{x:305,y:120,t:'Morte',c:'#888',g:0,s:18},
+     {x:505,y:120,t:'Verdade',c:'#888',g:0,s:18},{x:697,y:120,t:'Mentira',c:'#888',g:0,s:18}],
+ dk:false,lr:0,
+ dm:{l1:'A morte te libertou...',l2:'mas libertou de quê?'},
+ tm:null,fm:null,rm:null},
+
+/* ── Fase 5: A Verdade ── */
+{name:'Andar V',sub:'A Verdade',sx:380,sy:420,
+ w:[[0,0,800,15],[0,585,800,15],[0,0,15,600],[785,0,15,600],[340,260,120,80]],
+ hz:[{x:60,y:60,w:110,h:90,t:'final'},{x:630,y:60,w:110,h:90,t:'final'},
+     {x:60,y:450,w:110,h:90,t:'final'},{x:630,y:450,w:110,h:90,t:'final'}],
+ ex:[{x:340,y:20,w:120,h:80,t:'transition'}],
+ mh:null,dr:null,
+ tx:[{x:400,y:380,s:16,t:'"Agora você sabe."',al:1},
+     {x:400,y:405,s:16,t:'"A escolha é sua."',al:1}],
+ lb:[{x:400,y:8,t:'SAÍDA',c:'#6a8ab4',g:1,s:14}],
+ dk:false,lr:0,
+ dm:{l1:'A morte é o único fato absolutamente certo da vida —',l2:'e, paradoxalmente, o mais negado.'},
+ tm:null,fm:null,
+ rm:{l1:'Saber que vamos morrer não é motivo para parar.',l2:'É motivo para começar.'}}
+
+];
+
+/* ═══ §8  HELPERS ═══ */
+function mkPl(x,y){return{x,y,w:16,h:24,sp:160,dir:0,mv:false,an:0,at:0,al:true}}
+function ov(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function wr(w){return{x:w[0],y:w[1],w:w[2],h:w[3]}}
+function spn(x,y,n,c,s,l){for(let i=0;i<n;i++)pts.push({x,y,vx:(Math.random()-.5)*s,vy:(Math.random()-.5)*s,l:l*(.7+Math.random()*.6),ml:l,c,s:1+Math.random()*3});if(pts.length>500)pts.splice(0,pts.length-500)}
+
+/* ═══ §9  LIFECYCLE ═══ */
+function startGame(){
+  document.getElementById('ts').classList.add('hide');
+  cv.classList.add('on');goFS();lvl=0;deaths=0;
+  loadLvl(0);gs='intro';st=0;fade=1;
+  lt=performance.now();requestAnimationFrame(loop);
+}
+function loadLvl(i){lvl=i;const L=LV[lvl];pl=mkPl(L.sx,L.sy);done=false;pts=[];sT=0;if(L.mh)for(const h of L.mh){h.cx=h.ix;h.cy=h.iy}}
+function showEnd(){cv.classList.remove('on');document.getElementById('dc').textContent=deaths;document.getElementById('en').classList.add('on');gs='end';}
+
+/* ═══ §10  UPDATE: PLAYER ═══ */
+function updPl(dt){
+  if(!pl||!pl.al||done||gs!=='play')return;
+  let dx=0,dy=0;
+  if(K.ArrowLeft||K.KeyA)dx--;if(K.ArrowRight||K.KeyD)dx++;
+  if(K.ArrowUp||K.KeyW)dy--;if(K.ArrowDown||K.KeyS)dy++;
+  if(dx&&dy){dx*=.707;dy*=.707}
+  pl.mv=dx!==0||dy!==0;
+  if(pl.mv){if(Math.abs(dx)>=Math.abs(dy))pl.dir=dx<0?2:3;else pl.dir=dy<0?1:0}
+
+  const L=LV[lvl],sp=pl.sp*dt/1000;
+
+  pl.x+=dx*sp;
+  for(const w of L.w){const r=wr(w);if(ov(pl,r)){if(dx>0)pl.x=r.x-pl.w;else if(dx<0)pl.x=r.x+r.w}}
+  pl.y+=dy*sp;
+  for(const w of L.w){const r=wr(w);if(ov(pl,r)){if(dy>0)pl.y=r.y-pl.h;else if(dy<0)pl.y=r.y+r.h}}
+  pl.x=Math.max(0,Math.min(GW-pl.w,pl.x));
+  pl.y=Math.max(0,Math.min(GH-pl.h,pl.y));
+
+  if(pl.mv){
+    pl.at+=dt;if(pl.at>120){pl.an=(pl.an+1)%4;pl.at=0}
+    if(Math.random()<.15)pts.push({x:pl.x+pl.w/2+(Math.random()-.5)*4,y:pl.y+pl.h,vx:(Math.random()-.5)*.3,vy:-.3-Math.random()*.3,l:200,ml:200,c:'#1a1a1a',s:1+Math.random()});
+    sT+=dt;if(sT>220){sfxS();sT=0}
+  }else pl.an=0;
+}
+
+/* ═══ §11  UPDATE: MOVERS ═══ */
+function updMH(dt){const L=LV[lvl];if(!L.mh)return;for(const h of L.mh){h.ph+=h.sp*dt/1000;const t=(Math.sin(h.ph)+1)/2;if(h.a==='x')h.cx=h.min+t*(h.max-h.min);else h.cy=h.min+t*(h.max-h.min)}}
+
+/* ═══ §12  UPDATE: PARTICLES ═══ */
+function updPts(dt){for(let i=pts.length-1;i>=0;i--){const p=pts[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.02;p.l-=dt;if(p.l<=0)pts.splice(i,1)}}
+
+/* ═══ §13  CHECK INTERACTIONS ═══ */
+function chkInt(){
+  if(done||!pl||!pl.al)return;
+  const L=LV[lvl];
+  for(const h of L.hz){if(ov(pl,h)){done=true;deaths++;if(h.t==='real')outc('death',L.dm);else outc('restart',L.fm||L.dm);return}}
+  if(L.mh)for(const h of L.mh){if(ov(pl,{x:h.cx,y:h.cy,w:h.w,h:h.h})){done=true;deaths++;outc('restart',L.dm);return}}
+  for(const e of L.ex){
+    if(ov(pl,e)){
+      done=true;
+      if(e.t==='trap')outc('trap',L.tm);
+      else if(e.t==='real')outc('win',L.rm);
+      else if(e.t==='transition')outc('transition',L.rm);
+      else if(e.t==='death_exit'){deaths++;outc('death',L.dm)}
+      return;
+    }
+  }
+  if(L.dr)for(const d of L.dr){if(ov(pl,d)){done=true;if(d.t==='death'){deaths++;outc('death',d.mg||L.dm)}else outc('trap',d.mg||L.tm);return}}
+}
+
+/* ═══ §14  OUTCOME ═══ */
+function outc(t,m){
+  const px=pl.x+pl.w/2,py=pl.y+pl.h/2;
+  switch(t){
+    case'death':pl.al=false;spn(px,py,30,'#8b0000',3,1000);sfxD();nxt=lvl+1;break;
+    case'restart':pl.al=false;spn(px,py,20,'#444',2,800);sfxD();nxt=lvl;break;
+    case'trap':spn(px,py,25,'#c4a24a',3,1000);sfxT();nxt=lvl;break;
+    case'win':pl.al=false;spn(px,py,40,'#3a8a3a',4,1200);sfxW();nxt=lvl+1;break;
+    case'transition':pl.al=false;spn(px,py,40,'#6a8ab4',4,1200);sfxW();nxt=-1;break;
+  }
+  msg=m;gs='outcome';st=0;
+}
+
+/* ═══ §15  MESSAGE OVERLAY ═══ */
+function showMsg(m){document.getElementById('o1').textContent=m.l1;document.getElementById('o2').textContent=m.l2||'';document.getElementById('o3').classList.remove('show');document.getElementById('ov').classList.add('show')}
+function hideMsg(){document.getElementById('ov').classList.remove('show');document.getElementById('o3').classList.remove('show')}
+
+/* ═══ §16  DRAW: MAIN SCENE ═══ */
+function draw(){
+  const L=LV[lvl];
+  cx.fillStyle='#0e0e0e';cx.fillRect(0,0,GW,GH);
+
+  cx.strokeStyle='#141414';cx.lineWidth=.5;
+  for(let x=0;x<GW;x+=40){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,GH);cx.stroke()}
+  for(let y=0;y<GH;y+=40){cx.beginPath();cx.moveTo(0,y);cx.lineTo(GW,y);cx.stroke()}
+
+  for(const d of dust){d.y-=d.sp;if(d.y<-5){d.y=GH+5;d.x=Math.random()*GW}cx.globalAlpha=d.a;cx.fillStyle='#333';cx.beginPath();cx.arc(d.x,d.y,d.sz,0,Math.PI*2);cx.fill()}
+  cx.globalAlpha=1;
+
+  for(const w of L.w){cx.fillStyle='rgba(0,0,0,.3)';cx.fillRect(w[0]+3,w[1]+3,w[2],w[3]);cx.fillStyle='#181818';cx.fillRect(w[0],w[1],w[2],w[3]);cx.strokeStyle='#252525';cx.lineWidth=1;cx.strokeRect(w[0],w[1],w[2],w[3])}
+
+  const pulse=.3+Math.sin(st*.003)*.15;
+  for(const h of L.hz){
+    if(h.t==='real'||h.t==='final'){cx.globalAlpha=pulse;cx.fillStyle='#8b0000';cx.fillRect(h.x,h.y,h.w,h.h);cx.globalAlpha=1;cx.strokeStyle='#6b0000';cx.lineWidth=1;cx.strokeRect(h.x,h.y,h.w,h.h)}
+    else{cx.globalAlpha=.22;cx.fillStyle='#3a1515';cx.fillRect(h.x,h.y,h.w,h.h);cx.globalAlpha=1;cx.strokeStyle='#5a2525';cx.lineWidth=1;cx.strokeRect(h.x,h.y,h.w,h.h)}
+  }
+
+  for(const e of L.ex){
+    if(e.t==='death_exit'){cx.globalAlpha=pulse;cx.fillStyle='#8b0000';cx.fillRect(e.x,e.y,e.w,e.h);cx.globalAlpha=1;cx.strokeStyle='#6b0000';cx.lineWidth=1;cx.strokeRect(e.x,e.y,e.w,e.h)}
+    else{const col=e.t==='trap'?'#c4a24a':e.t==='transition'?'#6a8ab4':'#3a8a3a';cx.shadowColor=col;cx.shadowBlur=8+Math.sin(st*.002)*4;cx.strokeStyle=col;cx.lineWidth=2;cx.strokeRect(e.x,e.y,e.w,e.h);cx.shadowBlur=0;cx.globalAlpha=.04;cx.fillStyle=col;cx.fillRect(e.x,e.y,e.w,e.h);cx.globalAlpha=1}
+  }
+
+  /* Movers: yellow if col==='yellow', red otherwise */
+  if(L.mh)for(const h of L.mh){
+    if(h.col==='yellow'){cx.fillStyle='#c4a24a';cx.fillRect(h.cx,h.cy,h.w,h.h);cx.strokeStyle='#e0c85a';cx.lineWidth=1;cx.strokeRect(h.cx,h.cy,h.w,h.h)}
+    else{cx.fillStyle='#8b0000';cx.fillRect(h.cx,h.cy,h.w,h.h);cx.strokeStyle='#a52020';cx.lineWidth=1;cx.strokeRect(h.cx,h.cy,h.w,h.h)}
+  }
+
+  if(L.dr)for(const d of L.dr){cx.fillStyle='#121212';cx.fillRect(d.x,d.y,d.w,d.h);cx.strokeStyle='#2a2a2a';cx.lineWidth=1;cx.strokeRect(d.x,d.y,d.w,d.h);cx.fillStyle='#1e1e1e';cx.fillRect(d.x+d.w/2-15,d.y+d.h-35,30,35);cx.strokeStyle='#333';cx.strokeRect(d.x+d.w/2-15,d.y+d.h-35,30,35)}
+
+  if(pl&&pl.al)drawPl();
+
+  for(const p of pts){cx.globalAlpha=Math.max(0,p.l/p.ml);cx.fillStyle=p.c;cx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s)}cx.globalAlpha=1;
+
+  if(L.dk&&pl){
+    dk.clearRect(0,0,GW,GH);dk.fillStyle='rgba(0,0,0,.93)';dk.fillRect(0,0,GW,GH);
+    dk.globalCompositeOperation='destination-out';
+    const px=pl.x+pl.w/2,py=pl.y+pl.h/2;
+    const g=dk.createRadialGradient(px,py,0,px,py,L.lr);
+    g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(.7,'rgba(0,0,0,.7)');g.addColorStop(1,'rgba(0,0,0,0)');
+    dk.fillStyle=g;dk.beginPath();dk.arc(px,py,L.lr,0,Math.PI*2);dk.fill();
+    dk.globalCompositeOperation='source-over';cx.drawImage(dkCv,0,0);
+  }
+
+  for(const lb of L.lb){cx.font=(lb.s||14)+'px Cinzel';cx.textAlign='center';if(lb.g){cx.shadowColor=lb.c;cx.shadowBlur=10}cx.fillStyle=lb.c;cx.fillText(lb.t,lb.x,lb.y);cx.shadowBlur=0}
+
+  for(const tx of L.tx){
+    const sz=tx.s||14;
+    cx.font=(tx.al?'':'italic ')+sz+'px "Crimson Pro"';cx.textAlign='center';
+    const lines=tx.t.split('\n'),lineH=sz*1.4;
+    const maxW=Math.max(...lines.map(l=>cx.measureText(l).width));
+    const bgX=tx.x-maxW/2-12,bgY=tx.y-sz-4,bgW=maxW+24,bgH=lines.length*lineH+8;
+    cx.globalAlpha=.55;cx.fillStyle='#0a0a0a';cx.beginPath();const r=4;
+    cx.moveTo(bgX+r,bgY);cx.lineTo(bgX+bgW-r,bgY);cx.arcTo(bgX+bgW,bgY,bgX+bgW,bgY+r,r);
+    cx.lineTo(bgX+bgW,bgY+bgH-r);cx.arcTo(bgX+bgW,bgY+bgH,bgX+bgW-r,bgY+bgH,r);
+    cx.lineTo(bgX+r,bgY+bgH);cx.arcTo(bgX,bgY+bgH,bgX,bgY+bgH-r,r);
+    cx.lineTo(bgX,bgY+r);cx.arcTo(bgX,bgY,bgX+r,bgY,r);cx.fill();
+    cx.globalAlpha=.9;cx.fillStyle=tx.al?'#aaa':'#888';
+    for(let i=0;i<lines.length;i++)cx.fillText(lines[i],tx.x,tx.y+i*lineH);
+    cx.globalAlpha=1;
+  }
+
+  const vg=cx.createRadialGradient(GW/2,GH/2,GW*.3,GW/2,GH/2,GW*.7);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.35)');
+  cx.fillStyle=vg;cx.fillRect(0,0,GW,GH);
+
+  if(fade>0){cx.globalAlpha=fade;cx.fillStyle='#0a0a0a';cx.fillRect(0,0,GW,GH);cx.globalAlpha=1}
+}
+
+/* ═══ §17  DRAW: PLAYER ═══ */
+function drawPl(){
+  const px=pl.x+pl.w/2,py=pl.y;
+  cx.globalAlpha=.15;cx.fillStyle='#000';cx.beginPath();cx.ellipse(px,py+pl.h+2,7,2,0,0,Math.PI*2);cx.fill();cx.globalAlpha=1;
+  cx.fillStyle='#d4ccc4';cx.strokeStyle='#a09888';cx.lineWidth=.8;
+  const br=pl.mv?0:Math.sin(st*.002)*1;
+  cx.beginPath();cx.arc(px,py+5+br,4,0,Math.PI*2);cx.fill();cx.stroke();
+  cx.fillRect(px-4,py+9,8,9);cx.strokeRect(px-4,py+9,8,9);
+  const lo=pl.mv?[0,3,0,-3][pl.an]:0;
+  cx.lineWidth=1.5;
+  cx.beginPath();cx.moveTo(px-2,py+18);cx.lineTo(px-2+lo,py+pl.h);cx.stroke();
+  cx.beginPath();cx.moveTo(px+2,py+18);cx.lineTo(px+2-lo,py+pl.h);cx.stroke();
+  cx.lineWidth=1;const ao=pl.mv?lo*.5:Math.sin(st*.002)*.5;
+  cx.beginPath();cx.moveTo(px-4,py+11);cx.lineTo(px-6-ao,py+16);cx.stroke();
+  cx.beginPath();cx.moveTo(px+4,py+11);cx.lineTo(px+6+ao,py+16);cx.stroke();
+}
+
+/* ═══ §18  DRAW: TRANSITION ═══ */
+function drawTransition(){
+  cx.fillStyle='#0a0a0a';cx.fillRect(0,0,GW,GH);cx.textAlign='center';
+  if(st>1000){cx.globalAlpha=Math.min(1,(st-1000)/800);cx.font='700 24px Cinzel';cx.fillStyle='#d4ccc4';cx.fillText('Você morreu '+deaths+' vezes.',GW/2,GH/2-80)}
+  if(st>4000){cx.globalAlpha=Math.min(1,(st-4000)/800);cx.font='300 20px "Crimson Pro"';cx.fillStyle='#999';cx.fillText('Cada morte te ensinou algo.',GW/2,GH/2-30)}
+  if(st>7000){cx.globalAlpha=Math.min(1,(st-7000)/800);cx.fillStyle='#999';cx.fillText('Mas a maior lição ainda está por vir.',GW/2,GH/2+20)}
+  if(st>10000){cx.globalAlpha=Math.min(1,(st-10000)/800);cx.font='700 22px Cinzel';cx.fillStyle='#c4a24a';cx.fillText('E se o maior ato de coragem...',GW/2,GH/2+80)}
+  if(st>11000){cx.globalAlpha=Math.min(1,(st-11000)/800);cx.fillText('...fosse continuar?',GW/2,GH/2+115)}
+  cx.globalAlpha=1;
+  if(st>14000){const b=(Math.sin((st-14000)*.003)+1)/2;cx.globalAlpha=b*.6;cx.font='400 12px Cinzel';cx.fillStyle='#444';cx.fillText('PRESSIONE ENTER',GW/2,GH/2+180);cx.globalAlpha=1}
+  if(fade>0){cx.globalAlpha=fade;cx.fillStyle='#0a0a0a';cx.fillRect(0,0,GW,GH);cx.globalAlpha=1}
+}
+
+/* ═══ §19  MAIN LOOP ═══ */
+function loop(time){
+  requestAnimationFrame(loop);
+  const dt=Math.min(time-lt,50);lt=time;st+=dt;
+
+  switch(gs){
+    case'intro':fade=Math.max(0,1-st/1000);updPts(dt);if(st>500&&(K.ArrowLeft||K.ArrowRight||K.ArrowUp||K.ArrowDown||K.KeyA||K.KeyD||K.KeyW||K.KeyS)){gs='play';st=0;fade=0}if(st>2500){gs='play';st=0}break;
+    case'play':updPl(dt);updMH(dt);chkInt();updPts(dt);break;
+    case'outcome':updPts(dt);if(st>2000){showMsg(msg);gs='msg';st=0}break;
+    case'msg':updPts(dt);if(st>2500)document.getElementById('o3').classList.add('show');break;
+    case'fade':fade=Math.min(1,st/1000);updPts(dt);if(st>1200){if(nxt===-1){gs='transition';st=0;fade=1;return}loadLvl(nxt);gs='intro';st=0;fade=1}break;
+    case'transition':fade=Math.max(0,1-st/2000);drawTransition();return;
+    case'title':case'end':return;
+  }
+
+  draw();
+
+  if(gs==='intro'&&st<2500){
+    const a=Math.min(1,st/500)*Math.max(0,1-Math.max(0,st-1500)/1000);
+    if(a>0){cx.globalAlpha=a;cx.fillStyle='#d4ccc4';cx.font='900 28px Cinzel';cx.textAlign='center';cx.fillText(LV[lvl].name,GW/2,GH/2-20);cx.font='italic 300 18px "Crimson Pro"';cx.fillStyle='#777';cx.fillText(LV[lvl].sub,GW/2,GH/2+15);cx.globalAlpha=1}
+  }
+}
+
+})();
+</script>
+</body>
+</html>
