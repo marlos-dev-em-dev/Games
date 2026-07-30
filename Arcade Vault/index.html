@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arcade Vault — Save Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #08080e;
+      --surface: #10101c;
+      --surface-hover: #18182a;
+      --accent: #e8c547;
+      --accent-dim: #b8982e;
+      --danger: #e84747;
+      --success: #47e87a;
+      --text-primary: #f0ece4;
+      --text-muted: #5a5670;
+      --border: #222236;
+      --glow: rgba(232, 197, 71, 0.15);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 10% 15%, rgba(232, 197, 71, 0.04) 0%, transparent 45%),
+        radial-gradient(ellipse at 90% 85%, rgba(71, 130, 232, 0.03) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ======== HEADER ======== */
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-family: 'Press Start 2P', cursive; font-size: 14px; color: var(--accent); text-shadow: 0 0 24px var(--glow); letter-spacing: 1px; }
+    .logo-sub { font-size: 9px; color: var(--text-muted); display: block; margin-top: 3px; font-family: 'Space Mono', monospace; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+
+    /* ======== BUTTONS ======== */
+    .btn {
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      padding: 10px 16px; border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .btn:hover { background: var(--surface-hover); border-color: var(--accent-dim); color: var(--accent); }
+    .btn-accent { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); color: var(--bg); box-shadow: 0 0 18px var(--glow); }
+    .btn-danger { border-color: rgba(232, 71, 71, 0.25); }
+    .btn-danger:hover { background: rgba(232, 71, 71, 0.1); border-color: var(--danger); color: var(--danger); }
+    .btn-sm { font-size: 9px; padding: 6px 10px; }
+    .btn:active { transform: scale(0.97); }
+
+    /* ======== GAME BAR ======== */
+    .game-bar {
+      position: relative; z-index: 10;
+      background: rgba(16, 16, 28, 0.85); backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px; display: flex; align-items: center;
+      gap: 10px; overflow-x: auto;
+    }
+    .game-bar::-webkit-scrollbar { height: 3px; }
+    .game-bar::-webkit-scrollbar-track { background: transparent; }
+    .game-bar::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .game-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text-muted); font-family: 'Space Mono', monospace;
+      font-size: 10px; font-weight: 700; cursor: pointer;
+      transition: all 0.25s ease; text-transform: uppercase;
+      letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0;
+    }
+    .game-chip:hover { border-color: var(--accent-dim); color: var(--text-primary); background: var(--surface-hover); }
+    .game-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(232, 197, 71, 0.06); box-shadow: 0 0 16px var(--glow); }
+    .game-chip .chip-icon { font-size: 14px; line-height: 1; }
+    .game-chip .chip-count { font-size: 8px; color: var(--text-muted); background: rgba(232, 197, 71, 0.08); padding: 2px 6px; border: 1px solid var(--border); margin-left: 4px; }
+    .game-chip.active .chip-count { border-color: rgba(232, 197, 71, 0.2); color: var(--accent-dim); }
+    .add-game-chip { border-style: dashed; }
+    .add-game-chip:hover { color: var(--accent); border-color: var(--accent); border-style: solid; }
+
+    /* ======== MAIN ======== */
+    main { position: relative; z-index: 1; flex: 1; display: flex; gap: 0; min-height: 0; }
+
+    .game-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .game-container { flex: 1; position: relative; background: #000; border-right: 1px solid var(--border); }
+    .game-container iframe { width: 100%; height: 100%; border: none; display: block; }
+
+    /* ======== OVERLAYS ======== */
+    .game-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8, 8, 14, 0.94); z-index: 20;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .game-overlay.active { opacity: 1; pointer-events: all; }
+    .overlay-box {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 32px 36px; max-width: 420px; width: 90%; text-align: center;
+    }
+    .overlay-box h2 { font-family: 'Press Start 2P', cursive; font-size: 13px; color: var(--accent); margin-bottom: 14px; text-shadow: 0 0 16px var(--glow); }
+    .overlay-box p { font-size: 11px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.8; }
+    .overlay-box p strong { color: var(--text-primary); }
+    .overlay-actions { display: flex; gap: 10px; justify-content: center; }
+
+    /* ======== MODAL ======== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(8, 8, 14, 0.92); z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 30px 34px; max-width: 440px; width: 92%;
+    }
+    .modal-box h2 { font-family: 'Press Start 2P', cursive; font-size: 11px; color: var(--accent); margin-bottom: 20px; text-shadow: 0 0 12px var(--glow); }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .modal-field input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text-primary); font-family: 'Space Mono', monospace;
+      font-size: 11px; padding: 10px 12px; outline: none; transition: border-color 0.2s ease;
+    }
+    .modal-field input:focus { border-color: var(--accent-dim); }
+    .modal-field input::placeholder { color: var(--text-muted); opacity: 0.4; }
+    .modal-field small { display: block; margin-top: 5px; font-size: 9px; color: var(--text-muted); opacity: 0.6; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ======== SAVE PANEL ======== */
+    .save-panel {
+      width: 320px; min-width: 320px; background: var(--surface);
+      display: flex; flex-direction: column;
+      border-left: 1px solid var(--border); overflow: hidden;
+    }
+    .panel-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .panel-header h3 { font-family: 'Press Start 2P', cursive; font-size: 9px; color: var(--text-primary); }
+    .save-count { font-size: 10px; color: var(--text-muted); background: rgba(232, 197, 71, 0.06); padding: 4px 10px; border: 1px solid var(--border); }
+    .panel-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .save-slot {
+      background: var(--bg); border: 1px solid var(--border);
+      padding: 14px 15px; transition: all 0.2s ease;
+      opacity: 0; animation: fadeUp 0.35s ease forwards;
+    }
+    .save-slot:nth-child(1) { animation-delay: 0.04s; }
+    .save-slot:nth-child(2) { animation-delay: 0.08s; }
+    .save-slot:nth-child(3) { animation-delay: 0.12s; }
+    .save-slot:nth-child(4) { animation-delay: 0.16s; }
+    .save-slot:nth-child(5) { animation-delay: 0.2s; }
+    .save-slot:hover { border-color: var(--accent-dim); background: var(--surface-hover); }
+
+    .slot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .slot-name { font-weight: 700; font-size: 12px; color: var(--text-primary); }
+    .slot-badge { font-size: 8px; text-transform: uppercase; padding: 3px 8px; background: rgba(71, 232, 122, 0.08); color: var(--success); border: 1px solid rgba(71, 232, 122, 0.15); letter-spacing: 0.5px; }
+    .slot-date { font-size: 10px; color: var(--text-muted); }
+    .slot-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .slot-actions .btn { flex: 1; }
+
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; color: var(--text-muted); }
+    .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.25; }
+    .empty-state p { font-size: 10px; line-height: 1.8; }
+
+    .panel-footer { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .note-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text-primary); font-family: 'Space Mono', monospace;
+      font-size: 11px; padding: 10px 12px; outline: none; transition: border-color 0.2s ease;
+    }
+    .note-input::placeholder { color: var(--text-muted); opacity: 0.4; }
+    .note-input:focus { border-color: var(--accent-dim); }
+
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 18px; font-family: 'Space Mono', monospace; font-size: 11px; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); animation: toastIn 0.3s ease forwards; min-width: 200px; max-width: 320px; }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.info { border-left: 3px solid var(--accent); }
+    .toast.out { animation: toastOut 0.3s ease forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+
+    .status-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 7px 20px; font-size: 10px; color: var(--text-muted); display: flex; justify-content: space-between; position: relative; z-index: 10; }
+    .status-dot { display: inline-block; width: 6px; height: 6px; background: var(--success); border-radius: 50%; margin-right: 6px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 900px) {
+      main { flex-direction: column; }
+      .save-panel { width: 100%; min-width: 0; max-height: 40vh; border-left: none; border-top: 1px solid var(--border); }
+      .game-container { border-right: none; min-height: 50vh; }
+      .game-bar { padding: 8px 14px; }
+      header { padding: 10px 14px; }
+      .logo { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <div class="logo">ARCADE VAULT</div>
+      <span class="logo-sub">Multi-Game Save Manager v2.3</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="togglePanel()">Saves</button>
+      <button class="btn" onclick="reloadGame()">Reload</button>
+      <button class="btn btn-danger" onclick="confirmDeleteGame()">Remover Jogo</button>
+    </div>
+  </header>
+
+  <div class="game-bar" id="gameBar"></div>
+
+  <main>
+    <div class="game-area">
+      <div class="game-container" id="gameContainer">
+        <iframe id="gameFrame" src="" allowfullscreen></iframe>
+
+        <div class="game-overlay" id="loadOverlay">
+          <div class="overlay-box">
+            <h2>Carregar Save?</h2>
+            <p id="overlayInfo">Deseja carregar este save?</p>
+            <div class="overlay-actions">
+              <button class="btn" onclick="closeOverlay('load')">Cancelar</button>
+              <button class="btn btn-accent" onclick="confirmLoad()">Carregar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-overlay active" id="welcomeOverlay">
+          <div class="overlay-box">
+            <h2>Arcade Vault</h2>
+            <p>Selecione um jogo na barra acima<br>ou adicione um novo.</p>
+            <div class="overlay-actions">
+              <button class="btn btn-accent" onclick="openAddGameModal()">+ Adicionar Jogo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="save-panel" id="savePanel">
+      <div class="panel-header">
+        <h3>Saves</h3>
+        <div class="save-count" id="saveCount">0 / 10</div>
+      </div>
+      <div class="panel-body" id="saveList">
+        <div class="empty-state">
+          <div class="empty-icon">&#128193;</div>
+          <p>Selecione um jogo para<br>visualizar seus saves.</p>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <input type="text" class="note-input" id="noteInput" placeholder="Nota para o save (opcional)..." maxlength="80">
+        <button class="btn btn-accent" onclick="createSave()" style="width:100%;">+ Criar Save</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- MODAL ADICIONAR JOGO -->
+  <div class="modal-overlay" id="addGameModal">
+    <div class="modal-box">
+      <h2>Adicionar Jogo</h2>
+      <div class="modal-field">
+        <label>Nome do Jogo</label>
+        <input type="text" id="newGameName" placeholder="Ex: Cobb Can Move" maxlength="40">
+      </div>
+      <div class="modal-field">
+        <label>URL de Embed</label>
+        <input type="text" id="newGameUrl" placeholder="https://site.com/embed/jogo">
+        <small>Cole a URL de embed. Teste antes no navegador — se o jogo abrir e rodar, funciona aqui.</small>
+      </div>
+      <div class="modal-field">
+        <label>Icone (emoji)</label>
+        <input type="text" id="newGameIcon" placeholder="&#127918;" maxlength="4">
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeAddGameModal()">Cancelar</button>
+        <button class="btn btn-accent" onclick="addGame()">Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL REMOVER JOGO -->
+  <div class="modal-overlay" id="deleteGameModal">
+    <div class="overlay-box">
+      <h2>Remover Jogo?</h2>
+      <p id="deleteGameInfo">Tem certeza?</p>
+      <div class="overlay-actions">
+        <button class="btn" onclick="closeOverlay('delete')">Cancelar</button>
+        <button class="btn btn-danger" onclick="deleteCurrentGame()">Remover</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div><span class="status-dot"></span><span id="statusGame">Nenhum jogo selecionado</span></div>
+    <div id="lastAction">Pronto</div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const STORAGE_KEY = 'arcade_vault_data';
+    const MAX_SAVES = 10;
+
+    let state = { games: [], activeGameId: null, saves: {} };
+    let pendingLoadId = null;
+
+    // =============================================
+    // JOGOS PADRAO
+    // =============================================
+    const DEFAULT_GAMES = [
+      {
+        id: 'cobb_can_move',
+        name: 'Cobb Can Move',
+        url: 'https://s.cobb-can-move.com/games/cobb-can-move-1-7-new/index.html',
+        icon: '&#128694;',
+        addedAt: Date.now()
+      },
+      {
+        id: 'finn_bones',
+        name: 'Finn and Bones',
+        url: 'https://www.minijogos.com.br/embed/finn-and-bones',
+        icon: '&#9876;',
+        addedAt: Date.now() + 1
+      },
+      {
+        id: 'dad_n_me',
+        name: 'Dad \'n Me',
+        url: 'https://www.minijogos.com.br/embed/dad-n-me',
+        icon: '&#128170;',
+        addedAt: Date.now() + 2
+      },
+      {
+        id: 'strike_force',
+        name: 'Strike Force Heroes',
+        url: 'https://www.minijogos.com.br/embed/strike-force-heroes',
+        icon: '&#128299;',
+        addedAt: Date.now() + 3
+      }
+    ];
+
+    // =============================================
+    // INIT
+    // =============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+
+      // Se nao tem jogos salvos, carrega os padroes
+      if (state.games.length === 0) {
+        state.games = JSON.parse(JSON.stringify(DEFAULT_GAMES));
+        state.saves = {};
+        state.games.forEach(g => state.saves[g.id] = []);
+        saveState();
+      }
+
+      renderGameBar();
+
+      if (state.activeGameId) {
+        switchGame(state.activeGameId);
+      }
+    });
+
+    // =============================================
+    // PERSISTENCE
+    // =============================================
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          state = JSON.parse(raw);
+          if (!state.saves) state.saves = {};
+        }
+      } catch (e) {
+        state = { games: [], activeGameId: null, saves: {} };
+      }
+    }
+    function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+    // =============================================
+    // GAME BAR
+    // =============================================
+    function renderGameBar() {
+      const bar = document.getElementById('gameBar');
+      bar.innerHTML = '';
+
+      state.games.forEach(game => {
+        const chip = document.createElement('div');
+        chip.className = 'game-chip' + (game.id === state.activeGameId ? ' active' : '');
+        chip.onclick = () => switchGame(game.id);
+        const cnt = (state.saves[game.id] || []).length;
+        chip.innerHTML =
+          '<span class="chip-icon">' + game.icon + '</span>' +
+          esc(game.name) +
+          (cnt > 0 ? '<span class="chip-count">' + cnt + '</span>' : '');
+        bar.appendChild(chip);
+      });
+
+      const add = document.createElement('div');
+      add.className = 'game-chip add-game-chip';
+      add.innerHTML = '<span class="chip-icon">+</span> Adicionar';
+      add.onclick = openAddGameModal;
+      bar.appendChild(add);
+    }
+
+    // =============================================
+    // SWITCH GAME
+    // =============================================
+    function switchGame(id) {
+      const game = state.games.find(g => g.id === id);
+      if (!game) return;
+      state.activeGameId = id;
+      saveState();
+      document.getElementById('gameFrame').src = game.url;
+      document.getElementById('welcomeOverlay').classList.remove('active');
+      document.getElementById('statusGame').textContent = game.name;
+      renderGameBar();
+      renderSaves();
+      updateStatus('Jogo: ' + game.name);
+    }
+
+    function reloadGame() {
+      if (!state.activeGameId) { showToast('Selecione um jogo.', 'error'); return; }
+      const f = document.getElementById('gameFrame');
+      f.src = f.src;
+      showToast('Jogo recarregado!', 'info');
+    }
+
+    // =============================================
+    // ADD GAME
+    // =============================================
+    function openAddGameModal() {
+      document.getElementById('addGameModal').classList.add('active');
+      document.getElementById('newGameName').value = '';
+      document.getElementById('newGameUrl').value = '';
+      document.getElementById('newGameIcon').value = '';
+      setTimeout(() => document.getElementById('newGameName').focus(), 100);
+    }
+    function closeAddGameModal() { document.getElementById('addGameModal').classList.remove('active'); }
+
+    function addGame() {
+      const name = document.getElementById('newGameName').value.trim();
+      const url = document.getElementById('newGameUrl').value.trim();
+      let icon = document.getElementById('newGameIcon').value.trim();
+
+      if (!name) { showToast('Informe o nome.', 'error'); return; }
+      if (!url) { showToast('Informe a URL de embed.', 'error'); return; }
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        showToast('URL invalida.', 'error'); return;
+      }
+      if (state.games.find(g => g.url === url)) {
+        showToast('Esse jogo ja foi adicionado.', 'error'); return;
+      }
+      if (!icon) icon = '&#127918;';
+
+      const game = {
+        id: 'game_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+        name: name,
+        url: url,
+        icon: icon,
+        addedAt: Date.now()
+      };
+
+      state.games.push(game);
+      state.saves[game.id] = [];
+      saveState();
+      closeAddGameModal();
+      renderGameBar();
+      switchGame(game.id);
+      showToast('Adicionado: ' + name, 'success');
+    }
+
+    // =============================================
+    // DELETE GAME
+    // =============================================
+    function confirmDeleteGame() {
+      if (!state.activeGameId) { showToast('Selecione um jogo.', 'error'); return; }
+      const game = state.games.find(g => g.id === state.activeGameId);
+      if (!game) return;
+      const cnt = (state.saves[game.id] || []).length;
+      document.getElementById('deleteGameInfo').innerHTML =
+        'Remover <strong>"' + esc(game.name) + '"</strong>?<br>' +
+        (cnt > 0
+          ? '<span style="color:var(--danger);">' + cnt + ' save(s) serao perdidos.</span>'
+          : 'Nenhum save.') +
+        '<br><br><span style="font-size:10px;color:var(--text-muted);">Nao pode ser desfeito.</span>';
+      document.getElementById('deleteGameModal').classList.add('active');
+    }
+
+    function deleteCurrentGame() {
+      const id = state.activeGameId;
+      if (!id) return;
+      const game = state.games.find(g => g.id === id);
+      state.games = state.games.filter(g => g.id !== id);
+      delete state.saves[id];
+      state.activeGameId = state.games.length ? state.games[0].id : null;
+      saveState();
+      closeOverlay('delete');
+      renderGameBar();
+      if (state.activeGameId) {
+        switchGame(state.activeGameId);
+      } else {
+        document.getElementById('gameFrame').src = '';
+        document.getElementById('welcomeOverlay').classList.add('active');
+        document.getElementById('statusGame').textContent = 'Nenhum jogo selecionado';
+        renderSaves();
+      }
+      showToast((game ? game.name : 'Jogo') + ' removido.', 'error');
+    }
+
+    // =============================================
+    // SAVES
+    // =============================================
+    function getSaves() {
+      if (!state.activeGameId) return [];
+      if (!state.saves[state.activeGameId]) state.saves[state.activeGameId] = [];
+      return state.saves[state.activeGameId];
+    }
+
+    function createSave() {
+      if (!state.activeGameId) { showToast('Selecione um jogo.', 'error'); return; }
+      const saves = getSaves();
+      if (saves.length >= MAX_SAVES) {
+        showToast('Limite de ' + MAX_SAVES + ' saves. Exclua um primeiro.', 'error'); return;
+      }
+      const note = document.getElementById('noteInput').value.trim();
+      const save = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        timestamp: Date.now(),
+        note: note || 'Save #' + (saves.length + 1),
+        url: document.getElementById('gameFrame').src
+      };
+      saves.unshift(save);
+      state.saves[state.activeGameId] = saves;
+      saveState();
+      document.getElementById('noteInput').value = '';
+      renderSaves();
+      renderGameBar();
+      showToast('Save criado!', 'success');
+    }
+
+    function renderSaves() {
+      const container = document.getElementById('saveList');
+      const countEl = document.getElementById('saveCount');
+      const saves = getSaves();
+      countEl.textContent = saves.length + ' / ' + MAX_SAVES;
+      container.innerHTML = '';
+
+      if (!saves.length) {
+        container.innerHTML =
+          '<div class="empty-state"><div class="empty-icon">&#128193;</div>' +
+          '<p>' + (state.activeGameId
+            ? 'Nenhum save.<br>Crie um abaixo.'
+            : 'Selecione um jogo.') + '</p></div>';
+        return;
+      }
+
+      saves.forEach((save, i) => {
+        const slot = document.createElement('div');
+        slot.className = 'save-slot';
+        const d = new Date(save.timestamp);
+        const ds = d.toLocaleDateString('pt-BR') + ' ' +
+          d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        slot.innerHTML =
+          '<div class="slot-header">' +
+            '<span class="slot-name">' + esc(save.note) + '</span>' +
+            '<span class="slot-badge">Save ' + (i + 1) + '</span>' +
+          '</div>' +
+          '<div class="slot-date">' + ds + '</div>' +
+          '<div class="slot-actions">' +
+            '<button class="btn btn-accent btn-sm" onclick="requestLoad(\'' + save.id + '\')">Carregar</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="deleteSave(\'' + save.id + '\')">Excluir</button>' +
+          '</div>';
+        container.appendChild(slot);
+      });
+    }
+
+    function requestLoad(id) {
+      const save = getSaves().find(s => s.id === id);
+      if (!save) return;
+      pendingLoadId = id;
+      const d = new Date(save.timestamp);
+      const ds = d.toLocaleDateString('pt-BR') + ' ' +
+        d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('overlayInfo').innerHTML =
+        'Carregar <strong>"' + esc(save.note) + '"</strong>?<br>' +
+        '<span style="font-size:10px;color:var(--text-muted);">' + ds + '</span>';
+      document.getElementById('loadOverlay').classList.add('active');
+    }
+
+    function confirmLoad() {
+      if (!pendingLoadId) return;
+      const saves = getSaves();
+      const save = saves.find(s => s.id === pendingLoadId);
+      if (!save) { closeOverlay('load'); return; }
+      document.getElementById('gameFrame').src = save.url;
+      const idx = saves.indexOf(save);
+      if (idx > -1) saves.splice(idx, 1);
+      save.timestamp = Date.now();
+      saves.unshift(save);
+      state.saves[state.activeGameId] = saves;
+      saveState();
+      closeOverlay('load');
+      renderSaves();
+      showToast('Save carregado!', 'info');
+      pendingLoadId = null;
+    }
+
+    function deleteSave(id) {
+      const saves = getSaves();
+      const save = saves.find(s => s.id === id);
+      if (!save) return;
+      state.saves[state.activeGameId] = saves.filter(s => s.id !== id);
+      saveState();
+      renderSaves();
+      renderGameBar();
+      showToast('Save excluido.', 'error');
+    }
+
+    // =============================================
+    // HELPERS
+    // =============================================
+    function closeOverlay(type) {
+      if (type === 'load') {
+        document.getElementById('loadOverlay').classList.remove('active');
+        pendingLoadId = null;
+      }
+      if (type === 'delete') {
+        document.getElementById('deleteGameModal').classList.remove('active');
+      }
+    }
+
+    function togglePanel() {
+      const p = document.getElementById('savePanel');
+      p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    function showToast(msg, type) {
+      type = type || 'info';
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = 'toast ' + type;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3000);
+    }
+
+    function updateStatus(msg) { document.getElementById('lastAction').textContent = msg; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeAddGameModal();
+        closeOverlay('load');
+        closeOverlay('delete');
+      }
+    });
+    document.getElementById('addGameModal').addEventListener('click', e => {
+      if (e.target.id === 'addGameModal') closeAddGameModal();
+    });
+    document.getElementById('deleteGameModal').addEventListener('click', e => {
+      if (e.target.id === 'deleteGameModal') closeOverlay('delete');
+    });
+  </script>
+</body>
+</html>
