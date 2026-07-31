@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ember</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Georgia, serif; }
+canvas { display: block; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = Math.min(window.innerWidth, 900); H = canvas.height = Math.min(window.innerHeight, 700); }
+resize();
+window.addEventListener('resize', resize);
+
+// Audio
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playTone(freq, dur, vol=0.1, type='sine') {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+}
+function playCrackle() { playTone(80 + Math.random()*60, 0.08, 0.04, 'sawtooth'); }
+function playAddWood() { playTone(120, 0.3, 0.08, 'triangle'); playTone(90, 0.4, 0.06, 'sawtooth'); }
+function playWolfHowl() { 
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(200, audioCtx.currentTime);
+    o.frequency.linearRampToValueAtTime(350, audioCtx.currentTime + 0.8);
+    o.frequency.linearRampToValueAtTime(180, audioCtx.currentTime + 2);
+    g.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.2);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 2.2);
+}
+function playDawn() { [262,330,392,523].forEach((f,i) => setTimeout(() => playTone(f, 1, 0.08, 'sine'), i*200)); }
+function playFail() { playTone(100, 1.5, 0.1, 'sawtooth'); playTone(75, 2, 0.08, 'square'); }
+function playWind() { 
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(60, audioCtx.currentTime);
+    g.gain.setValueAtTime(0.02, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 1.5);
+}
+
+// Game state
+let state = 'title'; // title, playing, nightComplete, gameOver
+let night = 1;
+let time = 0; // 0 to 1 (sunset to dawn)
+let fuel = 60;
+let brightness = 0.6;
+let wind = { strength: 0, dir: 1, timer: 0, active: false };
+let rain = { active: false, intensity: 0, timer: 0 };
+let wolves = [];
+let particles = [];
+let embers = [];
+let raindrops = [];
+let stars = [];
+let wood = { kindling: 3, birch: 4, oak: 2 };
+let shielding = false;
+let shieldX = 0;
+let messages = [];
+let shakeAmount = 0;
+let tutorialStep = 0;
+let tutorialTimer = 0;
+let crackleTimer = 0;
+let windSoundTimer = 0;
+let totalScore = 0;
+let nightStartTime = 0;
+let firePulse = 0;
+let wolfWarning = 0;
+
+const NIGHT_DURATION = 60; // seconds per night
+const FIRE_X = () => W / 2;
+const FIRE_Y = () => H * 0.62;
+
+// Stars
+for (let i = 0; i < 80; i++) {
+    stars.push({ x: Math.random(), y: Math.random() * 0.4, size: Math.random() * 1.5 + 0.5, twinkle: Math.random() * Math.PI * 2 });
+}
+
+function getNightConfig(n) {
+    return {
+        windFreq: Math.max(8, 20 - n * 2),
+        windStrength: Math.min(0.8, 0.2 + n * 0.08),
+        rainChance: n >= 2 ? Math.min(0.6, 0.15 + n * 0.08) : 0,
+        wolfCount: n >= 3 ? Math.min(4, Math.floor((n - 2) / 1.5) + 1) : 0,
+        wolfSpeed: Math.min(0.4, 0.1 + n * 0.03),
+        fuelDrain: 0.8 + n * 0.15,
+        woodKindling: Math.max(2, 4 - Math.floor(n / 3)),
+        woodBirch: Math.max(3, 5 - Math.floor(n / 4)),
+        woodOak: Math.max(2, 3 - Math.floor(n / 5)),
+    };
+}
+
+function startNight() {
+    const cfg = getNightConfig(night);
+    time = 0;
+    fuel = 65;
+    brightness = 0.65;
+    wind = { strength: 0, dir: Math.random() > 0.5 ? 1 : -1, timer: cfg.windFreq * 0.5, active: false };
+    rain = { active: false, intensity: 0, timer: 10 + Math.random() * 10 };
+    wolves = [];
+    particles = [];
+    embers = [];
+    raindrops = [];
+    messages = [];
+    shielding = false;
+    wood = { kindling: cfg.woodKindling, birch: cfg.woodBirch, oak: cfg.woodOak };
+    crackleTimer = 0;
+    wolfWarning = 0;
+    nightStartTime = Date.now();
+    state = 'playing';
+    if (night === 1) { tutorialStep = 0; tutorialTimer = 0; }
+    else { tutorialStep = 99; }
+}
+
+function addMessage(text, color = '#ffdd88') {
+    messages.push({ text, color, life: 3, y: 0 });
+}
+
+function addWood(type) {
+    if (wood[type] <= 0) return;
+    wood[type]--;
+    playAddWood();
+    const amounts = { kindling: 12, birch: 20, oak: 35 };
+    const durations = { kindling: 0.5, birch: 1, oak: 1.5 };
+    fuel = Math.min(100, fuel + amounts[type]);
+    // Burst of embers
+    for (let i = 0; i < 15; i++) {
+        embers.push({
+            x: FIRE_X() + (Math.random() - 0.5) * 30,
+            y: FIRE_Y() - Math.random() * 20,
+            vx: (Math.random() - 0.5) * 3,
+            vy: -Math.random() * 4 - 2,
+            life: 1,
+            size: Math.random() * 3 + 1,
+            color: type === 'kindling' ? '#ffee44' : type === 'birch' ? '#ffaa22' : '#ff6600'
+        });
+    }
+    shakeAmount = 3;
+    if (tutorialStep === 0) { tutorialStep = 1; tutorialTimer = 0; }
+}
+
+function spawnWolf() {
+    const side = Math.random() > 0.5 ? 1 : -1;
+    wolves.push({
+        x: FIRE_X() + side * (W * 0.4 + Math.random() * 50),
+        y: FIRE_Y() + (Math.random() - 0.5) * 60,
+        speed: getNightConfig(night).wolfSpeed * (0.8 + Math.random() * 0.4),
+        eyeGlow: 0,
+        howlTimer: 3 + Math.random() * 5,
+        fleeing: false
+    });
+    playWolfHowl();
+    wolfWarning = 1;
+    addMessage('Eyes in the dark...', '#ff4444');
+}
+
+function update(dt) {
+    if (state !== 'playing') return;
+    
+    const cfg = getNightConfig(night);
+    time += dt / NIGHT_DURATION;
+    firePulse += dt * 3;
+    
+    if (time >= 1) {
+        state = 'nightComplete';
+        totalScore += night * 100 + Math.floor(fuel * 5);
+        playDawn();
+        return;
+    }
+    
+    // Fuel drain
+    let drain = cfg.fuelDrain * dt;
+    if (wind.active) drain += wind.strength * 1.5 * dt;
+    if (rain.active) drain += rain.intensity * 2 * dt;
+    if (shielding && wind.active) drain -= wind.strength * 0.8 * dt;
+    fuel = Math.max(0, fuel - drain);
+    
+    // Brightness follows fuel with smoothing
+    const targetBright = fuel / 100;
+    brightness += (targetBright - brightness) * dt * 2;
+    
+    if (fuel <= 0) {
+        state = 'gameOver';
+        playFail();
+        return;
+    }
+    
+    // Wind
+    wind.timer -= dt;
+    if (wind.timer <= 0) {
+        if (!wind.active) {
+            wind.active = true;
+            wind.strength = cfg.windStrength * (0.5 + Math.random() * 0.5);
+            wind.dir = Math.random() > 0.5 ? 1 : -1;
+            wind.timer = 2 + Math.random() * 3;
+            playWind();
+            if (tutorialStep === 1 && night === 1) { tutorialStep = 2; tutorialTimer = 0; }
+        } else {
+            wind.active = false;
+            wind.strength = 0;
+            wind.timer = cfg.windFreq * (0.5 + Math.random());
+        }
+    }
+    
+    // Rain
+    if (cfg.rainChance > 0) {
+        rain.timer -= dt;
+        if (rain.timer <= 0) {
+            if (!rain.active) {
+                rain.active = true;
+                rain.intensity = 0.3 + Math.random() * 0.7;
+                rain.timer = 4 + Math.random() * 6;
+                addMessage('Rain...', '#88aaff');
+            } else {
+                rain.active = false;
+                rain.intensity = 0;
+                rain.timer = 8 + Math.random() * 12;
+            }
+        }
+    }
+    
+    // Rain particles
+    if (rain.active) {
+        for (let i = 0; i < rain.intensity * 8; i++) {
+            raindrops.push({
+                x: Math.random() * W,
+                y: -10,
+                vy: 300 + Math.random() * 200,
+                vx: wind.active ? wind.dir * wind.strength * 100 : (Math.random()-0.5)*20,
+                life: 1
+            });
+        }
+    }
+    raindrops.forEach(r => { r.y += r.vy * dt; r.x += r.vx * dt; });
+    raindrops = raindrops.filter(r => r.y < H);
+    
+    // Wolves
+    if (cfg.wolfCount > 0 && wolves.length < cfg.wolfCount) {
+        if (Math.random() < dt * 0.05 * (1 + night * 0.1)) {
+            spawnWolf();
+        }
+    }
+    
+    wolves.forEach(w => {
+        const dist = Math.abs(w.x - FIRE_X());
+        const scareRadius = 80 + brightness * 200;
+        
+        if (w.fleeing) {
+            w.x += (w.x > FIRE_X() ? 1 : -1) * w.speed * 300 * dt;
+            w.eyeGlow = Math.max(0, w.eyeGlow - dt);
+        } else if (dist < scareRadius && brightness > 0.4) {
+            w.fleeing = true;
+            addMessage('The wolf retreats!', '#88ff88');
+            playTone(150, 0.5, 0.05, 'sawtooth');
+        } else {
+            const dir = w.x > FIRE_X() ? -1 : 1;
+            w.x += dir * w.speed * 60 * dt * (brightness < 0.3 ? 2 : 1);
+            w.eyeGlow = Math.min(1, w.eyeGlow + dt * 0.5);
+        }
+        
+        w.howlTimer -= dt;
+        if (w.howlTimer <= 0 && !w.fleeing) {
+            playWolfHowl();
+            w.howlTimer = 8 + Math.random() * 10;
+        }
+        
+        // Wolf reaches fire
+        if (dist < 40 && !w.fleeing) {
+            fuel = Math.max(0, fuel - 30 * dt);
+            shakeAmount = 5;
+        }
+    });
+    wolves = wolves.filter(w => Math.abs(w.x - FIRE_X()) < W);
+    
+    // Fire particles
+    if (Math.random() < brightness * 0.8) {
+        particles.push({
+            x: FIRE_X() + (Math.random() - 0.5) * 25 * brightness,
+            y: FIRE_Y() - 5,
+            vx: (Math.random() - 0.5) * 20 + (wind.active ? wind.dir * wind.strength * 40 : 0),
+            vy: -40 - Math.random() * 60 * brightness,
+            life: 1,
+            size: (Math.random() * 8 + 4) * brightness
+        });
+    }
+    
+    // Embers
+    if (Math.random() < brightness * 0.3) {
+        embers.push({
+            x: FIRE_X() + (Math.random() - 0.5) * 20,
+            y: FIRE_Y() - 10 - Math.random() * 20,
+            vx: (Math.random() - 0.5) * 40 + (wind.active ? wind.dir * wind.strength * 60 : 0),
+            vy: -60 - Math.random() * 40,
+            life: 1,
+            size: Math.random() * 2 + 1,
+            color: Math.random() > 0.5 ? '#ffaa00' : '#ff6600'
+        });
+    }
+    
+    particles.forEach(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt * 1.5;
+        p.size *= 0.98;
+    });
+    particles = particles.filter(p => p.life > 0);
+    
+    embers.forEach(e => {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+        e.vy += 30 * dt;
+        e.life -= dt * 0.8;
+    });
+    embers = embers.filter(e => e.life > 0);
+    
+    // Crackle sound
+    crackleTimer -= dt;
+    if (crackleTimer <= 0 && brightness > 0.2) {
+        playCrackle();
+        crackleTimer = 0.2 + Math.random() * 0.5 / brightness;
+    }
+    
+    // Messages
+    messages.forEach(m => m.life -= dt);
+    messages = messages.filter(m => m.life > 0);
+    
+    // Shake decay
+    shakeAmount *= 0.9;
+    
+    // Tutorial
+    tutorialTimer += dt;
+    
+    // Low fuel warning
+    if (fuel < 20 && fuel > 19.5) {
+        addMessage('The fire is dying!', '#ff4444');
+        playTone(200, 0.5, 0.08, 'square');
+    }
+    
+    wolfWarning = Math.max(0, wolfWarning - dt);
+}
+
+function drawFire(x, y) {
+    const b = brightness;
+    const flicker = Math.sin(firePulse) * 0.05 + Math.sin(firePulse * 2.3) * 0.03;
+    const size = (30 + b * 50) * (1 + flicker);
+    
+    // Glow
+    const glowR = 60 + b * 250;
+    const glow = ctx.createRadialGradient(x, y - 20, 0, x, y - 20, glowR);
+    glow.addColorStop(0, `rgba(255, 150, 30, ${0.15 * b})`);
+    glow.addColorStop(0.5, `rgba(255, 100, 0, ${0.05 * b})`);
+    glow.addColorStop(1, 'rgba(255, 50, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Fire body layers
+    for (let i = 3; i >= 0; i--) {
+        const s = size * (1 - i * 0.2);
+        const wobble = Math.sin(firePulse * (1.5 + i * 0.5) + i) * s * 0.15;
+        const windOffset = wind.active ? wind.dir * wind.strength * 20 : 0;
+        
+        ctx.beginPath();
+        ctx.moveTo(x - s * 0.5, y);
+        ctx.quadraticCurveTo(x - s * 0.3 + wobble, y - s * 0.7, x + windOffset, y - s * 1.4 - i * 5);
+        ctx.quadraticCurveTo(x + s * 0.3 + wobble, y - s * 0.7, x + s * 0.5, y);
+        ctx.closePath();
+        
+        const colors = [
+            `rgba(255, 60, 0, ${0.3 * b})`,
+            `rgba(255, 120, 0, ${0.5 * b})`,
+            `rgba(255, 180, 0, ${0.7 * b})`,
+            `rgba(255, 240, 150, ${0.9 * b})`
+        ];
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+    }
+    
+    // Base logs
+    ctx.fillStyle = '#3d2200';
+    ctx.save();
+    ctx.translate(x, y + 5);
+    ctx.rotate(0.3);
+    ctx.fillRect(-20, -3, 40, 7);
+    ctx.rotate(-0.6);
+    ctx.fillRect(-18, -3, 36, 7);
+    ctx.restore();
+    
+    // Glowing coals
+    for (let i = 0; i < 5; i++) {
+        const cx = x + Math.sin(i * 1.3 + firePulse * 0.5) * 15;
+        const cy = y + 2 + Math.cos(i * 0.9) * 4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, ${80 + Math.sin(firePulse + i) * 40}, 0, ${0.5 + Math.sin(firePulse * 2 + i) * 0.3})`;
+        ctx.fill();
+    }
+}
+
+function draw() {
+    ctx.save();
+    
+    // Screen shake
+    if (shakeAmount > 0.5) {
+        ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
+    }
+    
+    // Sky gradient based on time
+    let skyTop, skyBot;
+    if (time < 0.1) { // sunset
+        skyTop = lerpColor('#1a0533', '#0a0a1a', time / 0.1);
+        skyBot = lerpColor('#4a1500', '#0d0d15', time / 0.1);
+    } else if (time > 0.9) { // dawn
+        const t = (time - 0.9) / 0.1;
+        skyTop = lerpColor('#0a0a1a', '#1a1040', t);
+        skyBot = lerpColor('#0d0d15', '#3a2010', t);
+    } else {
+        skyTop = '#0a0a1a';
+        skyBot = '#0d0d15';
+    }
+    
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, skyTop);
+    skyGrad.addColorStop(0.6, skyBot);
+    skyGrad.addColorStop(1, '#0a0808');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Stars (fade with brightness)
+    const starAlpha = Math.max(0, 1 - brightness * 0.5) * (time > 0.1 && time < 0.9 ? 1 : 0.3);
+    stars.forEach(s => {
+        const tw = Math.sin(firePulse * 0.5 + s.twinkle) * 0.3 + 0.7;
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 240, ${starAlpha * tw * 0.6})`;
+        ctx.fill();
+    });
+    
+    // Ground
+    ctx.fillStyle = '#1a1008';
+    ctx.fillRect(0, FIRE_Y() + 20, W, H - FIRE_Y());
+    const groundGrad = ctx.createLinearGradient(0, FIRE_Y() + 10, 0, FIRE_Y() + 40);
+    groundGrad.addColorStop(0, '#2a1a0a');
+    groundGrad.addColorStop(1, '#1a1008');
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, FIRE_Y() + 10, W, 30);
+    
+    // Trees silhouette
+    for (let i = 0; i < 8; i++) {
+        const tx = (i / 8) * W + 30;
+        const th = 80 + Math.sin(i * 2.5) * 30;
+        const treeAlpha = Math.max(0.1, 0.5 - brightness * 0.3);
+        ctx.fillStyle = `rgba(5, 8, 3, ${treeAlpha})`;
+        ctx.beginPath();
+        ctx.moveTo(tx - 15, FIRE_Y() + 15);
+        ctx.lineTo(tx, FIRE_Y() + 15 - th);
+        ctx.lineTo(tx + 15, FIRE_Y() + 15);
+        ctx.fill();
+        ctx.fillRect(tx - 3, FIRE_Y() + 15, 6, 10);
+    }
+    
+    // Fire
+    drawFire(FIRE_X(), FIRE_Y());
+    
+    // Fire particles
+    particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        const alpha = p.life * brightness;
+        ctx.fillStyle = `rgba(255, ${Math.floor(100 + p.life * 100)}, 0, ${alpha * 0.6})`;
+        ctx.fill();
+    });
+    
+    // Embers
+    embers.forEach(e => {
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+        ctx.fillStyle = e.color || `rgba(255, 170, 0, ${e.life})`;
+        ctx.globalAlpha = e.life;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    });
+    
+    // Rain
+    if (raindrops.length > 0) {
+        ctx.strokeStyle = 'rgba(150, 180, 255, 0.3)';
+        ctx.lineWidth = 1;
+        raindrops.forEach(r => {
+            ctx.beginPath();
+            ctx.moveTo(r.x, r.y);
+            ctx.lineTo(r.x + r.vx * 0.02, r.y + 8);
+            ctx.stroke();
+        });
+    }
+    
+    // Shielding visual
+    if (shielding && wind.active) {
+        const sx = FIRE_X() - wind.dir * 50;
+        ctx.beginPath();
+        ctx.ellipse(sx, FIRE_Y() - 20, 8, 40, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(80, 50, 20, 0.6)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(150, 100, 50, 0.4)';
+        ctx.stroke();
+    }
+    
+    // Wolves
+    wolves.forEach(w => {
+        if (w.eyeGlow > 0) {
+            const dist = Math.abs(w.x - FIRE_X());
+            const alpha = w.eyeGlow * Math.min(1, dist / 200);
+            // Eyes
+            const eyeY = w.y - 10;
+            const eyeSpacing = 8;
+            ctx.beginPath();
+            ctx.arc(w.x - eyeSpacing, eyeY, 3, 0, Math.PI * 2);
+            ctx.arc(w.x + eyeSpacing, eyeY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, ${w.fleeing ? 100 : 200}, 0, ${alpha * (0.7 + Math.sin(firePulse * 3) * 0.3)})`;
+            ctx.fill();
+            
+            // Body shadow (only when close)
+            if (dist < 300) {
+                ctx.beginPath();
+                ctx.ellipse(w.x, w.y, 20, 12, 0, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(10, 10, 10, ${alpha * 0.5})`;
+                ctx.fill();
+            }
+        }
+    });
+    
+    // Darkness overlay (vignette based on brightness)
+    const darkR = 100 + brightness * 300;
+    const darkGrad = ctx.createRadialGradient(FIRE_X(), FIRE_Y() - 20, darkR * 0.3, FIRE_X(), FIRE_Y() - 20, darkR);
+    darkGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    darkGrad.addColorStop(1, `rgba(0,0,0,${0.85 - brightness * 0.3})`);
+    ctx.fillStyle = darkGrad;
+    ctx.fillRect(0, 0, W, H);
+    
+    ctx.restore();
+    
+    // UI (not affected by shake)
+    drawUI();
+}
+
+function drawUI() {
+    // Fuel bar
+    const barW = 150, barH = 12;
+    const barX = 20, barY = 20;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    const fuelColor = fuel > 50 ? '#ff8800' : fuel > 25 ? '#ff5500' : '#ff2200';
+    ctx.fillStyle = fuelColor;
+    ctx.fillRect(barX, barY, barW * (fuel / 100), barH);
+    ctx.strokeStyle = '#664400';
+    ctx.strokeRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = '#ffcc88';
+    ctx.font = '11px Georgia';
+    ctx.fillText('FIRE', barX, barY + barH + 14);
+    
+    // Night progress
+    const npW = 150, npH = 6;
+    const npX = 20, npY = 55;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(npX - 1, npY - 1, npW + 2, npH + 2);
+    ctx.fillStyle = '#334488';
+    ctx.fillRect(npX, npY, npW * time, npH);
+    ctx.fillStyle = '#8899cc';
+    ctx.font = '11px Georgia';
+    ctx.fillText(`Night ${night}  —  ${time < 0.9 ? 'Until dawn...' : 'Dawn approaches!'}`, npX, npY + npH + 14);
+    
+    // Wind indicator
+    if (wind.active) {
+        const wx = W - 80, wy = 25;
+        ctx.fillStyle = '#aaccff';
+        ctx.font = '12px Georgia';
+        ctx.fillText('WIND', wx, wy);
+        const arrowLen = 20 + wind.strength * 30;
+        ctx.strokeStyle = '#aaccff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(wx + 10, wy + 10);
+        ctx.lineTo(wx + 10 + wind.dir * arrowLen, wy + 10);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(wx + 10 + wind.dir * arrowLen, wy + 10);
+        ctx.lineTo(wx + 10 + wind.dir * (arrowLen - 6), wy + 6);
+        ctx.lineTo(wx + 10 + wind.dir * (arrowLen - 6), wy + 14);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineWidth = 1;
+    }
+    
+    // Rain indicator
+    if (rain.active) {
+        ctx.fillStyle = '#88aaff';
+        ctx.font = '12px Georgia';
+        ctx.fillText('🌧 RAIN', W - 80, 55);
+    }
+    
+    // Wood buttons
+    const woodTypes = [
+        { key: 'kindling', label: 'Kindling', desc: '+12 fast', color: '#ccaa44' },
+        { key: 'birch', label: 'Birch', desc: '+20 med', color: '#ddccaa' },
+        { key: 'oak', label: 'Oak', desc: '+35 slow', color: '#886633' }
+    ];
+    
+    const btnW = 90, btnH = 50, btnGap = 10;
+    const totalBtnW = woodTypes.length * btnW + (woodTypes.length - 1) * btnGap;
+    const startX = (W - totalBtnW) / 2;
+    const btnY = H - 70;
+    
+    woodTypes.forEach((wt, i) => {
+        const bx = startX + i * (btnW + btnGap);
+        const count = wood[wt.key];
+        const hover = mouseX >= bx && mouseX <= bx + btnW && mouseY >= btnY && mouseY <= btnY + btnH;
+        
+        ctx.fillStyle = count > 0 ? (hover ? 'rgba(60,40,10,0.9)' : 'rgba(40,25,5,0.8)') : 'rgba(20,15,5,0.5)';
+        ctx.fillRect(bx, btnY, btnW, btnH);
+        ctx.strokeStyle = count > 0 ? wt.color : '#333';
+        ctx.strokeRect(bx, btnY, btnW, btnH);
+        
+        ctx.fillStyle = count > 0 ? wt.color : '#555';
+        ctx.font = 'bold 12px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(wt.label, bx + btnW/2, btnY + 20);
+        ctx.font = '10px Georgia';
+        ctx.fillStyle = count > 0 ? '#aa9966' : '#444';
+        ctx.fillText(wt.desc, bx + btnW/2, btnY + 34);
+        ctx.fillText(`×${count}`, bx + btnW/2, btnY + 46);
+        ctx.textAlign = 'left';
+    });
+    
+    // Shield hint
+    if (wind.active && !shielding) {
+        ctx.fillStyle = 'rgba(200, 200, 255, 0.6)';
+        ctx.font = '11px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('Hold SPACE or click near fire to shield from wind', W/2, H - 80);
+        ctx.textAlign = 'left';
+    }
+    
+    // Messages
+    messages.forEach((m, i) => {
+        ctx.globalAlpha = Math.min(1, m.life);
+        ctx.fillStyle = m.color;
+        ctx.font = '14px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(m.text, W/2, H * 0.35 - i * 22);
+        ctx.textAlign = 'left';
+        ctx.globalAlpha = 1;
+    });
+    
+    // Tutorial
+    if (night === 1 && tutorialStep < 99) {
+        ctx.fillStyle = 'rgba(255, 230, 180, 0.8)';
+        ctx.font = '13px Georgia';
+        ctx.textAlign = 'center';
+        let tutText = '';
+        if (tutorialStep === 0) tutText = 'Click wood below to feed the fire. Keep it burning until dawn.';
+        else if (tutorialStep === 1) tutText = 'Good. The fire is life. Watch the fuel bar.';
+        else if (tutorialStep === 2) tutText = 'Wind! Hold SPACE or click near the fire to shield it.';
+        if (tutText) {
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            const tw = ctx.measureText(tutText).width;
+            ctx.fillRect(W/2 - tw/2 - 10, H * 0.22 - 15, tw + 20, 26);
+            ctx.fillStyle = 'rgba(255, 230, 180, 0.9)';
+            ctx.fillText(tutText, W/2, H * 0.22 + 3);
+        }
+        ctx.textAlign = 'left';
+    }
+    
+    // Wolf warning flash
+    if (wolfWarning > 0) {
+        ctx.fillStyle = `rgba(255, 0, 0, ${wolfWarning * 0.1})`;
+        ctx.fillRect(0, 0, W, H);
+    }
+    
+    // Score
+    ctx.fillStyle = '#887755';
+    ctx.font = '11px Georgia';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Score: ${totalScore + night * 100 + Math.floor(fuel * 5)}`, W - 20, H - 10);
+    ctx.textAlign = 'left';
+}
+
+function drawTitle() {
+    // Background
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#0a0515');
+    grad.addColorStop(0.7, '#1a0a05');
+    grad.addColorStop(1, '#0a0808');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Animated fire on title
+    drawFire(W/2, H * 0.55);
+    
+    // Darkness
+    const darkGrad = ctx.createRadialGradient(W/2, H*0.55, 80, W/2, H*0.55, 350);
+    darkGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    darkGrad.addColorStop(1, 'rgba(0,0,0,0.8)');
+    ctx.fillStyle = darkGrad;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Title
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffaa44';
+    ctx.font = 'bold 48px Georgia';
+    ctx.fillText('EMBER', W/2, H * 0.25);
+    
+    ctx.fillStyle = '#aa8855';
+    ctx.font = '16px Georgia';
+    ctx.fillText('Keep the fire alive through the night', W/2, H * 0.32);
+    
+    ctx.fillStyle = `rgba(255, 220, 150, ${0.5 + Math.sin(firePulse) * 0.3})`;
+    ctx.font = '18px Georgia';
+    ctx.fillText('Click to begin', W/2, H * 0.78);
+    
+    ctx.fillStyle = '#665533';
+    ctx.font = '12px Georgia';
+    ctx.fillText('Feed the fire • Shield from wind • Survive the dark', W/2, H * 0.85);
+    ctx.textAlign = 'left';
+}
+
+function drawNightComplete() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#1a1040');
+    grad.addColorStop(0.5, '#3a2520');
+    grad.addColorStop(1, '#553311');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Sun rising
+    const sunY = H * 0.6 - (Date.now() % 3000) / 3000 * 20;
+    ctx.beginPath();
+    ctx.arc(W/2, sunY, 40, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffcc44';
+    ctx.fill();
+    const sunGlow = ctx.createRadialGradient(W/2, sunY, 20, W/2, sunY, 150);
+    sunGlow.addColorStop(0, 'rgba(255, 200, 50, 0.3)');
+    sunGlow.addColorStop(1, 'rgba(255, 150, 0, 0)');
+    ctx.fillStyle = sunGlow;
+    ctx.fillRect(0, 0, W, H);
+    
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffdd88';
+    ctx.font = 'bold 32px Georgia';
+    ctx.fillText('Dawn breaks', W/2, H * 0.25);
+    
+    ctx.fillStyle = '#ddbb77';
+    ctx.font = '18px Georgia';
+    ctx.fillText(`Night ${night} survived`, W/2, H * 0.35);
+    
+    ctx.fillStyle = '#aa9966';
+    ctx.font = '14px Georgia';
+    ctx.fillText(`Score: ${totalScore + night * 100 + Math.floor(fuel * 5)}`, W/2, H * 0.43);
+    
+    const cfg = getNightConfig(night + 1);
+    ctx.fillStyle = '#998866';
+    ctx.font = '13px Georgia';
+    let warnings = [];
+    if (cfg.windStrength > 0.4) warnings.push('stronger winds');
+    if (cfg.rainChance > 0.3) warnings.push('rain likely');
+    if (cfg.wolfCount > 0) warnings.push(`${cfg.wolfCount} wolf${cfg.wolfCount>1?'ves':''} prowling`);
+    if (warnings.length > 0) {
+        ctx.fillText(`Tomorrow brings: ${warnings.join(', ')}`, W/2, H * 0.52);
+    }
+    
+    ctx.fillStyle = `rgba(255, 220, 150, ${0.5 + Math.sin(firePulse) * 0.3})`;
+    ctx.font = '18px Georgia';
+    ctx.fillText('Click to continue', W/2, H * 0.7);
+    ctx.textAlign = 'left';
+}
+
+function drawGameOver() {
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Dying embers
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.arc(W/2 + Math.sin(i * 1.5) * 20, H*0.6 + Math.cos(i) * 5, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 80, 0, ${0.2 + Math.sin(firePulse + i) * 0.15})`;
+        ctx.fill();
+    }
+    
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#884422';
+    ctx.font = 'bold 36px Georgia';
+    ctx.fillText('The fire dies', W/2, H * 0.3);
+    
+    ctx.fillStyle = '#665544';
+    ctx.font = '16px Georgia';
+    ctx.fillText(`You survived ${night - 1} night${night-1 !== 1 ? 's' : ''}`, W/2, H * 0.4);
+    ctx.fillText(`Final score: ${totalScore}`, W/2, H * 0.47);
+    
+    ctx.fillStyle = `rgba(200, 150, 100, ${0.5 + Math.sin(firePulse) * 0.3})`;
+    ctx.font = '18px Georgia';
+    ctx.fillText('Click to try again', W/2, H * 0.65);
+    ctx.textAlign = 'left';
+}
+
+function lerpColor(a, b, t) {
+    const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+    const ar = ah >> 16, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+    const br = bh >> 16, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+    const r = Math.round(ar + (br - ar) * t);
+    const g = Math.round(ag + (bg - ag) * t);
+    const b2 = Math.round(ab + (bb - ab) * t);
+    return `rgb(${r},${g},${b2})`;
+}
+
+// Input
+let mouseX = 0, mouseY = 0;
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousedown', e => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    if (state === 'title') { startNight(); return; }
+    if (state === 'nightComplete') { night++; startNight(); return; }
+    if (state === 'gameOver') { night = 1; totalScore = 0; startNight(); return; }
+    
+    if (state === 'playing') {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        
+        // Check wood buttons
+        const woodTypes = ['kindling', 'birch', 'oak'];
+        const btnW = 90, btnH = 50, btnGap = 10;
+        const totalBtnW = 3 * btnW + 2 * btnGap;
+        const startX = (W - totalBtnW) / 2;
+        const btnY = H - 70;
+        
+        let clickedWood = false;
+        woodTypes.forEach((key, i) => {
+            const bx = startX + i * (btnW + btnGap);
+            if (mx >= bx && mx <= bx + btnW && my >= btnY && my <= btnY + btnH) {
+                addWood(key);
+                clickedWood = true;
+            }
+        });
+        
+        // Click near fire to shield
+        if (!clickedWood) {
+            const dist = Math.hypot(mx - FIRE_X(), my - FIRE_Y());
+            if (dist < 100) {
+                shielding = true;
+                shieldX = mx;
+                if (tutorialStep === 2) { tutorialStep = 99; }
+            }
+        }
+    }
+});
+
+canvas.addEventListener('mouseup', () => { shielding = false; });
+
+document.addEventListener('keydown', e => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (state === 'playing') {
+            shielding = true;
+            if (tutorialStep === 2) { tutorialStep = 99; }
+        }
+    }
+    // Number keys for wood
+    if (state === 'playing') {
+        if (e.code === 'Digit1') addWood('kindling');
+        if (e.code === 'Digit2') addWood('birch');
+        if (e.code === 'Digit3') addWood('oak');
+    }
+});
+document.addEventListener('keyup', e => { if (e.code === 'Space') shielding = false; });
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    mouseX = touch.clientX - rect.left;
+    mouseY = touch.clientY - rect.top;
+    canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY }));
+});
+canvas.addEventListener('touchend', e => { e.preventDefault(); shielding = false; });
+
+// Game loop
+let lastTime = performance.now();
+function loop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    
+    firePulse += dt * 3;
+    
+    update(dt);
+    
+    if (state === 'title') drawTitle();
+    else if (state === 'playing') draw();
+    else if (state === 'nightComplete') drawNightComplete();
+    else if (state === 'gameOver') drawGameOver();
+    
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

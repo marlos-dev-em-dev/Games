@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHRONO-GEOMETER // Spatial Temporal Surveyor</title>
+    <style>
+        :root {
+            --bg-color: #050814;
+            --panel-bg: rgba(10, 16, 32, 0.85);
+            --border-glow: #00f3ff;
+            --text-main: #c0f8ff;
+            --accent-gold: #f39c12;
+            --accent-purple: #9b59b6;
+            --accent-red: #e74c3c;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.05) 0%, transparent 70%),
+                linear-gradient(rgba(0,0,0,0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.3) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            letter-spacing: 4px;
+            color: var(--border-glow);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: #61b3c9;
+            letter-spacing: 2px;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-glow);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.15);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 240px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .stat-title {
+            font-size: 0.65rem;
+            color: #7998a1;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .stat-value span {
+            color: var(--border-glow);
+        }
+
+        .main-viewport {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+        }
+
+        canvas {
+            background: #020408;
+            border: 2px solid #1a3f4d;
+            border-radius: 4px;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+        }
+
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 0.7rem;
+            color: #7998a1;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .ability-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .btn {
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--border-glow);
+            color: var(--text-main);
+            padding: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: rgba(0, 243, 255, 0.25);
+            box-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            border-color: #335;
+            cursor: not-allowed;
+        }
+
+        .log-box {
+            height: 110px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 4px;
+            padding: 8px;
+            font-size: 0.65rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .log-entry {
+            border-left: 2px solid var(--border-glow);
+            padding-left: 4px;
+            color: #a0c0cc;
+        }
+
+        .log-entry.highlight {
+            border-left-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+
+        .log-entry.alert {
+            border-left-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        /* Overlay screens */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 8, 20, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .overlay h2 {
+            font-size: 2rem;
+            color: var(--border-glow);
+            margin-bottom: 15px;
+            text-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+        }
+
+        .overlay p {
+            max-width: 500px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #8ab4c0;
+            margin-bottom: 25px;
+        }
+
+        .overlay-btn {
+            background: var(--border-glow);
+            color: var(--bg-color);
+            border: none;
+            padding: 12px 25px;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+            transition: transform 0.1s ease;
+        }
+
+        .overlay-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 800px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .sidebar {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>CHRONO-GEOMETER</h1>
+        <div class="subtitle">Aether-Span Structural Restoration Protocol v1.04</div>
+    </header>
+
+    <div class="game-container">
+        <!-- Sidebar stats and abilities -->
+        <div class="sidebar">
+            <div class="stat-box">
+                <div class="stat-title">Current Span</div>
+                <div class="stat-value" id="span-display">01</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">Temporal Energy ($$E$$)</div>
+                <div class="stat-value"><span id="energy-display">100</span> / <span id="max-energy-display">100</span></div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-title">Resonance Shards</div>
+                <div class="stat-value" id="shards-display">0</div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-title">Temporal Tools</div>
+                <div class="ability-panel">
+                    <button class="btn" id="btn-anchor" onclick="useAnchor()" disabled>
+                        <span>Anchor Cell</span><span>[Z]</span>
+                    </button>
+                    <button class="btn" id="btn-rewriter" onclick="useRewriter()" disabled>
+                        <span>Rewind Step</span><span>[X]</span>
+                    </button>
+                    <button class="btn" id="btn-phase" onclick="usePhase()" disabled>
+                        <span>Phase Shift</span><span>[C]</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="stat-box" style="flex-grow: 1; display: flex; flex-direction: column;">
+                <div class="stat-title">System Log</div>
+                <div class="log-box" id="log-box">
+                    <div class="log-entry">System online. Initialize grid traversal.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main game board -->
+        <div class="main-viewport">
+            <canvas id="gameCanvas" width="450" height="450"></canvas>
+            <div class="controls-hint">
+                Use <strong>W, A, S, D</strong> or <strong>Arrow Keys</strong> to navigate.<br>
+                Collect all <strong>Resonance Shards</strong> to stabilize the span. Avoid unstable red vortexes.
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="overlay">
+        <h2>CHRONO-GEOMETER</h2>
+        <p>
+            Reality has fractured into unstable temporal spans. As a surveyor node, your mandate is to navigate the grid, harvest resonance elements, and weave structural anchors to reconstruct the continuum. 
+            <br><br>
+            Beware: unstable coordinates degrade energy rapidly. Unlock powerful chronal modifications as you harvest fragments across infinite procedural spans.
+        </p>
+        <button class="overlay-btn" onclick="startGame()">INITIALIZE SURVEY</button>
+    </div>
+
+    <!-- Victory/Span Complete Overlay -->
+    <div id="span-overlay" class="overlay hidden">
+        <h2 id="overlay-title">SPAN STABILIZED</h2>
+        <p id="overlay-desc">Dimensional integrity restored. Preparing high-tier coordinate jump...</p>
+        <button class="overlay-btn" onclick="nextSpan()">ADVANCE SPAN</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-overlay" class="overlay hidden">
+        <h2 style="color: var(--accent-red); text-shadow: 0 0 15px rgba(231, 76, 60, 0.6);">CONTINUUM COLLAPSE</h2>
+        <p id="gameover-desc">Temporal energy exhausted. Surveyor node offline at Span 01.</p>
+        <button class="overlay-btn" style="background: var(--accent-red);" onclick="restartGame()">RE-BOOT NODE</button>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Game state variables
+    let span = 1;
+    let energy = 100;
+    let maxEnergy = 100;
+    let shardsCollected = 0;
+    let totalShardsNeeded = 3;
+    let gridRows = 9;
+    let gridCols = 9;
+    let tileSize = 50;
+
+    let player = { x: 0, y: 0 };
+    let grid = []; // 2d array of objects: { type: 'empty'|'shard'|'anomaly'|'anchor', visited: false, active: true }
+    let history = []; // stores past player positions for Rewriter tool
+    let gameActive = false;
+
+    // Upgrades / Tool states
+    let unlockedAnchor = false;
+    let unlockedRewriter = false;
+    let unlockedPhase = false;
+    let isPhaseReady = false;
+
+    // Input listening
+    window.addEventListener('keydown', (e) => {
+        if (!gameActive) return;
+        
+        let dx = 0, dy = 0;
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') dy = -1;
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') dy = 1;
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') dx = -1;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') dx = 1;
+
+        if (dx !== 0 || dy !== 0) {
+            e.preventDefault();
+            movePlayer(dx, dy);
+        }
+
+        if (e.key === 'z' || e.key === 'Z') useAnchor();
+        if (e.key === 'x' || e.key === 'X') useRewriter();
+        if (e.key === 'c' || e.key === 'C') usePhase();
+    });
+
+    // Mouse click support for pathfinding/movement
+    canvas.addEventListener('click', (e) => {
+        if (!gameActive) return;
+        const rect = canvas.getBoundingClientRect();
+        const clickX = Math.floor((e.clientX - rect.left) / tileSize);
+        const clickY = Math.floor((e.clientY - rect.top) / tileSize);
+
+        if (clickX >= 0 && clickX < gridCols && clickY >= 0 && clickY < gridRows) {
+            // Check if adjacent or using phase shift
+            let dist = Math.abs(player.x - clickX) + Math.abs(player.y - clickY);
+            if (dist === 1) {
+                movePlayer(clickX - player.x, clickY - player.y);
+            } else if (isPhaseReady && dist <= 2) {
+                executePhaseShift(clickX, clickY);
+            }
+        }
+    });
+
+    function addLog(msg, type = 'normal') {
+        const logBox = document.getElementById('log-box');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        entry.innerText = `[T+${span}] ${msg}`;
+        logBox.insertBefore(entry, logBox.firstChild);
+        if (logBox.children.length > 30) {
+            logBox.removeChild(logBox.lastChild);
+        }
+    }
+
+    function startGame() {
+        document.getElementById('start-overlay').classList.add('hidden');
+        resetGameStats();
+        initSpan();
+        gameActive = true;
+        addLog("Surveyor operational. Span " + span + " initialized.", "highlight");
+    }
+
+    function resetGameStats() {
+        span = 1;
+        energy = 100;
+        maxEnergy = 100;
+        shardsCollected = 0;
+        unlockedAnchor = false;
+        unlockedRewriter = false;
+        unlockedPhase = false;
+        updateUI();
+    }
+
+    function initSpan() {
+        // Progressive difficulty scaling
+        gridCols = Math.min(13, 7 + Math.floor(span / 2));
+        gridRows = Math.min(13, 7 + Math.floor(span / 2));
+        canvas.width = gridCols * tileSize;
+        canvas.height = gridRows * tileSize;
+
+        totalShardsNeeded = 2 + Math.floor(span * 1.5);
+        energy = maxEnergy;
+
+        // Build grid
+        grid = [];
+        for (let y = 0; y < gridRows; y++) {
+            let row = [];
+            for (let x = 0; x < gridCols; x++) {
+                row.push({ type: 'empty', visited: false, active: false });
+            }
+            grid.push(row);
+        }
+
+        // Place player safely in center or top-left
+        player.x = Math.floor(gridCols / 2);
+        player.y = Math.floor(gridRows / 2);
+        grid[player.y][player.x].visited = true;
+        history = [{ x: player.x, y: player.y }];
+
+        // Scatter shards
+        let placedShards = 0;
+        while (placedShards < totalShardsNeeded) {
+            let rx = Math.floor(Math.random() * gridCols);
+            let ry = Math.floor(Math.random() * gridRows);
+            if ((rx !== player.x || ry !== player.y) && grid[ry][rx].type === 'empty') {
+                grid[ry][rx].type = 'shard';
+                placedShards++;
+            }
+        }
+
+        // Scatter anomalies (bad cells) based on span level
+        let anomalyCount = Math.floor(span * 1.8);
+        let placedAnomalies = 0;
+        while (placedAnomalies < anomalyCount) {
+            let ax = Math.floor(Math.random() * gridCols);
+            let ay = Math.floor(Math.random() * gridRows);
+            if ((ax !== player.x || ay !== player.y) && grid[ay][ax].type === 'empty') {
+                grid[ay][ax].type = 'anomaly';
+                placedAnomalies++;
+            }
+        }
+
+        checkUnlocks();
+        updateUI();
+        draw();
+    }
+
+    function checkUnlocks() {
+        if (span >= 2) { unlockedAnchor = true; document.getElementById('btn-anchor').removeAttribute('disabled'); }
+        if (span >= 3) { unlockedRewriter = true; document.getElementById('btn-rewriter').removeAttribute('disabled'); }
+        if (span >= 5) { unlockedPhase = true; document.getElementById('btn-phase').removeAttribute('disabled'); }
+    }
+
+    function movePlayer(dx, dy) {
+        let newX = player.x + dx;
+        let newY = player.y + dy;
+
+        if (newX < 0 || newX >= gridCols || newY < 0 || newY >= gridRows) {
+            addLog("Boundary collision detected. Movement rejected.", "alert");
+            return;
+        }
+
+        // Record history for rewriter
+        history.push({ x: player.x, y: player.y });
+        if (history.length > 15) history.shift();
+
+        player.x = newX;
+        player.y = newY;
+
+        let cell = grid[player.y][player.x];
+        
+        // Energy consumption
+        let cost = 5;
+        if (cell.type === 'anomaly') {
+            cost = 18;
+            addLog("Anomalous distortion encountered! High energy drain.", "alert");
+        } else if (cell.visited) {
+            cost = 3; // Efficient revisit
+        }
+
+        cell.visited = true;
+        energy -= cost;
+
+        // Interaction
+        if (cell.type === 'shard') {
+            cell.type = 'empty';
+            shardsCollected++;
+            maxEnergy += 10;
+            energy = Math.min(maxEnergy, energy + 25);
+            addLog(`Resonance Shard harvested. Shards: ${shardsCollected}/${totalShardsNeeded}`, "highlight");
+            
+            if (shardsCollected >= totalShardsNeeded) {
+                triggerSpanComplete();
+                return;
+            }
+        }
+
+        if (energy <= 0) {
+            energy = 0;
+            triggerGameOver();
+            return;
+        }
+
+        updateUI();
+        draw();
+    }
+
+    function useAnchor() {
+        if (!unlockedAnchor || energy < 15) return;
+        energy -= 15;
+        grid[player.y][player.x].type = 'anchor';
+        addLog("Structural Anchor deployed at current coordinate.", "highlight");
+        updateUI();
+        draw();
+    }
+
+    function useRewriter() {
+        if (!unlockedRewriter || history.length <= 1 || energy < 10) return;
+        energy -= 10;
+        let pastPos = history.pop();
+        player.x = pastPos.x;
+        player.y = pastPos.y;
+        addLog("Temporal timeline folded. Position reverted.", "highlight");
+        updateUI();
+        draw();
+    }
+
+    function usePhase() {
+        if (!unlockedPhase || energy < 25) return;
+        isPhaseReady = !isPhaseReady;
+        if (isPhaseReady) {
+            addLog("Phase-Shift matrix active. Click target cell within range (2).", "highlight");
+        } else {
+            addLog("Phase-Shift matrix disengaged.");
+        }
+        draw();
+    }
+
+    function executePhaseShift(targetX, targetY) {
+        energy -= 25;
+        history.push({ x: player.x, y: player.y });
+        player.x = targetX;
+        player.y = targetY;
+        isPhaseReady = false;
+
+        let cell = grid[player.y][player.x];
+        cell.visited = true;
+        if (cell.type === 'shard') {
+            cell.type = 'empty';
+            shardsCollected++;
+            maxEnergy += 10;
+            energy = Math.min(maxEnergy, energy + 30);
+            addLog(`Phase Shard harvested! Shards: ${shardsCollected}/${totalShardsNeeded}`, "highlight");
+            if (shardsCollected >= totalShardsNeeded) {
+                triggerSpanComplete();
+                return;
+            }
+        }
+
+        addLog("Quantum leap executed successfully.", "highlight");
+        updateUI();
+        draw();
+    }
+
+    function triggerSpanComplete() {
+        gameActive = false;
+        document.getElementById('overlay-title').innerText = `SPAN ${span} STABILIZED`;
+        document.getElementById('overlay-desc').innerText = `All resonance shards locked. Spatial matrix expanding for Span ${span + 1}. Max Energy increased.`;
+        document.getElementById('span-overlay').classList.remove('hidden');
+    }
+
+    function nextSpan() {
+        span++;
+        shardsCollected = 0;
+        document.getElementById('span-overlay').classList.add('hidden');
+        initSpan();
+        gameActive = true;
+        addLog(`Transitioned to Span ${span}. Complexity heightened.`, "highlight");
+    }
+
+    function triggerGameOver() {
+        gameActive = false;
+        document.getElementById('gameover-desc').innerText = `Temporal energy depleted. Surveyor node collapsed at Span ${span}. Shards harvested: ${shardsCollected}`;
+        document.getElementById('gameover-overlay').classList.remove('hidden');
+    }
+
+    function restartGame() {
+        document.getElementById('gameover-overlay').classList.add('hidden');
+        startGame();
+    }
+
+    function updateUI() {
+        document.getElementById('span-display').innerText = span < 10 ? '0' + span : span;
+        document.getElementById('energy-display').innerText = Math.round(energy);
+        document.getElementById('max-energy-display').innerText = maxEnergy;
+        document.getElementById('shards-display').innerText = `${shardsCollected} / ${totalShardsNeeded}`;
+    }
+
+    // Render loop
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw grid lines & tiles
+        for (let y = 0; y < gridRows; y++) {
+            for (let x = 0; x < gridCols; x++) {
+                let cell = grid[y][x];
+                let px = x * tileSize;
+                let py = y * tileSize;
+
+                // Cell background styling based on state
+                ctx.strokeStyle = '#0e2b38';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px, py, tileSize, tileSize);
+
+                if (cell.visited) {
+                    ctx.fillStyle = 'rgba(0, 243, 255, 0.04)';
+                    ctx.fillRect(px, py, tileSize, tileSize);
+                }
+
+                // Entity rendering
+                if (cell.type === 'shard') {
+                    ctx.save();
+                    ctx.translate(px + tileSize/2, py + tileSize/2);
+                    ctx.rotate(Date.now() / 1000);
+                    ctx.fillStyle = '#f39c12';
+                    ctx.shadowColor = '#f39c12';
+                    ctx.shadowBlur = 10;
+                    ctx.fillRect(-6, -6, 12, 12);
+                    ctx.restore();
+                } else if (cell.type === 'anomaly') {
+                    ctx.fillStyle = 'rgba(231, 76, 60, 0.25)';
+                    ctx.fillRect(px + 4, py + 4, tileSize - 8, tileSize - 8);
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.strokeRect(px + 4, py + 4, tileSize - 8, tileSize - 8);
+                } else if (cell.type === 'anchor') {
+                    ctx.fillStyle = '#9b59b6';
+                    ctx.beginPath();
+                    ctx.arc(px + tileSize/2, py + tileSize/2, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Highlight phase range if active
+        if (isPhaseReady) {
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.15)';
+            for (let y = 0; y < gridRows; y++) {
+                for (let x = 0; x < gridCols; x++) {
+                    let dist = Math.abs(player.x - x) + Math.abs(player.y - y);
+                    if (dist <= 2 && dist > 0) {
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                        ctx.strokeStyle = '#00f3ff';
+                        ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    }
+                }
+            }
+        }
+
+        // Draw Player (Surveyor Node)
+        let plx = player.x * tileSize + tileSize / 2;
+        let ply = player.y * tileSize + tileSize / 2;
+
+        ctx.shadowColor = '#00f3ff';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#00f3ff';
+        ctx.beginPath();
+        ctx.moveTo(plx, ply - 12);
+        ctx.lineTo(plx + 10, ply + 10);
+        ctx.lineTo(plx - 10, ply + 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0; // reset
+    }
+
+    // Gentle ambient animation loop for rotating shards
+    setInterval(() => {
+        if (gameActive) {
+            draw();
+        }
+    }, 100);
+</script>
+
+</body>
+</html>
