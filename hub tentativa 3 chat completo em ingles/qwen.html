@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGNAL BLOOM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    color: #fff;
+    cursor: crosshair;
+    user-select: none;
+  }
+  canvas { display: block; }
+  #ui {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #hud-top {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+  }
+  .hud-stat {
+    text-align: center;
+    min-width: 100px;
+  }
+  .hud-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+  .hud-value {
+    font-size: 24px;
+    font-weight: bold;
+  }
+  .energy-val { color: #FFD700; text-shadow: 0 0 10px #FFD700; }
+  .gen-val { color: #00FFFF; text-shadow: 0 0 10px #00FFFF; }
+  .harmony-val { color: #FF69FF; text-shadow: 0 0 10px #FF69FF; }
+
+  #toolbar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    pointer-events: all;
+    z-index: 20;
+  }
+  .tool-btn {
+    width: 70px; height: 80px;
+    background: rgba(20, 10, 40, 0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .tool-btn:hover { border-color: rgba(255,255,255,0.4); transform: translateY(-3px); }
+  .tool-btn.active { border-color: #fff; box-shadow: 0 0 20px rgba(255,255,255,0.3); transform: translateY(-3px); }
+  .tool-btn.locked { opacity: 0.3; cursor: not-allowed; }
+  .tool-btn.locked:hover { transform: none; }
+  .tool-icon { font-size: 24px; margin-bottom: 4px; }
+  .tool-name { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.7; }
+  .tool-cost { font-size: 9px; color: #FFD700; margin-top: 2px; }
+  .tool-key {
+    position: absolute;
+    top: 4px; right: 6px;
+    font-size: 9px;
+    opacity: 0.5;
+  }
+
+  #unlock-panel {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: all;
+    z-index: 20;
+  }
+  .unlock-btn {
+    width: 140px;
+    padding: 10px 12px;
+    background: rgba(20, 10, 40, 0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .unlock-btn:hover { border-color: rgba(255,255,255,0.4); }
+  .unlock-btn.unlocked { border-color: #00FF88; opacity: 0.5; cursor: default; }
+  .unlock-btn.cant-afford { opacity: 0.4; }
+  .unlock-name { font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+  .unlock-desc { font-size: 9px; opacity: 0.6; margin-bottom: 4px; }
+  .unlock-cost { font-size: 10px; color: #FFD700; }
+
+  #title-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: radial-gradient(ellipse at center, #0a0020 0%, #000 70%);
+    transition: opacity 1s;
+  }
+  #title-screen.hidden { opacity: 0; pointer-events: none; }
+  #title-screen h1 {
+    font-size: 64px;
+    letter-spacing: 12px;
+    background: linear-gradient(135deg, #FF69FF, #00FFFF, #FFD700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    animation: titleGlow 3s ease-in-out infinite;
+  }
+  @keyframes titleGlow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+  }
+  #title-screen .subtitle {
+    font-size: 14px;
+    letter-spacing: 6px;
+    opacity: 0.5;
+    margin-bottom: 60px;
+  }
+  #title-screen .instructions {
+    max-width: 500px;
+    text-align: center;
+    line-height: 1.8;
+    font-size: 13px;
+    opacity: 0.7;
+    margin-bottom: 40px;
+  }
+  #title-screen .instructions span {
+    color: #00FFFF;
+    font-weight: bold;
+  }
+  #start-btn {
+    padding: 14px 50px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 30px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+  #start-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #fff;
+    box-shadow: 0 0 30px rgba(255,255,255,0.2);
+    transform: scale(1.05);
+  }
+
+  #notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-shadow: 0 0 20px currentColor;
+  }
+
+  #pulse-indicator {
+    position: fixed;
+    bottom: 115px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 2px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="ui">
+  <div id="hud-top">
+    <div class="hud-stat">
+      <div class="hud-label">Energy</div>
+      <div class="hud-value energy-val" id="energy-display">50</div>
+    </div>
+    <div class="hud-stat">
+      <div class="hud-label">Generation</div>
+      <div class="hud-value gen-val" id="gen-display">1</div>
+    </div>
+    <div class="hud-stat">
+      <div class="hud-label">Bloom Score</div>
+      <div class="hud-value harmony-val" id="harmony-display">0</div>
+    </div>
+  </div>
+</div>
+
+<div id="toolbar"></div>
+<div id="unlock-panel"></div>
+<div id="pulse-indicator">[ SPACE ] EMIT PULSE</div>
+<div id="notification"></div>
+
+<div id="title-screen">
+  <h1>SIGNAL BLOOM</h1>
+  <div class="subtitle">A FREQUENCY GARDEN</div>
+  <div class="instructions">
+    Plant flowers that emit signals across the spectrum.<br>
+    When signals reach <span>matching frequencies</span>, flowers resonate and grow.<br><br>
+    <span>Click</span> to plant · <span>Right-click</span> to harvest mature blooms<br>
+    <span>Scroll</span> to shift frequency · <span>1-6</span> select flower type<br>
+    <span>Space</span> to emit a global resonance pulse
+  </div>
+  <button id="start-btn">BEGIN CULTIVATION</button>
+</div>
+
+<script>
+// ============================================================
+//  SIGNAL BLOOM — A Frequency Garden Game
+// ============================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ============================================================
+//  AUDIO ENGINE
+// ============================================================
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+    this.initialized = false;
+    this.activeOsc = [];
+    this.droneNode = null;
+  }
+
+  init() {
+    if (this.initialized) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.3;
+      this.masterGain.connect(this.ctx.destination);
+
+      // Ambient drone
+      this.startDrone();
+      this.initialized = true;
+    } catch(e) {
+      console.log('Audio not available');
+    }
+  }
+
+  startDrone() {
+    if (!this.ctx) return;
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.value = 55;
+    osc2.type = 'sine';
+    osc2.frequency.value = 82.5;
+    gain.gain.value = 0.04;
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.masterGain);
+    osc1.start();
+    osc2.start();
+    this.droneNode = gain;
+  }
+
+  // Map a 0-1 frequency value to pentatonic scale
+  freqToNote(freqVal) {
+    const pentatonic = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+    const octave = Math.floor(freqVal * 2);
+    const idx = Math.floor((freqVal * 2 - octave) * pentatonic.length);
+    const semitone = pentatonic[Math.min(idx, pentatonic.length - 1)];
+    const baseFreq = 220; // A3
+    return baseFreq * Math.pow(2, (semitone + octave * 12) / 12);
+  }
+
+  playTone(freqVal, duration = 0.5, volume = 0.15) {
+    if (!this.ctx) return;
+    const freq = this.freqToNote(freqVal);
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    // Add subtle harmonics
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.value = freq * 2;
+    gain2.gain.value = volume * 0.3;
+
+    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+    gain2.gain.setValueAtTime(volume * 0.3, this.ctx.currentTime);
+    gain2.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration * 0.7);
+
+    osc.connect(gain);
+    osc2.connect(gain2);
+    gain.connect(this.masterGain);
+    gain2.connect(this.masterGain);
+    osc.start();
+    osc2.start();
+    osc.stop(this.ctx.currentTime + duration);
+    osc2.stop(this.ctx.currentTime + duration);
+  }
+
+  playChord(freqVals, duration = 0.8) {
+    freqVals.forEach((f, i) => {
+      setTimeout(() => this.playTone(f, duration, 0.1), i * 60);
+    });
+  }
+
+  playPulse() {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 1.5);
+    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.5);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 1.5);
+  }
+
+  playHarvest() {
+    if (!this.ctx) return;
+    [0.7, 0.8, 0.9].forEach((f, i) => {
+      setTimeout(() => this.playTone(f, 0.3, 0.12), i * 80);
+    });
+  }
+
+  playUnlock() {
+    if (!this.ctx) return;
+    [0.0, 0.15, 0.3, 0.5, 0.7, 0.85].forEach((f, i) => {
+      setTimeout(() => this.playTone(f, 0.4, 0.1), i * 100);
+    });
+  }
+
+  playPlant() {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.2);
+  }
+}
+
+const audio = new AudioEngine();
+
+// ============================================================
+//  UTILITY FUNCTIONS
+// ============================================================
+function freqToColor(freq, saturation = 1, lightness = 0.6) {
+  // Map frequency 0-1 to a color on the spectrum
+  const hue = freq * 300; // 0=red to 300=violet
+  return `hsl(${hue}, ${saturation * 100}%, ${lightness * 100}%)`;
+}
+
+function freqToRGB(freq) {
+  const hue = freq * 300;
+  return hslToRgb(hue / 360, 1, 0.6);
+}
+
+function hslToRgb(h, s, l) {
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function dist(x1, y1, x2, y2) {
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function rand(min, max) { return Math.random() * (max - min) + min; }
+
+// ============================================================
+//  STAR FIELD (Background)
+// ============================================================
+class Star {
+  constructor() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.size = Math.random() * 1.5 + 0.5;
+    this.brightness = Math.random();
+    this.twinkleSpeed = Math.random() * 2 + 1;
+    this.twinkleOffset = Math.random() * Math.PI * 2;
+  }
+
+  draw(time) {
+    const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(time * this.twinkleSpeed + this.twinkleOffset));
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+let stars = [];
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 200; i++) {
+    stars.push(new Star());
+  }
+}
+initStars();
+
+// ============================================================
+//  PARTICLE SYSTEM
+// ============================================================
+class Particle {
+  constructor(x, y, vx, vy, color, life, size) {
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.color = color;
+    this.life = life;
+    this.maxLife = life;
+    this.size = size;
+  }
+
+  update(dt) {
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+    this.life -= dt;
+  }
+
+  draw() {
+    const alpha = (this.life / this.maxLife);
+    const s = this.size * alpha;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+let particles = [];
+
+function spawnResonanceParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + rand(-0.2, 0.2);
+    const speed = rand(40, 120);
+    particles.push(new Particle(
+      x, y,
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed,
+      color, rand(0.5, 1.2), rand(2, 5)
+    ));
+  }
+}
+
+function spawnBurstParticles(x, y, color, count = 20) {
+  for (let i = 0; i < count; i++) {
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(30, 200);
+    particles.push(new Particle(
+      x, y,
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed,
+      color, rand(0.3, 1.5), rand(1, 4)
+    ));
+  }
+}
+
+// ============================================================
+//  RIPPLE (Signal Wave)
+// ============================================================
+class Ripple {
+  constructor(x, y, freq, maxRadius, speed, source) {
+    this.x = x;
+    this.y = y;
+    this.freq = freq;
+    this.radius = 5;
+    this.maxRadius = maxRadius;
+    this.speed = speed || 150;
+    this.source = source; // reference to originating flower
+    this.alive = true;
+    this.hitFlowers = new Set();
+  }
+
+  update(dt) {
+    this.radius += this.speed * dt;
+    if (this.radius > this.maxRadius) {
+      this.alive = false;
+    }
+  }
+
+  draw() {
+    const progress = this.radius / this.maxRadius;
+    const alpha = (1 - progress) * 0.6;
+    const color = freqToColor(this.freq);
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 * (1 - progress) + 0.5;
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 15 * (1 - progress);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+let ripples = [];
+
+// ============================================================
+//  FLOWER TYPES
+// ============================================================
+const FLOWER_TYPES = {
+  pulse: {
+    name: 'Pulse',
+    icon: '✿',
+    color: '#FF69FF',
+    cost: 10,
+    desc: 'Basic signal emitter',
+    unlocked: true,
+    pulseInterval: 2.0,
+    emitRadius: 180,
+    growthRate: 1,
+    harvestValue: 15
+  },
+  echo: {
+    name: 'Echo',
+    icon: '❀',
+    color: '#00FFFF',
+    cost: 20,
+    desc: 'Reflects incoming signals',
+    unlocked: false,
+    unlockCost: 80,
+    pulseInterval: 0, // doesn't self-pulse
+    emitRadius: 160,
+    growthRate: 0.8,
+    harvestValue: 20
+  },
+  harmonic: {
+    name: 'Harmonic',
+    icon: '✾',
+    color: '#FFD700',
+    cost: 30,
+    desc: 'Dual frequency emitter',
+    unlocked: false,
+    unlockCost: 150,
+    pulseInterval: 2.5,
+    emitRadius: 200,
+    growthRate: 1.2,
+    harvestValue: 30
+  },
+  chain: {
+    name: 'Chain',
+    icon: '❁',
+    color: '#00FF88',
+    cost: 25,
+    desc: 'Links to nearby flowers',
+    unlocked: false,
+    unlockCost: 200,
+    pulseInterval: 3.0,
+    emitRadius: 150,
+    growthRate: 0.7,
+    harvestValue: 25,
+    chainRange: 120
+  },
+  nova: {
+    name: 'Nova',
+    icon: '✺',
+    color: '#FF4444',
+    cost: 50,
+    desc: 'Stores energy, releases burst',
+    unlocked: false,
+    unlockCost: 350,
+    pulseInterval: 5.0,
+    emitRadius: 300,
+    growthRate: 0.5,
+    harvestValue: 60
+  },
+  void: {
+    name: 'Void',
+    icon: '❃',
+    color: '#AA66FF',
+    cost: 40,
+    desc: 'Attracts nearby signals',
+    unlocked: false,
+    unlockCost: 500,
+    pulseInterval: 2.0,
+    emitRadius: 160,
+    growthRate: 1.0,
+    harvestValue: 45,
+    attractRange: 200
+  }
+};
+
+// ============================================================
+//  FLOWER CLASS
+// ============================================================
+class Flower {
+  constructor(x, y, freq, type = 'pulse') {
+    this.x = x;
+    this.y = y;
+    this.freq = freq;
+    this.type = type;
+    this.typeData = FLOWER_TYPES[type];
+
+    this.growth = 0; // 0 to 1
+    this.maxGrowth = 1;
+    this.mature = false;
+    this.age = 0;
+    this.pulseTimer = rand(0, this.typeData.pulseInterval);
+    this.resonanceGlow = 0;
+    this.resonanceCount = 0;
+    this.angle = rand(0, Math.PI * 2);
+    this.petalCount = Math.floor(rand(5, 9));
+    this.size = 12;
+    this.baseSize = 12;
+    this.storedEnergy = 0;
+
+    // Visual
+    this.bloomPhase = 0; // animation when planted
+    this.swayOffset = rand(0, Math.PI * 2);
+
+    // Chain links
+    this.chains = [];
+  }
+
+  update(dt, time) {
+    this.age += dt;
+    this.bloomPhase = Math.min(1, this.bloomPhase + dt * 2);
+    this.angle += dt * 0.3;
+
+    // Growth
+    if (this.resonanceGlow > 0.1) {
+      this.growth = Math.min(this.maxGrowth, this.growth + dt * 0.15 * this.typeData.growthRate * (1 + this.resonanceGlow));
+    }
+    // Passive slow growth
+    this.growth = Math.min(this.maxGrowth, this.growth + dt * 0.01);
+
+    if (this.growth >= this.maxGrowth && !this.mature) {
+      this.mature = true;
+      spawnBurstParticles(this.x, this.y, freqToColor(this.freq), 15);
+    }
+
+    // Size animation
+    const targetSize = this.baseSize + this.growth * 8 + this.resonanceGlow * 4;
+    this.size = lerp(this.size, targetSize, dt * 5);
+
+    // Resonance decay
+    this.resonanceGlow = Math.max(0, this.resonanceGlow - dt * 0.8);
+
+    // Pulse emission
+    if (this.typeData.pulseInterval > 0 && this.growth > 0.2) {
+      this.pulseTimer -= dt;
+      if (this.pulseTimer <= 0) {
+        this.emitSignal();
+        this.pulseTimer = this.typeData.pulseInterval + rand(-0.3, 0.3);
+      }
+    }
+
+    // Nova: store energy from resonance
+    if (this.type === 'nova' && this.resonanceGlow > 0.5) {
+      this.storedEnergy += dt * this.resonanceGlow;
+    }
+
+    // Sway
+    this.swayOffset += dt;
+  }
+
+  emitSignal() {
+    const radius = this.typeData.emitRadius * (0.5 + this.growth * 0.5);
+    const speed = 120 + this.growth * 60;
+
+    if (this.type === 'harmonic') {
+      // Emit two signals at slightly different frequencies
+      const freq2 = clamp(this.freq + 0.08, 0, 1);
+      ripples.push(new Ripple(this.x, this.y, this.freq, radius, speed, this));
+      ripples.push(new Ripple(this.x, this.y, freq2, radius, speed, this));
+      audio.playChord([this.freq, freq2], 0.5);
+    } else if (this.type === 'nova' && this.storedEnergy > 2) {
+      // Massive burst
+      const novaRadius = radius * 1.5;
+      ripples.push(new Ripple(this.x, this.y, this.freq, novaRadius, speed * 1.3, this));
+      this.storedEnergy = 0;
+      audio.playTone(this.freq, 1.0, 0.2);
+      spawnBurstParticles(this.x, this.y, freqToColor(this.freq), 25);
+      game.screenShake = 3;
+    } else {
+      ripples.push(new Ripple(this.x, this.y, this.freq, radius, speed, this));
+      audio.playTone(this.freq, 0.5, 0.08);
+    }
+  }
+
+  onResonance(otherFreq, strength) {
+    this.resonanceGlow = Math.min(2, this.resonanceGlow + strength);
+    this.resonanceCount++;
+
+    if (this.type === 'echo') {
+      // Reflect the signal
+      setTimeout(() => {
+        const radius = this.typeData.emitRadius * (0.5 + this.growth * 0.5);
+        ripples.push(new Ripple(this.x, this.y, otherFreq, radius, 140, this));
+        audio.playTone(otherFreq, 0.4, 0.06);
+      }, 200);
+    }
+
+    if (this.type === 'void') {
+      // Attract nearby ripples (they speed up)
+      ripples.forEach(r => {
+        if (r.source !== this && dist(this.x, this.y, r.x, r.y) < this.typeData.attractRange) {
+          r.speed = Math.min(200, r.speed * 1.2);
+        }
+      });
+    }
+
+    // Chain bloom: create visual chain to nearby flowers
+    if (this.type === 'chain' && this.growth > 0.3) {
+      game.flowers.forEach(f => {
+        if (f !== this && dist(this.x, this.y, f.x, f.y) < (this.typeData.chainRange || 120)) {
+          if (!this.chains.includes(f)) {
+            this.chains.push(f);
+            // Boost the linked flower
+            f.resonanceGlow = Math.min(2, f.resonanceGlow + 0.5);
+          }
+        }
+      });
+    }
+  }
+
+  draw(time) {
+    const color = freqToColor(this.freq);
+    const bloomScale = this.bloomPhase;
+    const glowIntensity = 0.3 + this.resonanceGlow * 0.5;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Glow aura
+    const glowRadius = this.size * (2 + this.resonanceGlow);
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius * bloomScale);
+    gradient.addColorStop(0, freqToColor(this.freq, 1, 0.7));
+    gradient.addColorStop(0.4, freqToColor(this.freq, 0.8, 0.4));
+    gradient.addColorStop(1, 'transparent');
+    ctx.globalAlpha = glowIntensity * bloomScale;
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowRadius * bloomScale, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Petals
+    ctx.globalAlpha = bloomScale;
+    const petalSize = this.size * 0.7;
+    const sway = Math.sin(this.swayOffset * 1.5) * 0.05;
+
+    for (let i = 0; i < this.petalCount; i++) {
+      const angle = this.angle + (Math.PI * 2 * i) / this.petalCount + sway;
+      const px = Math.cos(angle) * this.size * 0.3;
+      const py = Math.sin(angle) * this.size * 0.3;
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(angle);
+
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8 + this.resonanceGlow * 10;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = (0.6 + this.resonanceGlow * 0.3) * bloomScale;
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, petalSize * 0.4, petalSize * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Center
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 10 + this.resonanceGlow * 15;
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = (0.8 + this.resonanceGlow * 0.2) * bloomScale;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.size * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mature indicator (ring)
+    if (this.mature) {
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.5 + 0.3 * Math.sin(time * 3);
+      ctx.shadowColor = '#FFD700';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size + 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Growth bar (small)
+    if (!this.mature && this.growth > 0.05) {
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-12, this.size + 8, 24, 3);
+      ctx.fillStyle = color;
+      ctx.fillRect(-12, this.size + 8, 24 * this.growth, 3);
+    }
+
+    ctx.restore();
+
+    // Draw chains
+    if (this.type === 'chain') {
+      this.chains.forEach(f => {
+        if (f && game.flowers.includes(f)) {
+          ctx.save();
+          ctx.strokeStyle = freqToColor(this.freq, 0.8, 0.5);
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.3 + 0.2 * Math.sin(time * 2);
+          ctx.shadowColor = freqToColor(this.freq);
+          ctx.shadowBlur = 5;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(f.x, f.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      });
+    }
+  }
+}
+
+// ============================================================
+//  FLOATING TEXT (Feedback)
+// ============================================================
+class FloatingText {
+  constructor(x, y, text, color) {
+    this.x = x;
+    this.y = y;
+    this.text = text;
+    this.color = color;
+    this.life = 1.5;
+    this.maxLife = 1.5;
+    this.vy = -40;
+  }
+
+  update(dt) {
+    this.y += this.vy * dt;
+    this.vy *= 0.97;
+    this.life -= dt;
+  }
+
+  draw() {
+    const alpha = this.life / this.maxLife;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
+    ctx.font = 'bold 14px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.restore();
+  }
+}
+
+let floatingTexts = [];
+
+// ============================================================
+//  UNLOCK DEFINITIONS
+// ============================================================
+const UNLOCKS = [
+  { id: 'echo', type: 'flower_type', target: 'echo', cost: 80, name: 'Echo Bloom', desc: 'Reflects incoming signals' },
+  { id: 'harmonic', type: 'flower_type', target: 'harmonic', cost: 150, name: 'Harmonic Bloom', desc: 'Dual frequency emitter' },
+  { id: 'chain', type: 'flower_type', target: 'chain', cost: 200, name: 'Chain Bloom', desc: 'Links to nearby flowers' },
+  { id: 'nova', type: 'flower_type', target: 'nova', cost: 350, name: 'Nova Bloom', desc: 'Stores energy for bursts' },
+  { id: 'void', type: 'flower_type', target: 'void', cost: 500, name: 'Void Bloom', desc: 'Attracts nearby signals' },
+  { id: 'auto_harvest', type: 'upgrade', cost: 250, name: 'Auto Harvest', desc: 'Mature flowers auto-harvest' },
+  { id: 'signal_boost', type: 'upgrade', cost: 180, name: 'Signal Boost', desc: '+30% signal range' },
+  { id: 'growth_accel', type: 'upgrade', cost: 220, name: 'Growth Accelerant', desc: '+50% growth speed' },
+  { id: 'pulse_amp', type: 'upgrade', cost: 300, name: 'Pulse Amplifier', desc: 'Space pulse is 2x stronger' },
+  { id: 'golden_age', type: 'upgrade', cost: 600, name: 'Golden Age', desc: '2x energy from harvests' },
+];
+
+let unlockedSet = new Set(['pulse']);
+let purchasedUpgrades = new Set();
+
+// ============================================================
+//  GAME STATE
+// ============================================================
+const game = {
+  flowers: [],
+  energy: 50,
+  generation: 1,
+  bloomScore: 0,
+  selectedType: 'pulse',
+  freqOffset: 0, // -0.5 to 0.5
+  mouseX: W / 2,
+  mouseY: H / 2,
+  screenShake: 0,
+  time: 0,
+  started: false,
+  totalHarvested: 0,
+  notificationTimer: 0,
+  notificationText: '',
+  notificationColor: '#fff',
+  comboCount: 0,
+  comboTimer: 0
+};
+
+// ============================================================
+//  UI SETUP
+// ============================================================
+function buildToolbar() {
+  const toolbar = document.getElementById('toolbar');
+  toolbar.innerHTML = '';
+
+  Object.entries(FLOWER_TYPES).forEach(([key, type], idx) => {
+    const btn = document.createElement('div');
+    btn.className = `tool-btn ${type.unlocked ? '' : 'locked'} ${game.selectedType === key ? 'active' : ''}`;
+    btn.innerHTML = `
+      <span class="tool-key">${idx + 1}</span>
+      <span class="tool-icon" style="color:${type.color}">${type.icon}</span>
+      <span class="tool-name">${type.name}</span>
+      <span class="tool-cost">${type.cost}⚡</span>
+    `;
+    btn.onclick = () => {
+      if (type.unlocked || unlockedSet.has(key)) {
+        game.selectedType = key;
+        buildToolbar();
+      }
+    };
+    toolbar.appendChild(btn);
+  });
+}
+
+function buildUnlockPanel() {
+  const panel = document.getElementById('unlock-panel');
+  panel.innerHTML = '';
+
+  UNLOCKS.forEach(unlock => {
+    const isUnlocked = unlock.type === 'flower_type' ? unlockedSet.has(unlock.target) : purchasedUpgrades.has(unlock.id);
+    const canAfford = game.energy >= unlock.cost;
+
+    const btn = document.createElement('div');
+    btn.className = `unlock-btn ${isUnlocked ? 'unlocked' : ''} ${!canAfford && !isUnlocked ? 'cant-afford' : ''}`;
+    btn.innerHTML = `
+      <div class="unlock-name">${unlock.name} ${isUnlocked ? '✓' : ''}</div>
+      <div class="unlock-desc">${unlock.desc}</div>
+      ${isUnlocked ? '<div class="unlock-cost" style="color:#00FF88">Unlocked</div>' : `<div class="unlock-cost">${unlock.cost}⚡</div>`}
+    `;
+
+    if (!isUnlocked) {
+      btn.onclick = () => {
+        if (game.energy >= unlock.cost) {
+          game.energy -= unlock.cost;
+          if (unlock.type === 'flower_type') {
+            unlockedSet.add(unlock.target);
+            FLOWER_TYPES[unlock.target].unlocked = true;
+          } else {
+            purchasedUpgrades.add(unlock.id);
+          }
+          audio.playUnlock();
+          showNotification(`${unlock.name} UNLOCKED`, '#FFD700');
+          buildToolbar();
+          buildUnlockPanel();
+          updateHUD();
+        }
+      };
+    }
+    panel.appendChild(btn);
+  });
+}
+
+function updateHUD() {
+  document.getElementById('energy-display').textContent = Math.floor(game.energy);
+  document.getElementById('gen-display').textContent = game.generation;
+  document.getElementById('harmony-display').textContent = Math.floor(game.bloomScore);
+}
+
+function showNotification(text, color = '#fff') {
+  const el = document.getElementById('notification');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.opacity = '1';
+  game.notificationTimer = 2;
+}
+
+// ============================================================
+//  INPUT HANDLING
+// ============================================================
+canvas.addEventListener('mousemove', (e) => {
+  game.mouseX = e.clientX;
+  game.mouseY = e.clientY;
+});
+
+canvas.addEventListener('click', (e) => {
+  if (!game.started) return;
+  audio.init();
+
+  const x = e.clientX;
+  const y = e.clientY;
+
+  // Check if clicking on UI areas
+  if (y > H - 120) return; // toolbar area
+  if (x > W - 170) return; // unlock panel area
+
+  const type = game.selectedType;
+  const typeData = FLOWER_TYPES[type];
+  const cost = typeData.cost;
+
+  if (game.energy < cost) {
+    showNotification('NOT ENOUGH ENERGY', '#FF4444');
+    return;
+  }
+
+  // Check distance from other flowers
+  const tooClose = game.flowers.some(f => dist(x, y, f.x, f.y) < 35);
+  if (tooClose) {
+    showNotification('TOO CLOSE TO ANOTHER BLOOM', '#FF4444');
+    return;
+  }
+
+  // Calculate frequency from mouse position (x maps to frequency)
+  const freq = clamp((x / W) + game.freqOffset, 0.01, 0.99);
+
+  game.energy -= cost;
+  const flower = new Flower(x, y, freq, type);
+  game.flowers.push(flower);
+
+  audio.playPlant();
+  spawnBurstParticles(x, y, freqToColor(freq), 10);
+  updateHUD();
+  buildUnlockPanel();
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (!game.started) return;
+  audio.init();
+
+  const x = e.clientX;
+  const y = e.clientY;
+
+  // Find nearest flower
+  let nearest = null;
+  let nearestDist = 40;
+  game.flowers.forEach(f => {
+    const d = dist(x, y, f.x, f.y);
+    if (d < nearestDist) {
+      nearestDist = d;
+      nearest = f;
+    }
+  });
+
+  if (nearest && nearest.mature) {
+    harvestFlower(nearest);
+  } else if (nearest && !nearest.mature) {
+    showNotification('NOT YET MATURE', '#FF8800');
+  }
+});
+
+function harvestFlower(flower) {
+  let value = flower.typeData.harvestValue;
+  value *= (1 + flower.resonanceCount * 0.1); // Bonus for resonances
+
+  if (purchasedUpgrades.has('golden_age')) value *= 2;
+
+  game.energy += Math.floor(value);
+  game.bloomScore += Math.floor(value * 2);
+  game.totalHarvested++;
+
+  // Generation advancement
+  if (game.totalHarvested % 10 === 0) {
+    game.generation++;
+    showNotification(`GENERATION ${game.generation}`, '#00FFFF');
+    audio.playChord([0.2, 0.4, 0.6, 0.8], 1.0);
+  }
+
+  audio.playHarvest();
+  spawnBurstParticles(flower.x, flower.y, '#FFD700', 20);
+  floatingTexts.push(new FloatingText(flower.x, flower.y, `+${Math.floor(value)}⚡`, '#FFD700'));
+  game.screenShake = 2;
+
+  // Remove flower
+  game.flowers = game.flowers.filter(f => f !== flower);
+  updateHUD();
+  buildUnlockPanel();
+}
+
+window.addEventListener('wheel', (e) => {
+  game.freqOffset = clamp(game.freqOffset + (e.deltaY > 0 ? 0.03 : -0.03), -0.3, 0.3);
+});
+
+window.addEventListener('keydown', (e) => {
+  if (!game.started) return;
+
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= 6) {
+    const types = Object.keys(FLOWER_TYPES);
+    if (num <= types.length && unlockedSet.has(types[num - 1])) {
+      game.selectedType = types[num - 1];
+      buildToolbar();
+    }
+  }
+
+  if (e.code === 'Space') {
+    e.preventDefault();
+    emitGlobalPulse();
+  }
+});
+
+function emitGlobalPulse() {
+  audio.playPulse();
+  game.screenShake = 5;
+
+  // A pulse from center of screen
+  const cx = W / 2;
+  const cy = H / 2;
+  const range = Math.max(W, H);
+
+  let ampMult = purchasedUpgrades.has('pulse_amp') ? 2 : 1;
+
+  // Create a big ripple
+  ripples.push(new Ripple(cx, cy, 0.5, range, 250 * ampMult, null));
+
+  // Also boost all flowers briefly
+  game.flowers.forEach(f => {
+    f.resonanceGlow = Math.min(2, f.resonanceGlow + 0.3 * ampMult);
+    // Trigger early pulse
+    if (f.typeData.pulseInterval > 0 && f.growth > 0.2) {
+      f.pulseTimer = 0;
+    }
+  });
+
+  spawnBurstParticles(cx, cy, '#ffffff', 30);
+  showNotification('RESONANCE PULSE', '#ffffff');
+}
+
+// ============================================================
+//  SIGNAL COLLISION DETECTION
+// ============================================================
+function checkSignalCollisions(dt) {
+  ripples.forEach(ripple => {
+    game.flowers.forEach(flower => {
+      if (flower === ripple.source) return;
+      if (ripple.hitFlowers.has(flower)) return;
+
+      const d = dist(ripple.x, ripple.y, flower.x, flower.y);
+      const ringDist = Math.abs(d - ripple.radius);
+
+      if (ringDist < 15 && d < flower.size + 30) {
+        ripple.hitFlowers.add(flower);
+
+        // Check frequency match
+        const freqDiff = Math.abs(ripple.freq - flower.freq);
+        let matchQuality = 0;
+
+        if (freqDiff < 0.03) {
+          matchQuality = 1.0; // Perfect match
+        } else if (freqDiff < 0.08) {
+          matchQuality = 0.7; // Close match
+        } else if (freqDiff < 0.15) {
+          matchQuality = 0.3; // Harmonic
+        }
+
+        if (matchQuality > 0) {
+          flower.onResonance(ripple.freq, matchQuality);
+
+          // Visual feedback
+          if (matchQuality > 0.5) {
+            spawnResonanceParticles(flower.x, flower.y, freqToColor(flower.freq), 8);
+
+            // Score for resonance
+            const score = Math.floor(matchQuality * 5);
+            game.bloomScore += score;
+            game.comboCount++;
+            game.comboTimer = 2;
+
+            if (game.comboCount > 3) {
+              const bonus = game.comboCount * 2;
+              game.bloomScore += bonus;
+              floatingTexts.push(new FloatingText(
+                flower.x, flower.y - 20,
+                `${game.comboCount}x RESONANCE +${bonus}`,
+                '#FF69FF'
+              ));
+            }
+          }
+
+          // Sound feedback for strong matches
+          if (matchQuality > 0.6) {
+            audio.playTone(flower.freq, 0.3, 0.06);
+          }
+        }
+      }
+    });
+  });
+}
+
+// ============================================================
+//  AUTO HARVEST
+// ============================================================
+function autoHarvestCheck(dt) {
+  if (!purchasedUpgrades.has('auto_harvest')) return;
+
+  game.flowers.forEach(f => {
+    if (f.mature && f.age > 3) {
+      // Auto harvest after being mature for a bit
+      if (Math.random() < dt * 0.3) {
+        harvestFlower(f);
+      }
+    }
+  });
+}
+
+// ============================================================
+//  DRAW PREVIEW (ghost flower at mouse)
+// ============================================================
+function drawPreview() {
+  if (!game.started) return;
+  if (game.mouseY > H - 120 || game.mouseX > W - 170) return;
+
+  const freq = clamp((game.mouseX / W) + game.freqOffset, 0.01, 0.99);
+  const color = freqToColor(freq);
+  const type = game.selectedType;
+  const typeData = FLOWER_TYPES[type];
+
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(game.mouseX, game.mouseY, typeData.emitRadius * 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ghost flower
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(game.mouseX, game.mouseY, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Frequency indicator
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px "Courier New"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`f:${freq.toFixed(2)}`, game.mouseX, game.mouseY + 22);
+  ctx.fillText(`${typeData.cost}⚡`, game.mouseX, game.mouseY - 16);
+  ctx.restore();
+}
+
+// ============================================================
+//  DRAW FREQUENCY SPECTRUM (bottom bar)
+// ============================================================
+function drawSpectrumBar() {
+  const barY = H - 4;
+  const barH = 4;
+  const gradient = ctx.createLinearGradient(0, barY, W, barY);
+  for (let i = 0; i <= 10; i++) {
+    gradient.addColorStop(i / 10, freqToColor(i / 10));
+  }
+  ctx.fillStyle = gradient;
+  ctx.globalAlpha = 0.5;
+  ctx.fillRect(0, barY - barH, W, barH);
+  ctx.globalAlpha = 1;
+}
+
+// ============================================================
+//  MAIN GAME LOOP
+// ============================================================
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+  lastTime = timestamp;
+  game.time += dt;
+
+  // Clear
+  ctx.fillStyle = '#000508';
+  ctx.fillRect(0, 0, W, H);
+
+  // Screen shake
+  ctx.save();
+  if (game.screenShake > 0) {
+    const shakeX = (Math.random() - 0.5) * game.screenShake * 2;
+    const shakeY = (Math.random() - 0.5) * game.screenShake * 2;
+    ctx.translate(shakeX, shakeY);
+    game.screenShake = Math.max(0, game.screenShake - dt * 8);
+  }
+
+  // Background vignette
+  const vignette = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.7);
+  vignette.addColorStop(0, 'transparent');
+  vignette.addColorStop(1, 'rgba(0, 0, 10, 0.5)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  stars.forEach(s => s.draw(game.time));
+
+  // Update and draw ripples
+  ripples.forEach(r => {
+    r.update(dt);
+    r.draw();
+  });
+  ripples = ripples.filter(r => r.alive);
+
+  // Update and draw flowers
+  game.flowers.forEach(f => {
+    f.update(dt, game.time);
+    f.draw(game.time);
+  });
+
+  // Check signal collisions
+  checkSignalCollisions(dt);
+
+  // Auto harvest
+  autoHarvestCheck(dt);
+
+  // Particles
+  particles.forEach(p => {
+    p.update(dt);
+    p.draw();
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  // Floating texts
+  floatingTexts.forEach(ft => {
+    ft.update(dt);
+    ft.draw();
+  });
+  floatingTexts = floatingTexts.filter(ft => ft.life > 0);
+
+  // Preview
+  drawPreview();
+
+  // Spectrum bar
+  drawSpectrumBar();
+
+  ctx.restore();
+
+  // Combo timer
+  if (game.comboTimer > 0) {
+    game.comboTimer -= dt;
+    if (game.comboTimer <= 0) {
+      game.comboCount = 0;
+    }
+  }
+
+  // Notification timer
+  if (game.notificationTimer > 0) {
+    game.notificationTimer -= dt;
+    if (game.notificationTimer <= 0) {
+      document.getElementById('notification').style.opacity = '0';
+    }
+  }
+
+  // Update HUD periodically
+  if (Math.floor(game.time * 4) !== Math.floor((game.time - dt) * 4)) {
+    updateHUD();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+//  START
+// ============================================================
+document.getElementById('start-btn').addEventListener('click', () => {
+  audio.init();
+  document.getElementById('title-screen').classList.add('hidden');
+  game.started = true;
+  buildToolbar();
+  buildUnlockPanel();
+  updateHUD();
+});
+
+// Start the loop
+requestAnimationFrame(gameLoop);
+
+// Build initial toolbar (before game starts for visual)
+buildToolbar();
+</script>
+</body>
+</html>

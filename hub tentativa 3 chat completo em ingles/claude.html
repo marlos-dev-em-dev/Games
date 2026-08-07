@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECHOES - Harmonic Puzzle Discovery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #e0e6ff;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 255, 255, 0.05) 0%, transparent 50%);
+            border: 1px solid rgba(0, 255, 200, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: rgba(10, 20, 40, 0.8);
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #00ffcc;
+            font-weight: bold;
+            opacity: 0.8;
+            border-bottom: 1px solid rgba(0, 255, 200, 0.2);
+            padding-bottom: 8px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            padding: 8px;
+            background: rgba(0, 255, 200, 0.05);
+            border-radius: 6px;
+            border-left: 2px solid rgba(0, 255, 200, 0.3);
+        }
+
+        .stat-label {
+            opacity: 0.7;
+        }
+
+        .stat-value {
+            color: #00ffcc;
+            font-weight: bold;
+        }
+
+        .harmony-display {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .harmony-bar {
+            display: flex;
+            gap: 4px;
+            height: 24px;
+        }
+
+        .harmony-note {
+            flex: 1;
+            background: rgba(0, 255, 200, 0.1);
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: #00ffcc;
+            transition: all 0.3s;
+        }
+
+        .harmony-note.active {
+            background: rgba(0, 255, 200, 0.4);
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 200, 0.5);
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        button {
+            padding: 10px 12px;
+            background: rgba(0, 255, 200, 0.1);
+            border: 1px solid rgba(0, 255, 200, 0.4);
+            color: #00ffcc;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: rgba(0, 255, 200, 0.2);
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 200, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .discovery-panel {
+            background: rgba(0, 100, 100, 0.1);
+            border: 1px solid rgba(0, 255, 200, 0.2);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .discovery-item {
+            padding: 6px;
+            margin: 4px 0;
+            background: rgba(0, 255, 200, 0.05);
+            border-left: 2px solid #ff00ff;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .discovery-item.new {
+            animation: discoveryPulse 0.6s ease-out;
+            background: rgba(255, 0, 255, 0.15);
+            border-left-color: #ff00ff;
+        }
+
+        @keyframes discoveryPulse {
+            0% {
+                transform: translateX(-10px);
+                opacity: 0;
+            }
+            100% {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .tutorial {
+            font-size: 11px;
+            line-height: 1.5;
+            color: #a0a6ff;
+            opacity: 0.8;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(0, 255, 200, 0.05);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 200, 0.3);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 200, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-area">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="section-title">⟡ ECHOES ⟡</div>
+                <div class="tutorial">
+                    Create nodes and connect them to form chords. Match patterns to unlock discoveries.
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Current Chord</div>
+                <div class="harmony-display" id="harmonyDisplay">
+                    <div class="harmony-bar" id="harmonyBar"></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Stats</div>
+                <div class="stat-item">
+                    <span class="stat-label">Nodes:</span>
+                    <span class="stat-value" id="nodeCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Connections:</span>
+                    <span class="stat-value" id="connectionCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Harmony Score:</span>
+                    <span class="stat-value" id="harmonyScore">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Insights:</span>
+                    <span class="stat-value" id="insightCount">0</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Controls</div>
+                <div class="button-group">
+                    <button onclick="gameState.clearCanvas()">Clear Canvas</button>
+                    <button onclick="gameState.randomize()">Randomize</button>
+                    <button onclick="gameState.toggleAudio()">🔊 Audio: ON</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Discoveries</div>
+                <div class="discovery-panel" id="discoveryPanel">
+                    <div style="opacity: 0.5;">Unlock patterns to discover secrets...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Audio Context
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let audioEnabled = true;
+
+        function playTone(frequency, duration = 0.2, type = 'sine') {
+            if (!audioEnabled) return;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.type = type;
+            osc.frequency.value = frequency;
+            gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            osc.start(audioContext.currentTime);
+            osc.stop(audioContext.currentTime + duration);
+        }
+
+        function playChord(frequencies, duration = 0.3) {
+            if (!audioEnabled) return;
+            frequencies.forEach((freq, i) => {
+                setTimeout(() => playTone(freq, duration), i * 30);
+            });
+        }
+
+        // Note frequencies (Hz)
+        const notes = {
+            'C': 261.63, 'D': 293.66, 'E': 329.63, 'F': 349.23,
+            'G': 391.99, 'A': 440, 'B': 493.88, 'C+': 523.25
+        };
+
+        const noteNames = Object.keys(notes);
+
+        // Game State
+        const gameState = {
+            nodes: [],
+            connections: [],
+            selectedNode: null,
+            harmonyScore: 0,
+            discoveries: new Set(),
+            audioEnabled: true,
+
+            addNode(x, y, note) {
+                const id = this.nodes.length;
+                const node = {
+                    id, x, y, note,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    radius: 12,
+                    color: this.getNoteColor(note),
+                    intensity: 0
+                };
+                this.nodes.push(node);
+                playTone(notes[note], 0.1);
+                this.updateStats();
+                return node;
+            },
+
+            getNoteColor(note) {
+                const hues = {
+                    'C': 0, 'D': 30, 'E': 60, 'F': 90,
+                    'G': 120, 'A': 180, 'B': 240, 'C+': 300
+                };
+                const hue = hues[note];
+                return `hsl(${hue}, 100%, 50%)`;
+            },
+
+            connectNodes(node1, node2) {
+                const existing = this.connections.find(c =>
+                    (c.from === node1.id && c.to === node2.id) ||
+                    (c.from === node2.id && c.to === node1.id)
+                );
+                if (existing) return;
+
+                this.connections.push({
+                    from: node1.id,
+                    to: node2.id,
+                    strength: 0.3
+                });
+                playTone(notes[node1.note] * 1.5, 0.15);
+                this.updateStats();
+                this.analyzeHarmony();
+            },
+
+            analyzeHarmony() {
+                if (this.nodes.length === 0) return;
+
+                const activeNotes = this.nodes.map(n => n.note);
+                const frequencies = activeNotes.map(n => notes[n]);
+                
+                // Calculate harmony based on frequency ratios and node density
+                let harmonyValue = 0;
+                for (let i = 0; i < frequencies.length; i++) {
+                    for (let j = i + 1; j < frequencies.length; j++) {
+                        const ratio = Math.max(frequencies[i], frequencies[j]) / 
+                                     Math.min(frequencies[i], frequencies[j]);
+                        const consonance = Math.abs(Math.log2(ratio) - Math.round(Math.log2(ratio)));
+                        harmonyValue += (1 - consonance) * 10;
+                    }
+                }
+
+                // Connection bonus
+                harmonyValue += this.connections.length * 5;
+                
+                this.harmonyScore = Math.floor(harmonyValue);
+                
+                // Check for discoveries
+                this.checkDiscoveries();
+            },
+
+            checkDiscoveries() {
+                const nodeCount = this.nodes.length;
+                const connCount = this.connections.length;
+                const noteSet = new Set(this.nodes.map(n => n.note));
+                const uniqueNotes = noteSet.size;
+
+                // Discovery patterns
+                const patterns = [
+                    { id: 'first-node', check: () => nodeCount >= 1, text: '🎵 First Note Created' },
+                    { id: 'trio', check: () => nodeCount === 3, text: '✦ Triad Formed - 3 nodes' },
+                    { id: 'octave', check: () => noteSet.has('C') && noteSet.has('C+'), text: '🔄 Octave Harmony Discovered' },
+                    { id: 'full-scale', check: () => uniqueNotes >= 5, text: '🌟 Scale Mastery - 5+ unique notes' },
+                    { id: 'web', check: () => connCount >= 6, text: '⚙️ Network Created - 6+ connections' },
+                    { id: 'high-harmony', check: () => this.harmonyScore > 100, text: '✨ Perfect Harmony Achieved' },
+                    { id: 'symphony', check: () => nodeCount >= 8 && connCount >= 10, text: '🎼 Symphony - 8+ nodes, 10+ connections' },
+                    { id: 'chaos', check: () => this.harmonyScore > 200 && this.connections.length < nodeCount, text: '⛈️ Controlled Chaos - High score, sparse connections' },
+                    { id: 'all-notes', check: () => uniqueNotes === 8, text: '🎹 Complete Chromatic Scale' }
+                ];
+
+                patterns.forEach(pattern => {
+                    if (!this.discoveries.has(pattern.id) && pattern.check()) {
+                        this.discoveries.add(pattern.id);
+                        this.addDiscovery(pattern.text);
+                        playChord([notes['C'], notes['E'], notes['G'], notes['C+']], 0.4);
+                    }
+                });
+            },
+
+            addDiscovery(text) {
+                const panel = document.getElementById('discoveryPanel');
+                const item = document.createElement('div');
+                item.className = 'discovery-item new';
+                item.textContent = text;
+                panel.insertBefore(item, panel.firstChild);
+                if (panel.children.length > 8) panel.removeChild(panel.lastChild);
+            },
+
+            updateStats() {
+                document.getElementById('nodeCount').textContent = this.nodes.length;
+                document.getElementById('connectionCount').textContent = this.connections.length;
+                document.getElementById('harmonyScore').textContent = this.harmonyScore;
+                document.getElementById('insightCount').textContent = this.discoveries.size;
+                this.updateHarmonyDisplay();
+            },
+
+            updateHarmonyDisplay() {
+                const bar = document.getElementById('harmonyBar');
+                bar.innerHTML = '';
+                const notes = new Set(this.nodes.map(n => n.note));
+                noteNames.forEach(note => {
+                    const div = document.createElement('div');
+                    div.className = 'harmony-note';
+                    if (notes.has(note)) div.classList.add('active');
+                    div.textContent = note;
+                    bar.appendChild(div);
+                });
+            },
+
+            clearCanvas() {
+                this.nodes = [];
+                this.connections = [];
+                this.selectedNode = null;
+                this.harmonyScore = 0;
+                this.updateStats();
+            },
+
+            randomize() {
+                this.clearCanvas();
+                const randomNote = () => noteNames[Math.floor(Math.random() * noteNames.length)];
+                const count = Math.floor(Math.random() * 4) + 3;
+                for (let i = 0; i < count; i++) {
+                    this.addNode(
+                        Math.random() * (canvas.width - 100) + 50,
+                        Math.random() * (canvas.height - 100) + 50,
+                        randomNote()
+                    );
+                }
+                for (let i = 0; i < count - 1; i++) {
+                    if (Math.random() > 0.3) {
+                        this.connectNodes(this.nodes[i], this.nodes[i + 1]);
+                    }
+                }
+            },
+
+            toggleAudio() {
+                this.audioEnabled = !this.audioEnabled;
+                document.querySelector('button:nth-child(3)').textContent = 
+                    this.audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+            }
+        };
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Mouse Interactions
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            let clickedNode = null;
+            for (let node of gameState.nodes) {
+                const dist = Math.hypot(node.x - x, node.y - y);
+                if (dist < node.radius * 2) {
+                    clickedNode = node;
+                    break;
+                }
+            }
+
+            if (clickedNode) {
+                if (gameState.selectedNode === null) {
+                    gameState.selectedNode = clickedNode;
+                } else if (gameState.selectedNode === clickedNode) {
+                    gameState.selectedNode = null;
+                } else {
+                    gameState.connectNodes(gameState.selectedNode, clickedNode);
+                    gameState.selectedNode = null;
+                }
+            } else {
+                const note = noteNames[Math.floor(Math.random() * noteNames.length)];
+                gameState.addNode(x, y, note);
+            }
+        });
+
+        // Animation Loop
+        let animationTime = 0;
+        function animate() {
+            animationTime += 0.016;
+
+            // Physics
+            for (let node of gameState.nodes) {
+                // Gravity towards center
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const dist = Math.hypot(centerX - node.x, centerY - node.y);
+                node.vx += (centerX - node.x) * 0.00005;
+                node.vy += (centerY - node.y) * 0.00005;
+
+                // Connection forces
+                for (let conn of gameState.connections) {
+                    let other = null;
+                    if (conn.from === node.id) other = gameState.nodes[conn.to];
+                    else if (conn.to === node.id) other = gameState.nodes[conn.from];
+
+                    if (other) {
+                        const dx = other.x - node.x;
+                        const dy = other.y - node.y;
+                        const dist = Math.hypot(dx, dy);
+                        const force = (dist - 80) * 0.0002;
+                        node.vx += (dx / dist) * force;
+                        node.vy += (dy / dist) * force;
+                    }
+                }
+
+                // Damping
+                node.vx *= 0.98;
+                node.vy *= 0.98;
+
+                // Update position
+                node.x += node.vx;
+                node.y += node.vy;
+
+                // Boundaries
+                node.x = Math.max(node.radius, Math.min(canvas.width - node.radius, node.x));
+                node.y = Math.max(node.radius, Math.min(canvas.height - node.radius, node.y));
+
+                // Intensity animation
+                node.intensity += (Math.sin(animationTime * 2 + node.id) * 0.5 - node.intensity) * 0.1;
+            }
+
+            // Rendering
+            ctx.fillStyle = 'rgba(10, 14, 39, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Background grid
+            ctx.strokeStyle = 'rgba(0, 255, 200, 0.03)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            // Draw connections
+            for (let conn of gameState.connections) {
+                const from = gameState.nodes[conn.from];
+                const to = gameState.nodes[conn.to];
+                ctx.strokeStyle = `rgba(100, 200, 255, ${0.2 + conn.strength * 0.3})`;
+                ctx.lineWidth = 1 + conn.strength * 2;
+                ctx.beginPath();
+                ctx.moveTo(from.x, from.y);
+                ctx.lineTo(to.x, to.y);
+                ctx.stroke();
+                conn.strength += (0.3 - conn.strength) * 0.05;
+            }
+
+            // Draw nodes
+            for (let node of gameState.nodes) {
+                const glow = 10 + node.intensity * 15;
+                const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glow);
+                gradient.addColorStop(0, node.color + '80');
+                gradient.addColorStop(1, node.color + '00');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, glow, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Node itself
+                ctx.fillStyle = node.color;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Selection indicator
+                if (gameState.selectedNode === node) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Note label
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.note, node.x, node.y);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+        gameState.updateStats();
+    </script>
+</body>
+</html>
