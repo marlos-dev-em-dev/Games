@@ -214,7 +214,7 @@ animations = [{
 }],
 "loop": 1,
 "name": &"double jump",
-"speed": 5.0
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -293,7 +293,7 @@ animations = [{
 }],
 "loop": 1,
 "name": &"run",
-"speed": 5.0
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -326,13 +326,13 @@ animations = [{
 height = 24.0
 
 [node name="Player - guy" type="CharacterBody2D" unique_id=41794541]
+collision_mask = 129
 script = ExtResource("1_6pcw7")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1980512412]
 sprite_frames = SubResource("SpriteFrames_af0o8")
-animation = &"idle"
+animation = &"take damage"
 autoplay = "idle"
-frame_progress = 0.18990777
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=355961190]
 position = Vector2(0, 3)
