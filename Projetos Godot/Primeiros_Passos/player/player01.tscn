@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://x7bd3roenjfo"]
+
+[ext_resource type="Script" uid="uid://4u7wps37j8xw" path="res://character_body_2d.gd" id="1_163h2"]
+[ext_resource type="Texture2D" uid="uid://bcwfr0wwhap18" path="res://assets/Tiles/Characters/tile_0000.png" id="2_f6620"]
+[ext_resource type="Texture2D" uid="uid://cmwrqtb4y0yje" path="res://assets/Tiles/Characters/tile_0001.png" id="3_r5sjo"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_rvwox"]
+height = 26.0
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_x7ist"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_f6620")
+}],
+"loop": 0,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_f6620")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_r5sjo")
+}],
+"loop": 0,
+"name": &"run",
+"speed": 15.0
+}]
+
+[node name="CharacterBody2D" type="CharacterBody2D" unique_id=416010927]
+script = ExtResource("1_163h2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=576217468]
+position = Vector2(0, -1)
+shape = SubResource("CapsuleShape2D_rvwox")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1476032740]
+zoom = Vector2(2, 2)
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=199492045]
+sprite_frames = SubResource("SpriteFrames_x7ist")
+animation = &"idle"
+speed_scale = 0.5
