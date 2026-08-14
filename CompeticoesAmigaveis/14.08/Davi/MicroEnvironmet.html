@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MicroEnvironment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0806;--surface:#151210;--warm:#1e1914;
+  --parchment:#f0e6d0;--parchment-dim:#b8a88c;--sepia:#8b7355;
+  --amber:#d4a04a;--gold:#e8c547;--gold-bright:#ffd86e;
+  --moss:#4a6741;--moss-l:#6a8a5c;--moss-d:#2e4228;
+  --lagoon:#3a6b7c;--lagoon-l:#5a9aac;--lagoon-d:#1d3d48;
+  --desert:#c4956a;--desert-l:#e0b88a;--desert-d:#8a6540;
+  --fog:#5a7a5a;--fog-l:#8aaa7a;--fog-d:#3a5a3a;
+  --under:#5a4a3a;--under-l:#7a6a5a;--under-d:#3a2a1a;
+  --amber-jar:#d4a04a;--amber-jar-l:#ffd86e;--amber-jar-d:#8a6520;
+  --firefly:#e8d44d;--cyan:#7fdbca;--danger:#a04040;--danger-l:#c06060;
+  --water-bar:#5a9aac;--light-bar:#d4a04a;--nutri-bar:#6a8a5c;
+  --font-d:'Cormorant Garamond',Georgia,serif;
+  --font-b:'Crimson Pro',Georgia,serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--parchment);font-family:var(--font-b)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:10000;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* CANVAS */
+#particles{position:fixed;inset:0;z-index:1;pointer-events:none}
+
+/* SCREENS */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;opacity:0;pointer-events:none;transition:opacity 1.2s ease}
+.screen.active{opacity:1;pointer-events:all}
+
+/* ══ TITLE ══ */
+#title{background:radial-gradient(ellipse at 50% 60%,#1a1410,var(--bg) 70%)}
+.title-glow{position:absolute;top:50%;left:50%;width:500px;height:300px;transform:translate(-50%,-60%);background:radial-gradient(ellipse,rgba(212,160,74,.12),transparent 70%);animation:glowP 4s ease-in-out infinite;z-index:-1}
+@keyframes glowP{0%,100%{opacity:.6;transform:translate(-50%,-60%) scale(1)}50%{opacity:1;transform:translate(-50%,-60%) scale(1.1)}}
+.title-line{font-family:var(--font-d);font-weight:300;letter-spacing:.35em;color:var(--parchment);text-transform:uppercase;line-height:1;opacity:0;animation:tReveal 1.8s ease forwards}
+.title-line.main{font-size:clamp(3rem,10vw,8rem);background:linear-gradient(135deg,var(--parchment),var(--gold) 50%,var(--amber));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 40px rgba(212,160,74,.3));animation-delay:.3s}
+.title-line.sub{font-size:clamp(1rem,3vw,2rem);font-weight:600;letter-spacing:.8em;margin-top:.3em;color:var(--parchment-dim);animation-delay:.8s}
+@keyframes tReveal{0%{opacity:0;transform:translateY(20px);filter:blur(8px)}100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+.title-sep{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);margin:2rem auto;opacity:0;animation:fi 1s ease 1.3s forwards}
+.title-tagline{font-family:var(--font-b);font-size:1.1rem;font-weight:300;font-style:italic;color:var(--sepia);letter-spacing:.15em;opacity:0;animation:fi 1s ease 1.6s forwards}
+@keyframes fi{to{opacity:1}}
+#btn-start{margin-top:3rem;padding:.8em 2.5em;font-family:var(--font-d);font-size:1.1rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--parchment);background:transparent;border:1px solid var(--sepia);cursor:pointer;position:relative;overflow:hidden;opacity:0;animation:fi 1s ease 2s forwards;transition:all .4s ease}
+#btn-start::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--amber),var(--gold));opacity:0;transition:opacity .4s ease;z-index:-1}
+#btn-start:hover{color:var(--bg);border-color:var(--gold);letter-spacing:.28em}
+#btn-start:hover::before{opacity:1}
+.title-jars{position:absolute;bottom:8%;left:50%;transform:translateX(-50%);display:flex;gap:2rem;opacity:0;animation:fu 1.5s ease 2.5s forwards}
+@keyframes fu{from{opacity:0;transform:translate(-50%,20px)}to{opacity:.4;transform:translate(-50%,0)}}
+.tjm{width:50px;height:70px;border:1px solid rgba(212,160,74,.2);border-radius:4px 4px 10px 10px;position:relative;overflow:hidden}
+.tjm::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.06),transparent 60%)}
+.tjm-g{position:absolute;bottom:0;left:0;right:0;height:40%}
+.tjm:nth-child(1) .tjm-g{background:linear-gradient(to top,var(--moss-d),var(--moss))}
+.tjm:nth-child(2) .tjm-g{background:linear-gradient(to top,var(--lagoon-d),var(--lagoon))}
+.tjm:nth-child(3) .tjm-g{background:linear-gradient(to top,var(--desert-d),var(--desert))}
+.tjm-l{position:absolute;top:-4px;left:-2px;right:-2px;height:6px;background:linear-gradient(to bottom,#6b4c2a,#4a3218);border-radius:2px}
+
+/* ══ GAME ══ */
+#game{background:linear-gradient(180deg,#0e0b08,#141010 40%,#0e0b08);justify-content:flex-start}
+
+/* TOP BAR */
+.top-bar{width:100%;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(20,16,12,.95),transparent);z-index:10;border-bottom:1px solid rgba(139,115,85,.1)}
+.resources{display:flex;gap:1.5rem}
+.resource{display:flex;align-items:center;gap:.4rem;font-family:var(--font-d);font-size:.95rem;color:var(--parchment-dim)}
+.res-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.85rem;border-radius:50%}
+.res-icon.wi{background:radial-gradient(circle,rgba(90,154,172,.4),transparent);color:var(--lagoon-l)}
+.res-icon.li{background:radial-gradient(circle,rgba(212,160,74,.3),transparent);color:var(--gold)}
+.res-icon.hi{background:radial-gradient(circle,rgba(106,138,92,.4),transparent);color:var(--moss-l)}
+.res-val{font-weight:600;color:var(--parchment);min-width:1.2em}
+.day-cycle{display:flex;align-items:center;gap:.6rem;font-family:var(--font-d);font-size:.9rem;color:var(--sepia)}
+.sun-moon{width:20px;height:20px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px rgba(232,197,71,.5);transition:all 1s ease}
+.sun-moon.night{background:#7788a0;box-shadow:0 0 8px rgba(119,136,160,.3)}
+.diary-btn{font-family:var(--font-d);font-size:.9rem;font-weight:600;color:var(--parchment-dim);background:none;border:1px solid rgba(139,115,85,.25);padding:.4em 1em;cursor:pointer;letter-spacing:.1em;transition:all .3s ease}
+.diary-btn:hover{color:var(--parchment);border-color:var(--amber);background:rgba(212,160,74,.08)}
+
+/* MAIN AREA */
+.main-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:1rem 2rem 0;position:relative;overflow-y:auto;overflow-x:hidden}
+.main-area::before{content:'';position:absolute;top:20%;left:50%;width:80%;height:60%;transform:translateX(-50%);background:radial-gradient(ellipse,rgba(212,160,74,.04),transparent 70%);pointer-events:none}
+
+/* SHELF */
+.shelf-rows{display:flex;flex-direction:column;align-items:center;gap:1.5rem;z-index:5}
+.shelf-row{display:flex;gap:clamp(1rem,3vw,2.5rem);align-items:flex-end;justify-content:center}
+.shelf-base{width:min(90%,900px);height:14px;background:linear-gradient(to bottom,#5c3d1a,#4a3015,#3a2410);border-radius:0 0 3px 3px;box-shadow:0 6px 20px rgba(0,0,0,.5);position:relative;z-index:4;margin-top:-2px}
+.shelf-base::before{content:'';position:absolute;top:0;left:5%;right:5%;height:2px;background:linear-gradient(90deg,transparent,rgba(139,115,85,.2),transparent)}
+.shelf-bracket{position:absolute;bottom:-30px;width:8px;height:30px;background:linear-gradient(to right,#3a2410,#4a3015,#3a2410)}
+.shelf-bracket.l{left:15%}.shelf-bracket.r{right:15%}
+
+/* JAR STATION */
+.jar-station{display:flex;flex-direction:column;align-items:center;transition:all .5s ease}
+.jar-station.locked{opacity:.3;filter:grayscale(.8);pointer-events:none}
+.jar-station.unlocking{animation:unlockFlash 2s ease forwards}
+@keyframes unlockFlash{0%{opacity:.3;filter:grayscale(.8) brightness(1)}30%{filter:grayscale(0) brightness(2)}60%{filter:grayscale(0) brightness(1.3)}100%{opacity:1;filter:grayscale(0) brightness(1)}}
+.jar-station.new-glow .jar-glass{box-shadow:inset 0 0 40px rgba(0,0,0,.2),0 0 40px rgba(232,197,71,.3)}
+
+.jar-wrap{cursor:pointer;transition:transform .5s ease;position:relative}
+.jar-wrap:hover{transform:translateY(-4px)}
+.jar-wrap:hover .jar-glass{box-shadow:inset 0 0 40px rgba(0,0,0,.2),0 0 30px rgba(212,160,74,.15),inset 2px 2px 0 rgba(255,255,255,.08)}
+
+.jar{position:relative;width:clamp(160px,20vw,240px);height:clamp(220px,30vw,340px)}
+.jar-lid{position:absolute;top:-8px;left:-4px;right:-4px;height:14px;background:linear-gradient(to bottom,#7a5630,#5c3d1a,#4a3015);border-radius:3px 3px 1px 1px;z-index:3;box-shadow:0 -1px 0 rgba(139,115,85,.3),0 2px 6px rgba(0,0,0,.3)}
+.jar-glass{position:absolute;inset:0;border-radius:4px 4px 14px 14px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.1);overflow:hidden;box-shadow:inset 0 0 40px rgba(0,0,0,.25),0 0 20px rgba(0,0,0,.4),inset 2px 2px 0 rgba(255,255,255,.06);transition:all .5s ease}
+.jar-glass.healthy{box-shadow:inset 0 0 40px rgba(0,0,0,.2),0 0 25px rgba(106,138,92,.12),inset 2px 2px 0 rgba(255,255,255,.08)}
+.jar-glass.stressed{box-shadow:inset 0 0 50px rgba(0,0,0,.35),0 0 15px rgba(212,160,74,.1),inset 2px 2px 0 rgba(255,255,255,.04)}
+.jar-glass.critical{box-shadow:inset 0 0 60px rgba(0,0,0,.5),0 0 10px rgba(160,64,64,.15)}
+.jar-glass.dead{box-shadow:inset 0 0 70px rgba(0,0,0,.6);border-color:rgba(160,64,64,.15)}
+
+.jar-reflection{position:absolute;top:-20%;left:-30%;width:50%;height:140%;background:linear-gradient(135deg,rgba(255,255,255,.08),transparent 50%);transform:rotate(12deg);pointer-events:none;z-index:20}
+.jar-env{position:absolute;inset:0;overflow:hidden}
+.jar-label{margin-top:.6rem;font-family:var(--font-d);font-size:.85rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--sepia);padding:.2em .8em;border:1px solid rgba(139,115,85,.2);background:rgba(139,115,85,.05);transition:all .3s ease}
+.jar-wrap:hover .jar-label{color:var(--parchment);border-color:var(--amber)}
+
+/* CREATURE COUNT */
+.creature-count{display:flex;gap:.5rem;margin-top:.3rem;font-size:.7rem;color:var(--parchment-dim);font-family:var(--font-d)}
+.creature-count span{opacity:.7;transition:all .3s ease}
+.creature-count span.extinct{opacity:.3;text-decoration:line-through;color:var(--danger)}
+
+/* ══ STAT BARS ══ */
+.biome-stats{margin-top:.5rem;width:100%;display:flex;flex-direction:column;gap:3px}
+.stat-row{display:flex;align-items:center;gap:5px}
+.stat-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.stat-dot.w{background:var(--water-bar)}.stat-dot.l{background:var(--light-bar)}.stat-dot.n{background:var(--nutri-bar)}
+.stat-bar{flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;position:relative}
+.stat-fill{height:100%;border-radius:2px;transition:width .8s cubic-bezier(.4,0,.2,1),background .3s ease;position:relative}
+.stat-fill.w{background:linear-gradient(90deg,#2a4a5a,var(--water-bar))}
+.stat-fill.l{background:linear-gradient(90deg,#6a5020,var(--light-bar))}
+.stat-fill.n{background:linear-gradient(90deg,#2a4a2a,var(--nutri-bar))}
+.stat-fill.critical{animation:statPulse 1s ease-in-out infinite}
+.stat-fill.dead-bar{background:var(--danger) !important;opacity:.4}
+@keyframes statPulse{0%,100%{opacity:1}50%{opacity:.5}}
+.stat-val{font-family:var(--font-d);font-size:.6rem;color:var(--sepia);min-width:1.4em;text-align:right}
+
+/* ══ BIOMES CSS ══ */
+.env-sky{position:absolute;top:0;left:0;right:0;height:45%}
+.env-ground{position:absolute;bottom:0;left:0;right:0;height:55%}
+
+/* MOSS */
+.b-moss .env-sky{background:linear-gradient(180deg,rgba(30,25,20,.6),rgba(45,55,35,.2))}
+.b-moss .env-ground{background:linear-gradient(180deg,var(--moss),var(--moss-d) 30%,#3d2e1a 60%,#2a1e10)}
+.moss-top{position:absolute;left:0;right:0;height:10px;top:43%;background:linear-gradient(180deg,var(--moss-l),var(--moss));z-index:2}
+
+/* LAGOON */
+.b-lagoon .env-sky{background:linear-gradient(180deg,rgba(20,35,50,.4),rgba(40,60,70,.2))}
+.b-lagoon .env-ground{height:20%;background:linear-gradient(180deg,#4a3a28,#3a2a18)}
+.water-body{position:absolute;bottom:18%;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(58,107,124,.3),rgba(29,61,72,.5));border-top:1px solid rgba(90,154,172,.2)}
+.water-surface{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent 10%,rgba(127,219,202,.15) 50%,transparent 90%);animation:wShimmer 3s ease-in-out infinite}
+@keyframes wShimmer{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* DESERT */
+.b-desert .env-sky{background:linear-gradient(180deg,rgba(60,40,20,.3),rgba(80,55,30,.15))}
+.b-desert .env-ground{background:linear-gradient(180deg,var(--desert),var(--desert-d) 40%,#6a4a28 80%,#4a3218)}
+.sand-ripple{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 5%,rgba(224,184,138,.2) 30%,rgba(224,184,138,.3) 50%,rgba(224,184,138,.2) 70%,transparent 95%)}
+.heat-shimmer{position:absolute;top:25%;left:0;right:0;height:25%;background:linear-gradient(180deg,transparent,rgba(224,184,138,.04),transparent);animation:shimmer 3s ease-in-out infinite;pointer-events:none}
+@keyframes shimmer{0%,100%{transform:translateX(0) scaleY(1)}33%{transform:translateX(2px) scaleY(1.02)}66%{transform:translateX(-1px) scaleY(.98)}}
+
+/* FOG */
+.b-fog .env-sky{background:linear-gradient(180deg,rgba(30,40,30,.5),rgba(50,70,50,.2))}
+.b-fog .env-ground{background:linear-gradient(180deg,var(--fog),var(--fog-d) 30%,#2a3a2a 60%,#1a2a1a)}
+.fog-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(120,160,120,.08),rgba(90,120,90,.15),transparent 60%);animation:fogDrift 8s ease-in-out infinite;pointer-events:none}
+@keyframes fogDrift{0%,100%{opacity:.6;transform:translateX(0)}50%{opacity:1;transform:translateX(5px)}}
+.vine{position:absolute;top:0;width:2px;background:linear-gradient(180deg,var(--fog-d),var(--fog));z-index:3;border-radius:1px}
+.vine-leaf{position:absolute;width:8px;height:5px;background:var(--moss);border-radius:0 60% 60% 0}
+
+/* UNDERGROUND */
+.b-under .env-sky{background:linear-gradient(180deg,rgba(20,15,10,.8),rgba(40,30,20,.4))}
+.b-under .env-ground{background:linear-gradient(180deg,#3a2a1a,#2a1a0a 40%,#1a0f05)}
+.tunnel{position:absolute;border-radius:50%;background:rgba(10,5,0,.6);border:1px solid rgba(60,40,20,.3)}
+.glow-fungi{position:absolute;width:6px;height:4px;border-radius:50% 50% 0 0;z-index:3}
+.glow-fungi::after{content:'';position:absolute;bottom:-2px;left:50%;width:2px;height:4px;background:#5a4a3a;transform:translateX(-50%)}
+.glow-fungi .fungi-glow{position:absolute;inset:-8px;border-radius:50%;background:radial-gradient(circle,rgba(127,219,202,.15),transparent);animation:fungiPulse 3s ease-in-out infinite}
+@keyframes fungiPulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.8;transform:scale(1.2)}}
+
+/* AMBER */
+.b-amber .env-sky{background:linear-gradient(180deg,rgba(60,40,10,.4),rgba(80,60,20,.2))}
+.b-amber .env-ground{background:linear-gradient(180deg,#b08030,#8a6020 40%,#6a4510)}
+.amber-resin{position:absolute;border-radius:40% 50% 45% 55%;background:linear-gradient(135deg,rgba(212,160,74,.3),rgba(180,128,48,.5));box-shadow:0 0 10px rgba(212,160,74,.15)}
+.amber-glow{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,rgba(232,197,71,.08),transparent 60%);animation:amberPulse 5s ease-in-out infinite;pointer-events:none}
+@keyframes amberPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* ══ STRUCTURES ══ */
+.cactus{position:absolute;z-index:5}
+.cactus-body{width:8px;height:35px;background:linear-gradient(90deg,#3a6a30,#4a7a40,#3a6a30);border-radius:4px 4px 2px 2px;position:relative}
+.cactus-arm{position:absolute;width:6px;height:16px;background:linear-gradient(90deg,#3a6a30,#4a7a40,#3a6a30);border-radius:3px}
+.cactus-arm.cl{top:8px;left:-8px;height:12px;border-radius:3px 3px 0 3px;transform:rotate(-10deg)}
+.cactus-arm.cr{top:4px;right:-8px;border-radius:3px 3px 3px 0;transform:rotate(10deg)}
+.fern{position:absolute;z-index:5}
+.fern-stem{position:absolute;bottom:0;left:50%;width:2px;height:100%;background:var(--moss-d);transform:translateX(-50%);border-radius:1px}
+.fern-leaf{position:absolute;width:14px;height:5px;background:var(--moss);border-radius:0 70% 70% 0;transform-origin:left center}
+.fern-leaf.fl{border-radius:70% 0 0 70%;transform-origin:right center}
+.mushroom{position:absolute;z-index:5}
+.mushroom-cap{width:10px;height:6px;background:radial-gradient(ellipse at 50% 80%,#8a6040,#6a4530);border-radius:50% 50% 0 0;margin:0 auto}
+.mushroom-stem{width:3px;height:6px;background:#c0a880;margin:0 auto;border-radius:0 0 1px 1px}
+.rock{position:absolute;z-index:4}
+.rock-body{width:20px;height:12px;background:linear-gradient(135deg,#7a7060,#5a5040);border-radius:40% 50% 45% 55%}
+.lily-pad{position:absolute;width:28px;height:20px;background:radial-gradient(ellipse at 40% 50%,var(--moss),var(--moss-d));border-radius:50%;z-index:6;animation:lilyF 5s ease-in-out infinite}
+@keyframes lilyF{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-2px) rotate(1deg)}}
+
+/* ══ CREATURES ══ */
+.creature{position:absolute;z-index:10;pointer-events:none;transition:opacity .5s ease}
+.creature.dying{animation:creatureDie 1.5s ease forwards}
+.creature.birth{animation:creatureBirth 1.5s ease forwards}
+@keyframes creatureDie{0%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7);filter:grayscale(.7)}100%{opacity:0;transform:scale(.2)}}
+@keyframes creatureBirth{0%{opacity:0;transform:scale(.2)}50%{opacity:.7;transform:scale(1.1)}100%{opacity:1;transform:scale(1)}}
+.death-particle{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(240,230,208,.6);pointer-events:none;z-index:50;animation:deathPart 1s ease-out forwards}
+@keyframes deathPart{0%{transform:scale(1);opacity:1}100%{transform:scale(0) translateY(-20px);opacity:0}}
+.birth-sparkle{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--gold);pointer-events:none;z-index:50;animation:birthSpark 1s ease-out forwards}
+@keyframes birthSpark{0%{transform:scale(0);opacity:1;box-shadow:0 0 10px var(--gold)}100%{transform:scale(2);opacity:0;box-shadow:0 0 20px transparent}}
+
+/* Ant */
+.ant-c{animation:antCrawl var(--spd,15s) linear infinite}
+.ant-body{display:flex;align-items:center;gap:1px;position:relative}
+.ant-seg{background:#2a1a08;border-radius:50%}
+.ant-seg.h{width:3px;height:3px}.ant-seg.t{width:2.5px;height:2.5px}.ant-seg.a{width:4px;height:3px}
+.ant-leg{position:absolute;width:1px;height:5px;background:#2a1a08;transform-origin:top;animation:legM .3s ease-in-out infinite alternate}
+@keyframes antCrawl{0%{transform:translate(0,0)}10%{transform:translate(15px,2px)}20%{transform:translate(25px,-1px)}30%{transform:translate(40px,1px)}40%{transform:translate(50px,-2px)}50%{transform:translate(35px,1px)}60%{transform:translate(20px,-1px)}70%{transform:translate(10px,2px)}80%{transform:translate(-5px,0)}90%{transform:translate(5px,-1px)}100%{transform:translate(0,0)}}
+@keyframes legM{from{transform:rotate(var(--ls,-20deg))}to{transform:rotate(var(--le,-40deg))}}
+
+/* Firefly */
+.ff-c{animation:ffFloat var(--spd,10s) ease-in-out infinite}
+.ff-body{width:3px;height:5px;background:#3a3020;border-radius:50%;position:relative}
+.ff-glow{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:var(--firefly);border-radius:50%;box-shadow:0 0 6px 3px rgba(232,212,77,.5),0 0 14px 6px rgba(232,212,77,.2);animation:ffPulse 2.5s ease-in-out infinite}
+.ff-wing{position:absolute;top:0;width:5px;height:3px;background:rgba(200,200,180,.15);border-radius:50%;animation:wFlap .3s ease-in-out infinite}
+.ff-wing.wl{left:-4px}.ff-wing.wr{right:-4px}
+@keyframes ffFloat{0%{transform:translate(0,0)}15%{transform:translate(10px,-8px)}30%{transform:translate(20px,-3px)}50%{transform:translate(5px,-15px)}70%{transform:translate(-8px,-6px)}85%{transform:translate(-5px,-12px)}100%{transform:translate(0,0)}}
+@keyframes ffPulse{0%,100%{opacity:.3;transform:translateX(-50%) scale(.8)}50%{opacity:1;transform:translateX(-50%) scale(1.2)}}
+@keyframes wFlap{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.5)}}
+
+/* Fish */
+.fish-c{animation:fishSwim var(--spd,12s) ease-in-out infinite}
+.fish-body-c{width:12px;height:7px;background:linear-gradient(180deg,rgba(180,140,80,.5),rgba(150,110,60,.5));border-radius:50% 30% 30% 50%;position:relative}
+.fish-tail{position:absolute;right:-4px;top:0;width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:5px solid rgba(150,110,60,.4)}
+.fish-eye{position:absolute;left:2px;top:2px;width:2px;height:2px;background:rgba(0,0,0,.5);border-radius:50%}
+@keyframes fishSwim{0%{transform:translate(0,0) scaleX(1)}25%{transform:translate(20px,-5px) scaleX(1)}49%{transform:translate(35px,2px) scaleX(1)}50%{transform:translate(35px,2px) scaleX(-1)}75%{transform:translate(10px,-3px) scaleX(-1)}99%{transform:translate(-5px,1px) scaleX(-1)}100%{transform:translate(0,0) scaleX(1)}}
+
+/* Dragonfly */
+.df-c{animation:dfHover var(--spd,8s) ease-in-out infinite}
+.df-body-w{position:relative;width:20px;height:8px}
+.df-abd{position:absolute;left:0;top:50%;transform:translateY(-50%);width:14px;height:3px;background:linear-gradient(90deg,var(--lagoon),var(--lagoon-l));border-radius:2px 0 0 2px}
+.df-thr{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:4px;height:4px;background:var(--lagoon-d);border-radius:50%}
+.df-head{position:absolute;right:0;top:50%;transform:translateY(-50%);width:3px;height:3px;background:var(--lagoon-d);border-radius:50%}
+.df-wing{position:absolute;width:12px;height:5px;background:rgba(127,219,202,.12);border:1px solid rgba(127,219,202,.15);border-radius:50%;animation:dfWing .15s ease-in-out infinite}
+.df-wing.w1{right:2px;top:-4px;transform-origin:bottom right}.df-wing.w2{right:2px;bottom:-4px;transform-origin:top right;animation-delay:.075s}
+@keyframes dfHover{0%{transform:translate(0,0)}15%{transform:translate(8px,-12px)}30%{transform:translate(20px,-5px)}50%{transform:translate(15px,-18px)}70%{transform:translate(-5px,-8px)}85%{transform:translate(3px,-15px)}100%{transform:translate(0,0)}}
+@keyframes dfWing{0%,100%{transform:scaleY(1) rotate(0)}50%{transform:scaleY(.4) rotate(5deg)}}
+
+/* Beetle */
+.btl-c{animation:btlWalk var(--spd,20s) linear infinite}
+.btl-body-w{position:relative;width:10px;height:8px}
+.btl-shell{width:8px;height:7px;background:linear-gradient(135deg,#2a2a2a,#1a1a1a);border-radius:40% 40% 45% 45%;position:absolute;right:0;top:0}
+.btl-shell::after{content:'';position:absolute;top:0;left:50%;width:1px;height:100%;background:rgba(80,80,80,.3);transform:translateX(-50%)}
+.btl-head{position:absolute;left:0;top:2px;width:3px;height:3px;background:#1a1a1a;border-radius:50%}
+@keyframes btlWalk{0%{transform:translate(0,0)}15%{transform:translate(20px,1px)}30%{transform:translate(25px,-1px)}45%{transform:translate(40px,0)}60%{transform:translate(30px,-2px)}75%{transform:translate(15px,1px)}90%{transform:translate(5px,-1px)}100%{transform:translate(0,0)}}
+
+/* Butterfly */
+.bf-c{animation:bfFly var(--spd,14s) ease-in-out infinite}
+.bf-body-w{position:relative;width:12px;height:10px}
+.bf-body-p{position:absolute;left:50%;transform:translateX(-50%);width:2px;background:#3a2818;border-radius:1px}
+.bf-wing{position:absolute;top:0;width:8px;height:10px;border-radius:50% 50% 30% 50%;animation:bfFlap .4s ease-in-out infinite}
+.bf-wing.fl{left:-6px;background:linear-gradient(135deg,#d08050,#b06030);transform-origin:right center}.bf-wing.fr{right:-6px;background:linear-gradient(-135deg,#d08050,#b06030);transform-origin:left center;border-radius:50% 50% 50% 30%;animation-delay:.2s}
+.bf-wing.bl{left:-4px;top:4px;width:6px;height:7px;background:linear-gradient(135deg,#c07040,#a05020);transform-origin:right center;animation-delay:.05s}.bf-wing.br{right:-4px;top:4px;width:6px;height:7px;background:linear-gradient(-135deg,#c07040,#a05020);transform-origin:left center;border-radius:50% 50% 50% 30%;animation-delay:.25s}
+@keyframes bfFly{0%{transform:translate(0,0) rotate(0)}10%{transform:translate(12px,-20px) rotate(-5deg)}25%{transform:translate(30px,-10px) rotate(3deg)}40%{transform:translate(20px,-30px) rotate(-3deg)}55%{transform:translate(-5px,-15px) rotate(5deg)}70%{transform:translate(10px,-5px) rotate(-2deg)}85%{transform:translate(-8px,-22px) rotate(2deg)}100%{transform:translate(0,0) rotate(0)}}
+@keyframes bfFlap{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.3)}}
+
+/* Snail */
+.snail-c{animation:snailCrawl var(--spd,25s) linear infinite}
+.snail-shell{width:8px;height:8px;border:2px solid #8a6a40;border-radius:50%;background:radial-gradient(circle at 40% 40%,#b09060,#7a5a30);position:relative}
+.snail-shell::after{content:'';position:absolute;inset:2px;border:1px solid rgba(100,70,40,.4);border-radius:50%}
+.snail-foot{width:12px;height:3px;background:#a08060;border-radius:2px;margin-top:-1px}
+@keyframes snailCrawl{0%{transform:translate(0,0)}25%{transform:translate(10px,1px)}50%{transform:translate(18px,-1px)}75%{transform:translate(8px,0)}100%{transform:translate(0,0)}}
+
+/* Bee */
+.bee-c{animation:beeBuzz var(--spd,6s) ease-in-out infinite}
+.bee-body{width:6px;height:4px;background:repeating-linear-gradient(90deg,#d4a04a,#d4a04a 2px,#2a1a08 2px,#2a1a08 4px);border-radius:50%;position:relative}
+.bee-wing{position:absolute;top:-3px;width:5px;height:3px;background:rgba(255,255,255,.2);border-radius:50%;animation:wFlap .15s ease-in-out infinite}
+.bee-wing.bwl{left:-2px}.bee-wing.bwr{right:-2px;animation-delay:.075s}
+@keyframes beeBuzz{0%{transform:translate(0,0)}10%{transform:translate(8px,-15px)}25%{transform:translate(20px,-8px)}40%{transform:translate(12px,-22px)}55%{transform:translate(-5px,-10px)}70%{transform:translate(5px,-18px)}85%{transform:translate(-3px,-5px)}100%{transform:translate(0,0)}}
+
+/* Worm */
+.worm-c{animation:wiggle var(--spd,8s) ease-in-out infinite}
+.worm-body{display:flex;gap:1px}
+.worm-seg{width:3px;height:3px;background:#a07050;border-radius:50%;animation:wSeg .4s ease-in-out infinite alternate}
+.worm-seg:nth-child(2){animation-delay:.1s}.worm-seg:nth-child(3){animation-delay:.2s}.worm-seg:nth-child(4){animation-delay:.3s}.worm-seg:nth-child(5){animation-delay:.4s}
+@keyframes wiggle{0%{transform:translate(0,0)}25%{transform:translate(5px,2px)}50%{transform:translate(10px,-1px)}75%{transform:translate(4px,1px)}100%{transform:translate(0,0)}}
+@keyframes wSeg{from{transform:translateY(-1px)}to{transform:translateY(1px)}}
+
+/* Glowworm */
+.gw-c{animation:gwGlow var(--spd,12s) ease-in-out infinite}
+.gw-body{width:4px;height:6px;background:#2a3a2a;border-radius:50%;position:relative}
+.gw-glow{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:6px;height:6px;background:var(--cyan);border-radius:50%;box-shadow:0 0 8px 4px rgba(127,219,202,.4),0 0 16px 8px rgba(127,219,202,.15);animation:gwPulse 3s ease-in-out infinite}
+@keyframes gwGlow{0%{transform:translate(0,0)}25%{transform:translate(5px,-3px)}50%{transform:translate(8px,2px)}75%{transform:translate(3px,-2px)}100%{transform:translate(0,0)}}
+@keyframes gwPulse{0%,100%{opacity:.3;transform:translateX(-50%) scale(.8)}50%{opacity:1;transform:translateX(-50%) scale(1.3)}}
+
+/* Moth */
+.moth-c{animation:mothFly var(--spd,12s) ease-in-out infinite}
+.moth-body-w{position:relative;width:12px;height:10px}
+.moth-wing{position:absolute;top:0;width:9px;height:11px;border-radius:50% 50% 30% 50%;animation:bfFlap .5s ease-in-out infinite}
+.moth-wing.mfl{left:-7px;background:linear-gradient(135deg,#c0b8a0,#a09880);transform-origin:right center}.moth-wing.mfr{right:-7px;background:linear-gradient(-135deg,#c0b8a0,#a09880);transform-origin:left center;border-radius:50% 50% 50% 30%;animation-delay:.25s}
+@keyframes mothFly{0%{transform:translate(0,0)}15%{transform:translate(8px,-15px)}30%{transform:translate(18px,-5px)}45%{transform:translate(10px,-22px)}60%{transform:translate(-5px,-10px)}75%{transform:translate(5px,-18px)}90%{transform:translate(-3px,-8px)}100%{transform:translate(0,0)}}
+
+/* Ancient Beetle */
+.ab-c{animation:btlWalk var(--spd,30s) linear infinite}
+.ab-shell{width:9px;height:8px;background:linear-gradient(135deg,var(--amber-jar),var(--amber-jar-d));border-radius:40% 40% 45% 45%;position:absolute;right:0;top:0;box-shadow:0 0 4px rgba(212,160,74,.3)}
+.ab-shell::after{content:'';position:absolute;top:0;left:50%;width:1px;height:100%;background:rgba(255,216,110,.3);transform:translateX(-50%)}
+
+/* Air particles */
+.air-p{position:absolute;width:2px;height:2px;background:rgba(240,230,208,.15);border-radius:50%;animation:pDrift 8s ease-in-out infinite;z-index:6;pointer-events:none}
+@keyframes pDrift{0%{transform:translate(0,0);opacity:0}20%{opacity:.6}80%{opacity:.6}100%{transform:translate(10px,-30px);opacity:0}}
+
+/* Condensation */
+.condensation{position:absolute;inset:0;z-index:15;pointer-events:none}
+.cdrop{position:absolute;width:3px;height:4px;background:rgba(255,255,255,.08);border-radius:50% 50% 50% 50%/60% 60% 40% 40%}
+
+/* ══ TOOL EFFECTS ══ */
+.water-drop-fx{position:absolute;top:-5%;width:3px;height:6px;background:linear-gradient(180deg,rgba(90,154,172,.6),rgba(58,107,124,.8));border-radius:50% 50% 50% 50%/30% 30% 70% 70%;animation:wDrop 1.2s ease-in forwards;z-index:50;pointer-events:none}
+@keyframes wDrop{0%{transform:translateY(0) scale(1);opacity:.8}80%{opacity:.8}100%{transform:translateY(280px) scale(.5);opacity:0}}
+.light-fx{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 20%,rgba(232,197,71,.2),transparent 70%);animation:lGlow 1s ease-out forwards;z-index:50;pointer-events:none}
+@keyframes lGlow{0%{opacity:0;transform:scale(.8)}30%{opacity:1}100%{opacity:0;transform:scale(1.3)}}
+.vent-fx{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:vBlow .6s ease-out forwards;z-index:50;pointer-events:none;width:40px}
+@keyframes vBlow{0%{transform:translateX(-30px);opacity:0}50%{opacity:1}100%{transform:translateX(120px);opacity:0}}
+.feed-particle{position:absolute;width:4px;height:4px;background:rgba(106,138,92,.6);border-radius:50%;animation:fScatter 1s ease-out forwards;z-index:50;pointer-events:none}
+@keyframes fScatter{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+
+/* ══ CONNECTIONS ══ */
+.connections-svg{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:visible}
+.conn-line{stroke:rgba(127,219,202,.2);stroke-width:1;fill:none;stroke-dasharray:4 4;animation:connPulse 4s ease-in-out infinite}
+@keyframes connPulse{0%,100%{opacity:0;stroke-dashoffset:0}50%{opacity:1;stroke-dashoffset:8}}
+.conn-active{stroke:rgba(232,197,71,.4);stroke-width:1.5}
+
+/* ══ NOTIFICATIONS ══ */
+.notif-area{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:.5rem;align-items:center;pointer-events:none}
+.notif{padding:.5em 1.5em;font-family:var(--font-d);font-size:.85rem;letter-spacing:.08em;background:rgba(20,16,12,.9);border:1px solid rgba(139,115,85,.3);border-radius:4px;opacity:0;transform:translateY(-10px);animation:notifAnim 3s ease forwards;white-space:nowrap;max-width:90vw}
+.notif.birth{border-color:rgba(106,138,92,.5);color:var(--moss-l)}
+.notif.death{border-color:rgba(160,64,64,.5);color:var(--danger-l)}
+.notif.unlock{border-color:rgba(232,197,71,.5);color:var(--gold)}
+.notif.connection{border-color:rgba(127,219,202,.5);color:var(--cyan)}
+@keyframes notifAnim{0%{opacity:0;transform:translateY(-10px)}10%{opacity:1;transform:translateY(0)}80%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-10px)}}
+
+/* ══ BOTTOM BAR ══ */
+.bottom-bar{width:100%;padding:1rem 2rem 1.2rem;display:flex;align-items:center;justify-content:center;gap:.8rem;background:linear-gradient(0deg,rgba(20,16,12,.95),transparent);z-index:10}
+.tool{width:46px;height:46px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(139,115,85,.2);border-radius:8px;cursor:pointer;transition:all .3s ease;position:relative;background:rgba(30,25,20,.5)}
+.tool:hover{border-color:var(--amber);background:rgba(212,160,74,.1);transform:translateY(-2px)}
+.tool.active{border-color:var(--gold);background:rgba(232,197,71,.12);box-shadow:0 0 12px rgba(232,197,71,.15)}
+.tool-icon{font-size:1.1rem;line-height:1;opacity:.8}
+.tool.active .tool-icon{opacity:1}
+.tool-name{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-family:var(--font-d);font-size:.6rem;letter-spacing:.1em;color:var(--sepia);white-space:nowrap;opacity:0;transition:opacity .3s ease}
+.tool:hover .tool-name{opacity:1}
+
+/* ══ DIARY ══ */
+.diary-overlay{position:fixed;inset:0;background:rgba(10,8,6,.7);z-index:100;opacity:0;pointer-events:none;transition:opacity .5s ease}
+.diary-overlay.open{opacity:1;pointer-events:all}
+.diary-panel{position:fixed;top:0;right:-420px;width:400px;max-width:90vw;height:100%;background:linear-gradient(135deg,#1a1612,#141010);border-left:1px solid rgba(139,115,85,.15);z-index:101;transition:right .5s ease;padding:2rem;overflow-y:auto}
+.diary-panel.open{right:0}
+.diary-title{font-family:var(--font-d);font-size:1.8rem;font-weight:300;color:var(--parchment);letter-spacing:.15em;margin-bottom:.5rem}
+.diary-subtitle{font-family:var(--font-b);font-size:.85rem;font-style:italic;color:var(--sepia);margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid rgba(139,115,85,.15)}
+.diary-entry{margin-bottom:1.5rem}
+.diary-entry-title{font-family:var(--font-d);font-size:1rem;font-weight:600;color:var(--amber);letter-spacing:.1em;margin-bottom:.3rem}
+.diary-entry-text{font-family:var(--font-b);font-size:.9rem;font-weight:300;color:var(--parchment-dim);line-height:1.6}
+.diary-close{position:absolute;top:1.5rem;right:1.5rem;width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid rgba(139,115,85,.2);color:var(--parchment-dim);font-size:1rem;cursor:pointer;transition:all .3s ease}
+.diary-close:hover{border-color:var(--amber);color:var(--parchment)}
+
+/* LOCKED OVERLAY */
+.lock-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:30;background:rgba(10,8,6,.6);border-radius:4px 4px 14px 14px}
+.lock-icon{font-size:1.5rem;opacity:.4}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .jar{width:140px;height:200px}
+  .shelf-row{gap:.8rem}
+  .top-bar{padding:.8rem 1rem}
+  .resources{gap:.8rem}
+  .resource{font-size:.8rem}
+  .title-line.main{font-size:3rem}
+  .title-line.sub{font-size:1rem;letter-spacing:.4em}
+  .diary-panel{width:100%}
+  .bottom-bar{gap:.5rem;padding:.8rem 1rem}
+  .tool{width:40px;height:40px}
+}
+@media(max-width:600px){
+  .shelf-row{flex-wrap:wrap;gap:.6rem}
+  .jar{width:120px;height:170px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<!-- ═══ TITLE ═══ -->
+<div id="title" class="screen active">
+  <div class="title-glow"></div>
+  <div style="text-align:center;position:relative;z-index:5">
+    <div class="title-line main">MICRO</div>
+    <div class="title-line sub">ENVIRONMENT</div>
+    <div class="title-sep"></div>
+    <p class="title-tagline">Observe. Descubra. Conecte.</p>
+    <button id="btn-start" onclick="startGame()">Iniciar Observação</button>
+  </div>
+  <div class="title-jars">
+    <div class="tjm"><div class="tjm-l"></div><div class="tjm-g"></div></div>
+    <div class="tjm"><div class="tjm-l"></div><div class="tjm-g"></div></div>
+    <div class="tjm"><div class="tjm-l"></div><div class="tjm-g"></div></div>
+  </div>
+</div>
+
+<!-- ═══ GAME ═══ -->
+<div id="game" class="screen">
+  <div class="top-bar">
+    <div class="resources">
+      <div class="resource"><div class="res-icon wi">◈</div><span class="res-val" id="rw">20</span></div>
+      <div class="resource"><div class="res-icon li">◉</div><span class="res-val" id="rl">20</span></div>
+      <div class="resource"><div class="res-icon hi">◆</div><span class="res-val" id="rn">20</span></div>
+    </div>
+    <div class="day-cycle">
+      <div class="sun-moon" id="sm"></div>
+      <span id="tl">Manhã</span>
+    </div>
+    <button class="diary-btn" onclick="toggleDiary()">Diário</button>
+  </div>
+
+  <div class="main-area">
+    <div class="shelf-rows">
+      <!-- ROW 1 -->
+      <div class="shelf-row" id="row1"></div>
+      <div class="shelf-base"><div class="shelf-bracket l"></div><div class="shelf-bracket r"></div></div>
+      <!-- ROW 2 -->
+      <div class="shelf-row" id="row2" style="margin-top:1.5rem"></div>
+    </div>
+    <svg class="connections-svg" id="connSvg"></svg>
+  </div>
+
+  <div class="bottom-bar" id="toolbar"></div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div class="notif-area" id="notifArea"></div>
+
+<!-- DIARY -->
+<div class="diary-overlay" id="dOverlay" onclick="toggleDiary()"></div>
+<div class="diary-panel" id="dPanel">
+  <button class="diary-close" onclick="toggleDiary()">✕</button>
+  <h2 class="diary-title">Diário do Naturalista</h2>
+  <p class="diary-subtitle">Anotações de campo — Volume I</p>
+  <div id="diaryEntries"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//            CONFIGURATION
+// ═══════════════════════════════════════
+const TICK_MS = 2500;
+const TOOL_AMOUNT = 18;
+const BIRTH_THRESHOLD = 65;
+const DEATH_THRESHOLD = 28;
+const BIRTH_CHANCE = 0.1;
+const DEATH_CHANCE = 0.25;
+const STABLE_THRESHOLD = 45;
+const STABLE_TICKS_NEEDED = 14;
+
+const BIOME_DEFS = {
+  moss:       { name:'O Musgo',      row:1, color:'var(--moss)',       rates:{water:-1.0, light:-0.7, nutrients:-0.6}, creatures:{ant:3,firefly:2}, unlock:null },
+  lagoon:     { name:'A Lagoa',      row:1, color:'var(--lagoon)',     rates:{water:-0.5, light:-0.9, nutrients:-0.8}, creatures:{fish:2,dragonfly:1}, unlock:'moss' },
+  desert:     { name:'O Deserto',    row:1, color:'var(--desert)',     rates:{water:-1.4, light:-0.4, nutrients:-0.5}, creatures:{beetle:2,butterfly:1}, unlock:'lagoon' },
+  fog:        { name:'A Névoa',      row:2, color:'var(--fog)',        rates:{water:-0.9, light:-0.6, nutrients:-1.0}, creatures:{snail:2,bee:2}, unlock:'desert' },
+  underground:{ name:'O Subterrâneo',row:2, color:'var(--under)',      rates:{water:-0.5, light:-0.2, nutrients:-1.3}, creatures:{worm:2,glowworm:1}, unlock:'fog' },
+  amber:      { name:'O Âmbar',      row:2, color:'var(--amber-jar)',  rates:{water:-0.5, light:-0.5, nutrients:-0.5}, creatures:{moth:1,abbeetle:1}, unlock:'underground' }
+};
+
+const CREAT_DEFS = {
+  ant:        {name:'Formiga',     maxPop:5, statDep:'nutrients', icon:'🐜'},
+  firefly:    {name:'Vagalume',    maxPop:4, statDep:'water',    icon:'✨'},
+  fish:       {name:'Peixe',       maxPop:4, statDep:'water',    icon:'🐟'},
+  dragonfly:  {name:'Libélula',    maxPop:3, statDep:'light',    icon:'🪰'},
+  beetle:     {name:'Besouro',     maxPop:4, statDep:'nutrients', icon:'🪲'},
+  butterfly:  {name:'Borboleta',   maxPop:3, statDep:'light',    icon:'🦋'},
+  snail:      {name:'Caracol',     maxPop:4, statDep:'water',    icon:'🐌'},
+  bee:        {name:'Abelha',      maxPop:5, statDep:'light',    icon:'🐝'},
+  worm:       {name:'Minhoca',     maxPop:5, statDep:'nutrients', icon:'🪱'},
+  glowworm:   {name:'Vaga-lume Subterrâneo',maxPop:3,statDep:'nutrients',icon:'💫'},
+  moth:       {name:'Mariposa',    maxPop:3, statDep:'light',    icon:'🦋'},
+  abbeetle:   {name:'Besouro Antigo',maxPop:3,statDep:'nutrients',icon:'🪲'}
+};
+
+const TOOLS = [
+  {id:'water',icon:'💧',name:'Regar'},
+  {id:'light',icon:'☀',name:'Iluminar'},
+  {id:'vent',icon:'🌬',name:'Ventilar'},
+  {id:'feed',icon:'🍂',name:'Nutrir'},
+  {id:'lupa',icon:'🔍',name:'Observar'}
+];
+
+// ═══════════════════════════════════════
+//              STATE
+// ═══════════════════════════════════════
+const S = {
+  biomes: {},
+  selectedTool: 'water',
+  resources: {water:20, light:20, humus:20},
+  tick: 0,
+  timeOfDay: 0,
+  connections: [],
+  unlockedSet: new Set(['moss']),
+  diaryEntries: []
+};
+
+function initBiomes() {
+  for (const [id, def] of Object.entries(BIOME_DEFS)) {
+    S.biomes[id] = {
+      stats: {water:78, light:72, nutrients:75},
+      pops: {},
+      elements: {},
+      stableTicks: 0,
+      unlocked: id === 'moss'
+    };
+    for (const [ct, count] of Object.entries(def.creatures)) {
+      S.biomes[id].pops[ct] = count;
+      S.biomes[id].elements[ct] = [];
+    }
+  }
+}
+
+// ═══════════════════════════════════════
+//           UTILITY
+// ═══════════════════════════════════════
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const rand = (lo,hi) => lo + Math.random()*(hi-lo);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+// ═══════════════════════════════════════
+//          BUILD UI
+// ═══════════════════════════════════════
+function buildUI() {
+  buildToolbar();
+  for (const [id, def] of Object.entries(BIOME_DEFS)) {
+    buildJarStation(id, def);
+  }
+  updateResourceDisplay();
+  buildDiary();
+}
+
+function buildToolbar() {
+  const tb = document.getElementById('toolbar');
+  TOOLS.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'tool' + (t.id === S.selectedTool ? ' active' : '');
+    el.dataset.tool = t.id;
+    el.innerHTML = `<div class="tool-icon">${t.icon}</div><span class="tool-name">${t.name}</span>`;
+    el.onclick = () => selectTool(t.id);
+    tb.appendChild(el);
+  });
+}
+
+function buildJarStation(id, def) {
+  const rowEl = document.getElementById('row' + def.row);
+  const station = document.createElement('div');
+  station.className = 'jar-station' + (id === 'moss' ? '' : ' locked');
+  station.id = 'station-' + id;
+  station.dataset.biome = id;
+
+  const biome = S.biomes[id];
+  const popHtml = Object.entries(biome.pops).map(([ct,n]) =>
+    `<span id="cc-${id}-${ct}" data-ct="${ct}">${CREAT_DEFS[ct].icon}×${n}</span>`
+  ).join(' ');
+
+  station.innerHTML = `
+    <div class="jar-wrap" onclick="interactJar('${id}')">
+      <div class="jar">
+        <div class="jar-lid"></div>
+        <div class="jar-glass" id="jg-${id}">
+          <div class="jar-reflection"></div>
+          <div class="jar-env" id="je-${id}">${buildBiomeEnv(id)}</div>
+          <div class="lock-overlay" id="lock-${id}" ${id==='moss'?'style="display:none"':''}>
+            <div class="lock-icon">🔒</div>
+          </div>
+        </div>
+      </div>
+      <div class="jar-label">${def.name}</div>
+    </div>
+    <div class="creature-count" id="crc-${id}">${popHtml}</div>
+    <div class="biome-stats">
+      <div class="stat-row"><div class="stat-dot w"></div><div class="stat-bar"><div class="stat-fill w" id="sf-${id}-water" style="width:78%"></div></div><span class="stat-val" id="sv-${id}-water">78</span></div>
+      <div class="stat-row"><div class="stat-dot l"></div><div class="stat-bar"><div class="stat-fill l" id="sf-${id}-light" style="width:72%"></div></div><span class="stat-val" id="sv-${id}-light">72</span></div>
+      <div class="stat-row"><div class="stat-dot n"></div><div class="stat-bar"><div class="stat-fill n" id="sf-${id}-nutrients" style="width:75%"></div></div><span class="stat-val" id="sv-${id}-nutrients">75</span></div>
+    </div>`;
+
+  rowEl.appendChild(station);
+
+  // Spawn initial creatures
+  if (id === 'moss') {
+    for (const [ct, count] of Object.entries(biome.pops)) {
+      for (let i = 0; i < count; i++) spawnCreatureElement(id, ct, false);
+    }
+  }
+}
+
+function buildBiomeEnv(id) {
+  let html = '';
+  switch(id) {
+    case 'moss':
+      html = `<div class="env-sky"></div><div class="env-ground"></div><div class="moss-top"></div>
+        <div class="fern" style="left:62%;bottom:50%"><div class="fern-stem" style="height:45px"></div>
+          <div class="fern-leaf" style="bottom:35px;left:3px;transform:rotate(-30deg)"></div>
+          <div class="fern-leaf fl" style="bottom:35px;right:3px;transform:rotate(30deg)"></div>
+          <div class="fern-leaf" style="bottom:25px;left:3px;transform:rotate(-25deg)"></div>
+          <div class="fern-leaf fl" style="bottom:25px;right:3px;transform:rotate(25deg)"></div>
+        </div>
+        <div class="mushroom" style="left:28%;bottom:48%"><div class="mushroom-cap"></div><div class="mushroom-stem"></div></div>
+        <div class="mushroom" style="left:75%;bottom:47%"><div class="mushroom-cap" style="width:7px;height:4px"></div><div class="mushroom-stem" style="height:4px"></div></div>
+        <div class="air-p" style="left:20%;top:20%;animation-delay:0s"></div>
+        <div class="air-p" style="left:60%;top:30%;animation-delay:-2s"></div>
+        <div class="air-p" style="left:80%;top:15%;animation-delay:-5s"></div>
+        <div class="condensation"><div class="cdrop" style="left:8%;top:15%"></div><div class="cdrop" style="right:12%;top:25%"></div></div>`;
+      break;
+    case 'lagoon':
+      html = `<div class="env-sky"></div><div class="water-body"><div class="water-surface"></div></div><div class="env-ground"></div>
+        <div class="lily-pad" style="left:50%;top:55%"></div>
+        <div class="air-p" style="left:15%;top:10%;animation-delay:-1s"></div>
+        <div class="air-p" style="left:45%;top:20%;animation-delay:-3s"></div>
+        <div class="condensation"><div class="cdrop" style="left:5%;top:10%"></div><div class="cdrop" style="right:8%;top:20%"></div><div class="cdrop" style="left:20%;top:30%"></div><div class="cdrop" style="right:25%;top:18%"></div></div>`;
+      break;
+    case 'desert':
+      html = `<div class="env-sky"></div><div class="env-ground"></div>
+        <div class="sand-ripple" style="bottom:35%"></div><div class="sand-ripple" style="bottom:25%"></div><div class="sand-ripple" style="bottom:15%"></div>
+        <div class="cactus" style="left:55%;bottom:50%"><div class="cactus-body"><div class="cactus-arm cl"></div><div class="cactus-arm cr"></div></div></div>
+        <div class="rock" style="left:25%;bottom:48%"><div class="rock-body"></div></div>
+        <div class="heat-shimmer"></div>
+        <div class="air-p" style="left:30%;top:25%;animation-delay:-2s;background:rgba(224,184,138,.12)"></div>`;
+      break;
+    case 'fog':
+      html = `<div class="env-sky"></div><div class="env-ground"></div>
+        <div class="fog-overlay"></div>
+        <div class="vine" style="left:30%;height:40%"><div class="vine-leaf" style="top:30%;left:2px"></div><div class="vine-leaf" style="top:55%;right:2px;transform:scaleX(-1)"></div></div>
+        <div class="vine" style="left:70%;height:30%"><div class="vine-leaf" style="top:40%;left:2px"></div></div>
+        <div class="mushroom" style="left:50%;bottom:48%"><div class="mushroom-cap" style="background:radial-gradient(ellipse at 50% 80%,#6a8a5c,#4a6a3c)"></div><div class="mushroom-stem"></div></div>
+        <div class="air-p" style="left:25%;top:15%;animation-delay:-1s;background:rgba(106,138,92,.12)"></div>
+        <div class="air-p" style="left:65%;top:25%;animation-delay:-4s;background:rgba(106,138,92,.12)"></div>`;
+      break;
+    case 'underground':
+      html = `<div class="env-sky"></div><div class="env-ground"></div>
+        <div class="tunnel" style="left:15%;top:55%;width:30px;height:20px"></div>
+        <div class="tunnel" style="left:60%;top:60%;width:25px;height:15px"></div>
+        <div class="glow-fungi" style="left:35%;bottom:50%;background:#5a8a7a"><div class="fungi-glow"></div></div>
+        <div class="glow-fungi" style="left:65%;bottom:52%;background:#4a7a6a"><div class="fungi-glow"></div></div>
+        <div class="glow-fungi" style="left:80%;bottom:48%;background:#6a9a8a;width:5px;height:3px"><div class="fungi-glow"></div></div>
+        <div class="air-p" style="left:40%;top:30%;animation-delay:-2s;background:rgba(127,219,202,.08)"></div>`;
+      break;
+    case 'amber':
+      html = `<div class="env-sky"></div><div class="env-ground"></div>
+        <div class="amber-glow"></div>
+        <div class="amber-resin" style="left:20%;top:40%;width:25px;height:18px"></div>
+        <div class="amber-resin" style="left:55%;top:50%;width:20px;height:14px;opacity:.7"></div>
+        <div class="amber-resin" style="left:72%;top:45%;width:16px;height:12px;opacity:.5"></div>
+        <div class="air-p" style="left:35%;top:20%;animation-delay:-1s;background:rgba(232,197,71,.1)"></div>
+        <div class="air-p" style="left:70%;top:30%;animation-delay:-3s;background:rgba(232,197,71,.08)"></div>`;
+      break;
+  }
+   // DEPOIS (linha que diz "return html;"):
+  return `<div class="b-${id}" style="position:absolute;inset:0">${html}</div>`;;
+}
+
+// ═══════════════════════════════════════
+//         CREATURE SPAWNING
+// ═══════════════════════════════════════
+function spawnCreatureElement(biomeId, creatureType, animate) {
+  const env = document.getElementById('je-' + biomeId);
+  if (!env) return;
+  const el = document.createElement('div');
+  el.className = 'creature' + (animate ? ' birth' : '');
+  el.style.left = rand(10,75) + '%';
+  el.style.top = rand(10,65) + '%';
+  el.style.setProperty('--spd', rand(8,22) + 's');
+  el.style.animationDelay = rand(-10,0) + 's';
+  el.innerHTML = getCreatureHTML(creatureType);
+  env.appendChild(el);
+  S.biomes[biomeId].elements[creatureType].push(el);
+  if (animate) {
+    spawnBirthSparkle(env, el);
+    setTimeout(() => el.classList.remove('birth'), 1500);
+  }
+}
+
+function removeCreatureElement(biomeId, creatureType) {
+  const arr = S.biomes[biomeId].elements[creatureType];
+  if (!arr || arr.length === 0) return;
+  const el = arr.shift();
+  el.classList.add('dying');
+  spawnDeathParticle(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+function spawnDeathParticle(el) {
+  const rect = el.getBoundingClientRect();
+  const env = el.parentElement;
+  if (!env) return;
+  for (let i = 0; i < 3; i++) {
+    const p = document.createElement('div');
+    p.className = 'death-particle';
+    p.style.left = el.style.left;
+    p.style.top = el.style.top;
+    p.style.animationDelay = (i * 0.15) + 's';
+    env.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
+
+function spawnBirthSparkle(env, el) {
+  const s = document.createElement('div');
+  s.className = 'birth-sparkle';
+  s.style.left = el.style.left;
+  s.style.top = el.style.top;
+  env.appendChild(s);
+  setTimeout(() => s.remove(), 1100);
+}
+
+function getCreatureHTML(type) {
+  switch(type) {
+    case 'ant': return `<div class="ant-c"><div class="ant-body"><div class="ant-seg h"></div><div class="ant-seg t"></div><div class="ant-seg a"></div></div></div>`;
+    case 'firefly': return `<div class="ff-c"><div style="position:relative"><div class="ff-wing wl"></div><div class="ff-body"></div><div class="ff-wing wr"></div><div class="ff-glow"></div></div></div>`;
+    case 'fish': return `<div class="fish-c"><div class="fish-body-c"><div class="fish-eye"></div><div class="fish-tail"></div></div></div>`;
+    case 'dragonfly': return `<div class="df-c"><div class="df-body-w"><div class="df-wing w1"></div><div class="df-wing w2"></div><div class="df-abd"></div><div class="df-thr"></div><div class="df-head"></div></div></div>`;
+    case 'beetle': return `<div class="btl-c"><div class="btl-body-w"><div class="btl-head"></div><div class="btl-shell"></div></div></div>`;
+    case 'butterfly': return `<div class="bf-c"><div class="bf-body-w"><div class="bf-wing fl"></div><div class="bf-wing fr"></div><div class="bf-wing bl"></div><div class="bf-wing br"></div><div class="bf-body-p" style="height:3px;top:0"></div><div class="bf-body-p" style="height:4px;top:3px"></div><div class="bf-body-p" style="height:3px;top:7px"></div></div></div>`;
+    case 'snail': return `<div class="snail-c"><div style="display:flex;flex-direction:column;align-items:center"><div class="snail-shell"></div><div class="snail-foot"></div></div></div>`;
+    case 'bee': return `<div class="bee-c"><div style="position:relative"><div class="bee-wing bwl"></div><div class="bee-body"></div><div class="bee-wing bwr"></div></div></div>`;
+    case 'worm': return `<div class="worm-c"><div class="worm-body"><div class="worm-seg"></div><div class="worm-seg"></div><div class="worm-seg"></div><div class="worm-seg"></div><div class="worm-seg"></div></div></div>`;
+    case 'glowworm': return `<div class="gw-c"><div class="gw-body"><div class="gw-glow"></div></div></div>`;
+    case 'moth': return `<div class="moth-c"><div class="moth-body-w"><div class="moth-wing mfl"></div><div class="moth-wing mfr"></div><div class="bf-body-p" style="height:3px;top:1px;left:50%;position:absolute;transform:translateX(-50%);width:2px;background:#8a7a60;border-radius:1px"></div></div></div>`;
+    case 'abbeetle': return `<div class="ab-c"><div class="btl-body-w"><div class="btl-head" style="background:#8a6520"></div><div class="ab-shell"></div></div></div>`;
+    default: return '';
+  }
+}
+
+// ═══════════════════════════════════════
+//        TOOL INTERACTION
+// ═══════════════════════════════════════
+function selectTool(id) {
+  S.selectedTool = id;
+  document.querySelectorAll('.tool').forEach(t => t.classList.toggle('active', t.dataset.tool === id));
+}
+
+function interactJar(biomeId) {
+  const biome = S.biomes[biomeId];
+  if (!biome.unlocked) return;
+  const env = document.getElementById('je-' + biomeId);
+
+  switch(S.selectedTool) {
+    case 'water':
+      if (S.resources.water < 2) return notify('Sem água suficiente','death');
+      S.resources.water -= 2;
+      biome.stats.water = clamp(biome.stats.water + TOOL_AMOUNT, 0, 100);
+      spawnWaterFx(env);
+      break;
+    case 'light':
+      if (S.resources.light < 2) return notify('Sem luz suficiente','death');
+      S.resources.light -= 2;
+      biome.stats.light = clamp(biome.stats.light + TOOL_AMOUNT, 0, 100);
+      spawnLightFx(env);
+      break;
+    case 'vent':
+      biome.stats.water = clamp(biome.stats.water - 8, 0, 100);
+      biome.stats.light = clamp(biome.stats.light + 5, 0, 100);
+      spawnVentFx(env);
+      shakeJar(biomeId);
+      break;
+    case 'feed':
+      if (S.resources.humus < 2) return notify('Sem nutrientes suficientes','death');
+      S.resources.humus -= 2;
+      biome.stats.nutrients = clamp(biome.stats.nutrients + TOOL_AMOUNT, 0, 100);
+      spawnFeedFx(env);
+      break;
+    case 'lupa':
+      showBiomeInfo(biomeId);
+      return;
+  }
+  updateBiomeUI(biomeId);
+  updateResourceDisplay();
+  biome.stableTicks = 0;
+}
+
+function spawnWaterFx(env) {
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement('div');
+    d.className = 'water-drop-fx';
+    d.style.left = rand(10,85) + '%';
+    d.style.animationDelay = rand(0,.5) + 's';
+    env.appendChild(d);
+    setTimeout(() => d.remove(), 1500);
+  }
+}
+
+function spawnLightFx(env) {
+  const g = document.createElement('div');
+  g.className = 'light-fx';
+  env.appendChild(g);
+  setTimeout(() => g.remove(), 1100);
+}
+
+function spawnVentFx(env) {
+  for (let i = 0; i < 5; i++) {
+    const v = document.createElement('div');
+    v.className = 'vent-fx';
+    v.style.top = rand(15,70) + '%';
+    v.style.animationDelay = rand(0,.3) + 's';
+    env.appendChild(v);
+    setTimeout(() => v.remove(), 800);
+  }
+}
+
+function spawnFeedFx(env) {
+  for (let i = 0; i < 6; i++) {
+    const f = document.createElement('div');
+    f.className = 'feed-particle';
+    f.style.left = rand(20,70) + '%';
+    f.style.top = rand(50,75) + '%';
+    f.style.setProperty('--dx', rand(-20,20) + 'px');
+    f.style.setProperty('--dy', rand(-30,-10) + 'px');
+    env.appendChild(f);
+    setTimeout(() => f.remove(), 1200);
+  }
+}
+
+function shakeJar(biomeId) {
+  const station = document.getElementById('station-' + biomeId);
+  station.style.transition = 'transform 0.08s ease';
+  const shakes = [[-3,0],[3,0],[-2,0],[2,0],[0,0]];
+  shakes.forEach((s,i) => {
+    setTimeout(() => { station.style.transform = `translate(${s[0]}px,${s[1]}px)`; }, i * 80);
+  });
+  setTimeout(() => { station.style.transition = ''; station.style.transform = ''; }, 450);
+}
+
+function showBiomeInfo(biomeId) {
+  const b = S.biomes[biomeId];
+  const def = BIOME_DEFS[biomeId];
+  let txt = `${def.name} — 💧${Math.round(b.stats.water)} ☀${Math.round(b.stats.light)} 🍂${Math.round(b.stats.nutrients)} | `;
+  txt += Object.entries(b.pops).map(([ct,n]) => `${CREAT_DEFS[ct].icon}×${n}`).join(' ');
+  notify(txt, 'connection');
+}
+
+// ═══════════════════════════════════════
+//          GAME LOOP
+// ═══════════════════════════════════════
+function gameTick() {
+  S.tick++;
+  updateTime();
+  regenerateResources();
+
+  for (const [id, biome] of Object.entries(S.biomes)) {
+    if (!biome.unlocked) continue;
+    const def = BIOME_DEFS[id];
+
+    // Deplete stats
+    biome.stats.water = clamp(biome.stats.water + def.rates.water, 0, 100);
+    biome.stats.light = clamp(biome.stats.light + def.rates.light, 0, 100);
+    biome.stats.nutrients = clamp(biome.stats.nutrients + def.rates.nutrients, 0, 100);
+
+    // Day/night light modifier
+    if (S.timeOfDay >= 5) {
+      biome.stats.light = clamp(biome.stats.light - 0.5, 0, 100);
+    } else if (S.timeOfDay === 0 || S.timeOfDay === 4) {
+      biome.stats.light = clamp(biome.stats.light + 0.3, 0, 100);
+    }
+
+    // Creature lifecycle
+    updateCreaturePops(id, biome);
+
+    // Stability tracking
+    const avg = (biome.stats.water + biome.stats.light + biome.stats.nutrients) / 3;
+    if (avg > STABLE_THRESHOLD) {
+      biome.stableTicks++;
+    } else {
+      biome.stableTicks = Math.max(0, biome.stableTicks - 1);
+    }
+
+    // Connection bonuses
+    applyConnectionBonuses(id, biome);
+
+    // Update UI
+    updateBiomeUI(id);
+    updateJarGlassState(id, biome);
+  }
+
+  checkUnlocks();
+  checkConnections();
+  updateResourceDisplay();
+}
+
+function updateCreaturePops(biomeId, biome) {
+  for (const [ct, count] of Object.entries(biome.pops)) {
+    const cdef = CREAT_DEFS[ct];
+    const relevantStat = biome.stats[cdef.statDep];
+    const avg = (biome.stats.water + biome.stats.light + biome.stats.nutrients) / 3;
+
+    // Death
+    if (relevantStat < DEATH_THRESHOLD && count > 0) {
+      if (Math.random() < DEATH_CHANCE) {
+        biome.pops[ct]--;
+        removeCreatureElement(biomeId, ct);
+        notify(`${cdef.icon} ${cdef.name} morreu em ${BIOME_DEFS[biomeId].name}`, 'death');
+      }
+    }
+    // Extra death if critically low (any stat < 15)
+    if (count > 0 && (biome.stats.water < 15 || biome.stats.light < 15 || biome.stats.nutrients < 15)) {
+      if (Math.random() < 0.15) {
+        biome.pops[ct]--;
+        removeCreatureElement(biomeId, ct);
+        notify(`${cdef.icon} ${cdef.name} não resistiu...`, 'death');
+      }
+    }
+
+    // Birth
+    if (relevantStat > BIRTH_THRESHOLD && avg > 55 && count < cdef.maxPop) {
+      if (Math.random() < BIRTH_CHANCE) {
+        biome.pops[ct]++;
+        spawnCreatureElement(biomeId, ct, true);
+        notify(`${cdef.icon} ${cdef.name} nasceu em ${BIOME_DEFS[biomeId].name}`, 'birth');
+      }
+    }
+  }
+  updateCreatureCountUI(biomeId, biome);
+}
+
+// ═══════════════════════════════════════
+//         UI UPDATES
+// ═══════════════════════════════════════
+function updateBiomeUI(biomeId) {
+  const b = S.biomes[biomeId];
+  ['water','light','nutrients'].forEach(stat => {
+    const val = Math.round(b.stats[stat]);
+    const fill = document.getElementById(`sf-${biomeId}-${stat}`);
+    const valEl = document.getElementById(`sv-${biomeId}-${stat}`);
+    if (fill) {
+      fill.style.width = val + '%';
+      fill.classList.toggle('critical', val < 25);
+      fill.classList.toggle('dead-bar', val <= 0);
+    }
+    if (valEl) valEl.textContent = val;
+  });
+}
+
+function updateJarGlassState(biomeId, biome) {
+  const jg = document.getElementById('jg-' + biomeId);
+  if (!jg) return;
+  const avg = (biome.stats.water + biome.stats.light + biome.stats.nutrients) / 3;
+  const totalPop = Object.values(biome.pops).reduce((a,b) => a+b, 0);
+  jg.classList.remove('healthy','stressed','critical','dead');
+  if (totalPop === 0) jg.classList.add('dead');
+  else if (avg > 60) jg.classList.add('healthy');
+  else if (avg > 35) jg.classList.add('stressed');
+  else jg.classList.add('critical');
+}
+
+function updateCreatureCountUI(biomeId, biome) {
+  for (const [ct, n] of Object.entries(biome.pops)) {
+    const el = document.getElementById(`cc-${biomeId}-${ct}`);
+    if (el) {
+      el.textContent = `${CREAT_DEFS[ct].icon}×${n}`;
+      el.classList.toggle('extinct', n === 0);
+    }
+  }
+}
+
+function updateResourceDisplay() {
+  document.getElementById('rw').textContent = Math.round(S.resources.water);
+  document.getElementById('rl').textContent = Math.round(S.resources.light);
+  document.getElementById('rn').textContent = Math.round(S.resources.humus);
+}
+
+// ═══════════════════════════════════════
+//       DAY/NIGHT & RESOURCES
+// ═══════════════════════════════════════
+const TIMES = ['Amanhecer','Manhã','Meio-dia','Tarde','Entardecer','Noite','Madrugada'];
+
+function updateTime() {
+  S.timeOfDay = (S.timeOfDay + 1) % TIMES.length;
+  document.getElementById('tl').textContent = TIMES[S.timeOfDay];
+  const sm = document.getElementById('sm');
+  sm.classList.toggle('night', S.timeOfDay >= 5);
+}
+
+function regenerateResources() {
+  S.resources.water = clamp(S.resources.water + 2, 0, 30);
+  S.resources.light = S.timeOfDay < 5 ? clamp(S.resources.light + 3, 0, 30) : clamp(S.resources.light + 0.5, 0, 30);
+  S.resources.humus = clamp(S.resources.humus + 1.5, 0, 30);
+}
+
+// ═══════════════════════════════════════
+//        UNLOCK SYSTEM
+// ═══════════════════════════════════════
+function checkUnlocks() {
+  for (const [id, def] of Object.entries(BIOME_DEFS)) {
+    if (S.unlockedSet.has(id)) continue;
+    if (!def.unlock || !S.unlockedSet.has(def.unlock)) continue;
+    const reqBiome = S.biomes[def.unlock];
+    if (reqBiome.stableTicks >= STABLE_TICKS_NEEDED) {
+      unlockBiome(id);
+    }
+  }
+}
+
+function unlockBiome(id) {
+  S.unlockedSet.add(id);
+  S.biomes[id].unlocked = true;
+  const station = document.getElementById('station-' + id);
+  const lock = document.getElementById('lock-' + id);
+  if (lock) lock.style.display = 'none';
+  station.classList.remove('locked');
+  station.classList.add('unlocking','new-glow');
+  setTimeout(() => { station.classList.remove('unlocking','new-glow'); }, 2500);
+
+  // Spawn initial creatures
+  for (const [ct, count] of Object.entries(S.biomes[id].pops)) {
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => spawnCreatureElement(id, ct, true), i * 300);
+    }
+  }
+
+  notify(`Novo bioma desbloqueado: ${BIOME_DEFS[id].name}`, 'unlock');
+  addDiaryEntry('unlock', `Novo bioma descoberto: ${BIOME_DEFS[id].name}. A diversidade aumenta.`);
+}
+
+// ═══════════════════════════════════════
+//       CONNECTION SYSTEM
+// ═══════════════════════════════════════
+const CONN_DEFS = [
+  {a:'moss',b:'lagoon',cond:b=>b.moss.stats.water>50&&b.lagoon.stats.water>50,label:'Rede de Umidade'},
+  {a:'lagoon',b:'desert',cond:b=>b.lagoon.stats.water>55&&b.desert.stats.water<40,label:'Transferência Hídrica'},
+  {a:'desert',b:'fog',cond:b=>b.desert.stats.nutrients>50&&b.fog.stats.nutrients>50,label:'Circuito de Nutrientes'},
+  {a:'fog',b:'underground',cond:b=>b.fog.stats.nutrients>55&&b.underground.stats.nutrients>55,label:'Rede de Micélio'},
+  {a:'underground',b:'amber',cond:b=>b.underground.stats.nutrients>60&&b.amber.stats.water>50,label:'Ressonância Ancestral'},
+  {a:'moss',b:'fog',cond:b=>b.moss.stats.water>60&&b.fog.stats.water>60,label:'Simbiose Verde'},
+  {a:'desert',b:'amber',cond:b=>b.desert.stats.light>60&&b.amber.stats.light>60,label:'Circuito Solar'}
+];
+
+function checkConnections() {
+  const svg = document.getElementById('connSvg');
+  CONN_DEFS.forEach(cd => {
+    const existing = S.connections.find(c => c.id === cd.a+'-'+cd.b);
+    const bothUnlocked = S.unlockedSet.has(cd.a) && S.unlockedSet.has(cd.b);
+    if (!bothUnlocked) return;
+    const meetsCond = cd.cond(S.biomes);
+
+    if (meetsCond && !existing) {
+      S.connections.push({id:cd.a+'-'+cd.b, def:cd, active:true});
+      notify(`Conexão descoberta: ${BIOME_DEFS[cd.a].name} ↔ ${BIOME_DEFS[cd.b].name} — "${cd.label}"`, 'connection');
+      addDiaryEntry('connection', `Conexão misteriosa entre ${BIOME_DEFS[cd.a].name} e ${BIOME_DEFS[cd.b].name}: "${cd.label}". Os frascos se comunicam.`);
+    }
+    if (!meetsCond && existing) {
+      existing.active = false;
+    }
+    if (meetsCond && existing) {
+      existing.active = true;
+    }
+  });
+  drawConnections();
+}
+
+function applyConnectionBonuses(biomeId, biome) {
+  S.connections.forEach(conn => {
+    if (!conn.active) return;
+    if (conn.def.a === biomeId || conn.def.b === biomeId) {
+      const otherId = conn.def.a === biomeId ? conn.def.b : conn.def.a;
+      const other = S.biomes[otherId];
+      if (!other || !other.unlocked) return;
+      // Share resources: if other has more of something, give a little
+      ['water','light','nutrients'].forEach(stat => {
+        if (other.stats[stat] > biome.stats[stat] + 10) {
+          biome.stats[stat] = clamp(biome.stats[stat] + 0.5, 0, 100);
+        }
+      });
+    }
+  });
+}
+
+function drawConnections() {
+  const svg = document.getElementById('connSvg');
+  svg.innerHTML = '';
+  const svgRect = svg.getBoundingClientRect();
+  S.connections.forEach(conn => {
+    const elA = document.getElementById('station-' + conn.def.a);
+    const elB = document.getElementById('station-' + conn.def.b);
+    if (!elA || !elB) return;
+    const rectA = elA.getBoundingClientRect();
+    const rectB = elB.getBoundingClientRect();
+    const x1 = rectA.left + rectA.width/2 - svgRect.left;
+    const y1 = rectA.top + rectA.height/2 - svgRect.top;
+    const x2 = rectB.left + rectB.width/2 - svgRect.left;
+    const y2 = rectB.top + rectB.height/2 - svgRect.top;
+    const mx = (x1+x2)/2;
+    const my = Math.min(y1,y2) - 30;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', `M${x1},${y1} Q${mx},${my} ${x2},${y2}`);
+    path.classList.add('conn-line');
+    if (conn.active) path.classList.add('conn-active');
+    svg.appendChild(path);
+  });
+}
+
+// ═══════════════════════════════════════
+//        NOTIFICATIONS
+// ═══════════════════════════════════════
+function notify(text, type) {
+  const area = document.getElementById('notifArea');
+  const el = document.createElement('div');
+  el.className = 'notif ' + (type || '');
+  el.textContent = text;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ═══════════════════════════════════════
+//          DIARY
+// ═══════════════════════════════════════
+function buildDiary() {
+  addDiaryEntry('start', 'Herdei um estojo antigo com frascos de vidro. O primeiro contém musgo — verdejante, úmido, cheio de vida minúscula. Preciso mantê-lo vivo.');
+  addDiaryEntry('note', 'As criaturas dependem do equilíbrio: água, luz e nutrientes. Se algo faltar, elas começarão a morrer. Observar é a chave.');
+}
+
+function addDiaryEntry(type, text) {
+  const titles = {start:'Primeira Entrada',note:'Anotação',unlock:'Descoberta',connection:'Conexão Misteriosa',death:'Perda',birth:'Nascimento'};
+  S.diaryEntries.push({type, title:titles[type]||'Nota', text});
+  renderDiary();
+}
+
+function renderDiary() {
+  const container = document.getElementById('diaryEntries');
+  container.innerHTML = '';
+  S.diaryEntries.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'diary-entry';
+    const color = e.type === 'connection' ? 'var(--cyan)' : e.type === 'death' ? 'var(--danger-l)' : e.type === 'unlock' ? 'var(--gold)' : e.type === 'birth' ? 'var(--moss-l)' : '';
+    div.innerHTML = `<div class="diary-entry-title">${e.title}</div><div class="diary-entry-text" ${color ? 'style="color:'+color+';font-style:italic"' : ''}>${e.text}</div>`;
+    container.appendChild(div);
+  });
+  container.scrollTop = container.scrollHeight;
+}
+
+function toggleDiary() {
+  document.getElementById('dOverlay').classList.toggle('open');
+  document.getElementById('dPanel').classList.toggle('open');
+}
+
+// ═══════════════════════════════════════
+//        PARTICLES CANVAS
+// ═══════════════════════════════════════
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); drawConnections(); });
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random()*canvas.width;
+    this.y = Math.random()*canvas.height;
+    this.size = Math.random()*2+.5;
+    this.speedX = (Math.random()-.5)*.3;
+    this.speedY = (Math.random()-.5)*.2-.1;
+    this.opacity = Math.random()*.3+.05;
+    this.life = Math.random()*200+100;
+    this.maxLife = this.life;
+    this.hue = Math.random()>.7?45:35;
+  }
+  update() {
+    this.x+=this.speedX; this.y+=this.speedY; this.life--;
+    if(this.life<=0||this.x<-10||this.x>canvas.width+10) this.reset();
+  }
+  draw() {
+    const r = this.life/this.maxLife;
+    const a = this.opacity*(r<.2?r/.2:r>.8?(1-r)/.2:1);
+    ctx.beginPath(); ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${this.hue},30%,70%,${a})`; ctx.fill();
+  }
+}
+for(let i=0;i<50;i++) particles.push(new Particle());
+
+function animParticles() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particles.forEach(p=>{p.update();p.draw()});
+  requestAnimationFrame(animParticles);
+}
+animParticles();
+
+// ═══════════════════════════════════════
+//         SCREEN TRANSITION
+// ═══════════════════════════════════════
+function startGame() {
+  document.getElementById('title').classList.remove('active');
+  setTimeout(() => {
+    document.getElementById('game').classList.add('active');
+    setTimeout(drawConnections, 500);
+  }, 600);
+}
+
+// ═══════════════════════════════════════
+//           INITIALIZATION
+// ═══════════════════════════════════════
+initBiomes();
+buildUI();
+setInterval(gameTick, TICK_MS);
+</script>
+</body>
+</html>
