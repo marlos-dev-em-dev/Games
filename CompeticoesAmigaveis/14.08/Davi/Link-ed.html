@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>irreplaceable</title>
+<title>link-ed</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -30,17 +30,12 @@ canvas{display:block;position:fixed;top:0;left:0;z-index:1}
 </head>
 <body>
 <div id="title-screen">
-  <div class="title-text">
-    <span class="t-link">link</span><span class="t-dash"></span><span class="t-ed">ed</span>
-  </div>
+  <div class="title-text"><span class="t-link">link</span><span class="t-dash"></span><span class="t-ed">ed</span></div>
   <div class="subtitle">um jogo cooperativo</div>
   <div class="start-hint">pressione ENTER</div>
   <div class="controls-hint">Jogador 1: W A D &nbsp;&nbsp;|&nbsp;&nbsp; Jogador 2: Setas &nbsp;&nbsp;|&nbsp;&nbsp; ESC: reiniciar sala</div>
 </div>
-<div id="room-intro">
-  <div class="room-name"></div>
-  <div class="room-sub"></div>
-</div>
+<div id="room-intro"><div class="room-name"></div><div class="room-sub"></div></div>
 <div id="vignette"></div>
 <canvas id="game"></canvas>
 
@@ -48,45 +43,33 @@ canvas{display:block;position:fixed;top:0;left:0;z-index:1}
 (function(){
 'use strict';
 
-// ═══════════════════════════════════════
-// CONFIG
-// ═══════════════════════════════════════
+/* ═══════════════ CONFIG ═══════════════ */
 const GW=1200,GH=700,MAX_DIST=220,PLAYER_R=14,SPEED=3.2,GRAV=.38,JUMP=-8.5;
-const LINK_N=22,LINK_ITERS=6;
+const JUMP_BOOST=1.35,MOUNT_OFF=2.3,CARRY_SPD=.82,LINK_N=22,LINK_IT=6,MOUNT_CD=18;
 
-// ═══════════════════════════════════════
-// CANVAS
-// ═══════════════════════════════════════
+/* ═══════════════ CANVAS ═══════════════ */
 const cv=document.getElementById('game'),cx=cv.getContext('2d');
 let sc=1,ox=0,oy=0;
 function resize(){cv.width=innerWidth;cv.height=innerHeight;sc=Math.min(cv.width/GW,cv.height/GH);ox=(cv.width-GW*sc)/2;oy=(cv.height-GH*sc)/2}
 addEventListener('resize',resize);resize();
 
-// ═══════════════════════════════════════
-// GRAIN OVERLAY
-// ═══════════════════════════════════════
-const grainCv=document.createElement('canvas');grainCv.width=GW;grainCv.height=GH;
-const grainCx=grainCv.getContext('2d');
-(function(){for(let i=0;i<4000;i++){grainCx.fillStyle=Math.random()>.5?'#fff':'#000';grainCx.globalAlpha=.08;grainCx.fillRect(Math.random()*GW|0,Math.random()*GH|0,1,1)}})();
+/* ═══════════════ GRAIN ═══════════════ */
+const grCv=document.createElement('canvas');grCv.width=GW;grCv.height=GH;
+const grCx=grCv.getContext('2d');
+(function(){for(let i=0;i<4000;i++){grCx.fillStyle=Math.random()>.5?'#fff':'#000';grCx.globalAlpha=.08;grCx.fillRect(Math.random()*GW|0,Math.random()*GH|0,1,1)}})();
 
-// ═══════════════════════════════════════
-// INPUT
-// ═══════════════════════════════════════
+/* ═══════════════ INPUT ═══════════════ */
 const keys={};
 addEventListener('keydown',e=>{keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault()});
 addEventListener('keyup',e=>{keys[e.code]=false});
 
-// ═══════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════
+/* ═══════════════ UTILS ═══════════════ */
 function dst(a,b){return Math.hypot(b.x-a.x,b.y-a.y)}
 function lrp(a,b,t){return a+(b-a)*t}
 function clp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
 function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.quadraticCurveTo(x+w,y,x+w,y+r);cx.lineTo(x+w,y+h-r);cx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);cx.lineTo(x+r,y+h);cx.quadraticCurveTo(x,y+h,x,y+h-r);cx.lineTo(x,y+r);cx.quadraticCurveTo(x,y,x+r,y);cx.closePath()}
 
-// ═══════════════════════════════════════
-// PARTICLES
-// ═══════════════════════════════════════
+/* ═══════════════ PARTICLES ═══════════════ */
 class Ptcl{
   constructor(x,y,col,life,vx,vy,sz){this.x=x;this.y=y;this.col=col;this.life=this.mx=life||80;this.vx=vx||(Math.random()-.5)*.5;this.vy=vy||(Math.random()-.5)*.5;this.sz=sz||1+Math.random()*1.5}
   up(){this.x+=this.vx;this.y+=this.vy;return--this.life>0}
@@ -95,28 +78,25 @@ class Ptcl{
 let ptcls=[];
 function emit(x,y,col,n){for(let i=0;i<(n||1);i++)ptcls.push(new Ptcl(x,y,col))}
 
-// ═══════════════════════════════════════
-// LINK (ROPE PHYSICS — VERLET)
-// ═══════════════════════════════════════
+/* ═══════════════ LINK (VERLET ROPE) ═══════════════ */
 class Link{
   constructor(){this.s=[];for(let i=0;i<=LINK_N;i++)this.s.push({x:0,y:0,ox:0,oy:0})}
   init(a,b){for(let i=0;i<=LINK_N;i++){let t=i/LINK_N;this.s[i].x=this.s[i].ox=lrp(a.x,b.x,t);this.s[i].y=this.s[i].oy=lrp(a.y,b.y,t)}}
-  update(p1,p2,anchors){
-    let s=this.s,n=LINK_N,segL=MAX_DIST/n;
+  update(p1,p2,anc){
+    let s=this.s,n=LINK_N,seg=MAX_DIST/n;
     s[0].x=p1.x;s[0].y=p1.y;s[n].x=p2.x;s[n].y=p2.y;
     for(let i=1;i<n;i++){let vx=(s[i].x-s[i].ox)*.97,vy=(s[i].y-s[i].oy)*.97;s[i].ox=s[i].x;s[i].oy=s[i].y;s[i].x+=vx;s[i].y+=vy}
-    for(let it=0;it<LINK_ITERS;it++){
-      for(let i=0;i<n;i++){let a=s[i],b=s[i+1],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,df=(segL-d)/d*.5,ox=dx*df,oy=dy*df;if(i>0){a.x-=ox;a.y-=oy}if(i<n-1){b.x+=ox;b.y+=oy}}
-      if(anchors)for(let an of anchors)for(let i=2;i<n-2;i++){let d=dst(s[i],an);if(d<an.r*2.5){s[i].x=lrp(s[i].x,an.x,.15);s[i].y=lrp(s[i].y,an.y,.15)}}
-      s[0].x=p1.x;s[0].y=p1.y;s[n].x=p2.x;s[n].y=p2.y;
+    for(let it=0;it<LINK_IT;it++){
+      for(let i=0;i<n;i++){let a=s[i],b=s[i+1],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,df=(seg-d)/d*.5,ox=dx*df,oy=dy*df;if(i>0){a.x-=ox;a.y-=oy}if(i<n-1){b.x+=ox;b.y+=oy}}
+      if(anc)for(let an of anc)for(let i=2;i<n-2;i++){if(dst(s[i],an)<an.r*2.5){s[i].x=lrp(s[i].x,an.x,.15);s[i].y=lrp(s[i].y,an.y,.15)}}
+      s[0].x=p1.x;s[0].y=p1.y;s[n].x=p2.x;s[n].y=p2.y
     }
     let d=dst(p1,p2);if(d>MAX_DIST){let pu=(d-MAX_DIST)*.06,dx=(p2.x-p1.x)/d,dy=(p2.y-p1.y)/d;p1.x+=dx*pu;p1.y+=dy*pu;p2.x-=dx*pu;p2.y-=dy*pu}
     if(Math.random()<.12){let i=Math.random()*n|0;emit(s[i].x,s[i].y,'#e8c547')}
   }
   tension(p1,p2){return clp(dst(p1,p2)/MAX_DIST,0,1)}
   render(t){
-    let s=this.s;
-    let hue=lrp(45,20,t),sat=lrp(55,85,t),lgt=lrp(55,68,t);
+    let s=this.s,hue=lrp(45,20,t),sat=lrp(55,85,t),lgt=lrp(55,68,t);
     [{w:26,a:.015+t*.02},{w:14,a:.04+t*.05},{w:5,a:.12+t*.2},{w:2,a:.55+t*.35}].forEach(l=>{
       cx.save();cx.strokeStyle=`hsla(${hue},${sat}%,${lgt}%,${l.a})`;cx.lineWidth=l.w;cx.lineCap='round';cx.lineJoin='round';
       if(l.w>6){cx.shadowColor=`hsla(${hue},${sat}%,${lgt}%,${l.a*3})`;cx.shadowBlur=l.w}
@@ -128,65 +108,122 @@ class Link{
   touches(px,py,r){for(let s of this.s)if(dst(s,{x:px,y:py})<r)return true;return false}
 }
 
-// ═══════════════════════════════════════
-// PLAYER
-// ═══════════════════════════════════════
+/* ═══════════════ PLAYER ═══════════════ */
 class Player{
-  constructor(x,y,col,ctrl){this.x=x;this.y=y;this.sx=x;this.sy=y;this.vx=0;this.vy=0;this.col=col;this.ctrl=ctrl;this.grnd=false}
-  update(plats){
-    let c=this.ctrl;
-    if(keys[c.l])this.vx=-SPEED;else if(keys[c.r])this.vx=SPEED;else this.vx*=.7;
-    if(keys[c.j]&&this.grnd){this.vy=JUMP;this.grnd=false}
+  constructor(x,y,col,ctrl){
+    this.x=x;this.y=y;this.sx=x;this.sy=y;this.vx=0;this.vy=0;
+    this.col=col;this.ctrl=ctrl;this.grnd=false;
+    this.mounted=null;this.carrying=null;
+    this._jh=false;this._mcd=0;this._sq=1
+  }
+
+  /* ── física normal ── */
+  physics(pl){
+    let c=this.ctrl,spd=this.carrying?SPEED*CARRY_SPD:SPEED;
+    if(keys[c.l])this.vx=-spd;else if(keys[c.r])this.vx=spd;else this.vx*=.7;
+    if(keys[c.j]&&this.grnd&&!this._jh){this.vy=JUMP;this.grnd=false}
+    this._jh=keys[c.j];
     this.vy+=GRAV;if(this.vy>13)this.vy=13;
     this.x+=this.vx;
-    for(let p of plats)if(this.hit(p)){if(this.vx>0)this.x=p.x-PLAYER_R;else this.x=p.x+p.w+PLAYER_R;this.vx=0}
+    for(let p of pl)if(this._hit(p)){if(this.vx>0)this.x=p.x-PLAYER_R;else this.x=p.x+p.w+PLAYER_R;this.vx=0}
     this.y+=this.vy;this.grnd=false;
-    for(let p of plats)if(this.hit(p)){if(this.vy>0){this.y=p.y-PLAYER_R;this.grnd=true}else this.y=p.y+p.h+PLAYER_R;this.vy=0}
-    this.x=clp(this.x,PLAYER_R,GW-PLAYER_R);if(this.y>GH+60)this.respawn()
+    for(let p of pl)if(this._hit(p)){if(this.vy>0){this.y=p.y-PLAYER_R;this.grnd=true}else this.y=p.y+p.h+PLAYER_R;this.vy=0}
+    this.x=clp(this.x,PLAYER_R,GW-PLAYER_R);
+    if(this._sq<1)this._sq=Math.min(this._sq+.04,1);
+    if(this._mcd>0)this._mcd--
   }
-  hit(p){return this.x+PLAYER_R>p.x&&this.x-PLAYER_R<p.x+p.w&&this.y+PLAYER_R>p.y&&this.y-PLAYER_R<p.y+p.h}
-  respawn(){this.x=this.sx;this.y=this.sy;this.vx=this.vy=0}
+
+  /* ── seguir quem te carrega ── */
+  follow(){
+    let h=this.mounted;
+    this.x+=(h.x-this.x)*.5;this.y=h.y-PLAYER_R*MOUNT_OFF;
+    this.vx=0;this.vy=0;this.grnd=h.grnd;
+    if(keys[this.ctrl.l])this.x-=1.5;else if(keys[this.ctrl.r])this.x+=1.5;
+    if(keys[this.ctrl.j]&&this.grnd&&!this._jh){
+      this.vy=JUMP*JUMP_BOOST;
+      h.vy+=2.5;
+      h.carrying=null;this.mounted=null;
+      this._mcd=MOUNT_CD;h._mcd=MOUNT_CD;
+      emit(this.x,this.y+PLAYER_R,'#fff',8)
+    }
+    this._jh=keys[this.ctrl.j]
+  }
+
+  _hit(p){return this.x+PLAYER_R>p.x&&this.x-PLAYER_R<p.x+p.w&&this.y+PLAYER_R>p.y&&this.y-PLAYER_R<p.y+p.h}
+
+  respawn(){
+    if(this.mounted){this.mounted.carrying=null;this.mounted=null}
+    if(this.carrying){this.carrying.mounted=null;this.carrying=null}
+    this.x=this.sx;this.y=this.sy;this.vx=this.vy=0;this.grnd=false
+  }
+
   render(){
     cx.save();
+    let sx=1+(1-this._sq)*.35,sy=this._sq;
+    /* aura */
     let g=cx.createRadialGradient(this.x,this.y,0,this.x,this.y,PLAYER_R*3);
     g.addColorStop(0,this.col+'28');g.addColorStop(1,this.col+'00');
     cx.fillStyle=g;cx.beginPath();cx.arc(this.x,this.y,PLAYER_R*3,0,Math.PI*2);cx.fill();
+    /* corpo */
+    cx.save();cx.translate(this.x,this.y);cx.scale(sx,sy);
     cx.shadowColor=this.col;cx.shadowBlur=14;
-    cx.beginPath();cx.arc(this.x,this.y,PLAYER_R,0,Math.PI*2);cx.fillStyle=this.col;cx.fill();
+    cx.beginPath();cx.arc(0,0,PLAYER_R,0,Math.PI*2);cx.fillStyle=this.col;cx.fill();
     cx.shadowBlur=0;
-    cx.beginPath();cx.arc(this.x-PLAYER_R*.25,this.y-PLAYER_R*.25,PLAYER_R*.32,0,Math.PI*2);cx.fillStyle='rgba(255,255,255,.15)';cx.fill();
+    cx.beginPath();cx.arc(-PLAYER_R*.25,-PLAYER_R*.25,PLAYER_R*.32,0,Math.PI*2);cx.fillStyle='rgba(255,255,255,.15)';cx.fill();
+    cx.restore();
+    /* indicador de carregar */
+    if(this.carrying){
+      cx.globalAlpha=.16+Math.sin(time*.06)*.08;cx.fillStyle=this.carrying.col;
+      cx.beginPath();cx.ellipse(this.x,this.y-PLAYER_R-3,PLAYER_R*.9,3.5,0,0,Math.PI*2);cx.fill();
+      cx.globalAlpha=1
+    }
     cx.restore()
   }
 }
 
-// ═══════════════════════════════════════
-// ROOM DEFINITIONS
-// ═══════════════════════════════════════
+/* ── montar ── */
+function tryMount(r,b){
+  if(r.mounted||b.mounted||b.carrying||r.carrying)return false;
+  if(r._mcd>0||b._mcd>0)return false;
+  let dx=Math.abs(r.x-b.x),hd=b.y-PLAYER_R,ft=r.y+PLAYER_R;
+  if(dx<PLAYER_R*2.2&&r.y<b.y-PLAYER_R*.5&&ft>=hd-8&&ft<=hd+12&&r.vy>=0){
+    r.mounted=b;b.carrying=r;
+    r.y=b.y-PLAYER_R*MOUNT_OFF;r.vy=0;r.grnd=true;
+    r._sq=.6;b._sq=.82;
+    emit(r.x,r.y+PLAYER_R*2,r.col,8);
+    return true
+  }
+  return false
+}
+
+/* ═══════════════ ROOMS ═══════════════ */
 const C1={l:'KeyA',r:'KeyD',j:'KeyW'},C2={l:'ArrowLeft',r:'ArrowRight',j:'ArrowUp'};
 
 const ROOMS=[
-// ── SALA 1: DESPERTAR ──
+/* ── 1: DESPERTAR ── */
 {
   name:'Despertar',sub:'aprendam a se mover juntos',
   theme:{bgT:'#1a0f05',bgB:'#2a1a0e',acc:'#f5c87a',pf:'#3d2817',ps:'#5a3d25',pc:'#f5c87a',ac:45},
   p1:{x:120,y:560},p2:{x:200,y:560},
   plats:[
     {x:0,y:620,w:1200,h:80},
-    {x:260,y:505,w:140,h:16},
-    {x:470,y:415,w:150,h:16},
-    {x:690,y:330,w:150,h:16},
-    {x:910,y:245,w:170,h:16}
+    {x:240,y:510,w:150,h:16},
+    {x:470,y:410,w:160,h:16},
+    {x:720,y:280,w:160,h:16},
+    {x:940,y:230,w:170,h:16}
   ],
-  door:{x:1005,y:180,w:40,h:60},
-  anchors:[],switches:[],
+  door:{x:1010,y:165,w:40,h:60},
+  anchors:[],
+  switches:[],
   deco:[
     {t:'win',x:870,y:80,w:110,h:170},
     {t:'beam',x:900,y:80,w:180,h:540},
     {t:'frame',x:300,y:280,w:50,h:40},
-    {t:'frame',x:550,y:180,w:60,h:45}
+    {t:'frame',x:550,y:180,w:60,h:45},
+    {t:'stack-hint',x:555,y:350}
   ]
 },
-// ── SALA 2: O FIO ──
+/* ── 2: O FIO ── */
 {
   name:'O Fio',sub:'o laço é a ponte',
   theme:{bgT:'#040a16',bgB:'#0b1828',acc:'#4a9ebb',pf:'#12253a',ps:'#1a3850',pc:'#4a9ebb',ac:35},
@@ -209,7 +246,7 @@ const ROOMS=[
     {t:'orb',x:600,y:270,r:22}
   ]
 },
-// ── SALA 3: ANCORAGEM ──
+/* ── 3: ANCORAGEM ── */
 {
   name:'Ancoragem',sub:'o laço também toca',
   theme:{bgT:'#0a0705',bgB:'#16100a',acc:'#c4873b',pf:'#2a1d12',ps:'#3d2d1a',pc:'#c4873b',ac:20},
@@ -218,7 +255,9 @@ const ROOMS=[
     {x:0,y:620,w:1200,h:80},
     {x:170,y:480,w:170,h:16},
     {x:515,y:390,w:170,h:16},
-    {x:860,y:480,w:170,h:16}
+    {x:860,y:480,w:170,h:16},
+    {x:400,y:240,w:100,h:14},
+    {x:700,y:240,w:100,h:14}
   ],
   door:{x:585,y:325,w:40,h:60},
   anchors:[],
@@ -231,21 +270,18 @@ const ROOMS=[
     {t:'gear',x:180,y:160,r:55},
     {t:'gear',x:1020,y:120,r:38},
     {t:'gear',x:600,y:60,r:45},
-    {t:'pipe',x:0,y:400,x2:1200,y2:400}
+    {t:'pipe',x:0,y:400,x2:1200,y2:400},
+    {t:'stack-hint',x:505,y:330},
+    {t:'stack-hint',x:805,y:330}
   ]
 }
 ];
 
-// ═══════════════════════════════════════
-// GAME STATE
-// ═══════════════════════════════════════
+/* ═══════════════ GAME STATE ═══════════════ */
 let state='title',cur=0,room=null,p1,p2,link;
 let doorOpen=false,doorAnim=0,time=0;
-let transA=0,transDir=0;
-let introT=0;
-let amb=[];
+let transA=0,transDir=0,introT=0,amb=[];
 
-// Title particles
 let tPts=[];
 for(let i=0;i<70;i++)tPts.push({x:Math.random()*GW,y:Math.random()*GH,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:.5+Math.random()*1.5,a:.08+Math.random()*.2});
 
@@ -261,13 +297,9 @@ function loadRoom(i){
   room=d
 }
 
-// ═══════════════════════════════════════
-// RENDERING HELPERS
-// ═══════════════════════════════════════
-function drBg(t){
-  let g=cx.createLinearGradient(0,0,0,GH);g.addColorStop(0,t.bgT);g.addColorStop(1,t.bgB);
-  cx.fillStyle=g;cx.fillRect(0,0,GW,GH)
-}
+/* ═══════════════ RENDER HELPERS ═══════════════ */
+function drBg(t){let g=cx.createLinearGradient(0,0,0,GH);g.addColorStop(0,t.bgT);g.addColorStop(1,t.bgB);cx.fillStyle=g;cx.fillRect(0,0,GW,GH)}
+
 function drDeco(def){
   let t=time*.008;
   def.deco.forEach(d=>{
@@ -299,18 +331,27 @@ function drDeco(def){
         cx.restore();break;
       case'gear':
         cx.save();cx.translate(d.x,d.y);cx.rotate(t*.4);cx.globalAlpha=.07;cx.strokeStyle=def.theme.acc;cx.lineWidth=2;
-        cx.beginPath();let teeth=10;for(let i=0;i<teeth;i++){let a=i/teeth*Math.PI*2,r1=d.r*.82,r2=d.r;cx.lineTo(Math.cos(a-.12)*r1,Math.sin(a-.12)*r1);cx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);cx.lineTo(Math.cos(a+.12)*r1,Math.sin(a+.12)*r1)}cx.closePath();cx.stroke();
+        cx.beginPath();for(let i=0;i<10;i++){let a=i/10*Math.PI*2,r1=d.r*.82,r2=d.r;cx.lineTo(Math.cos(a-.12)*r1,Math.sin(a-.12)*r1);cx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);cx.lineTo(Math.cos(a+.12)*r1,Math.sin(a+.12)*r1)}cx.closePath();cx.stroke();
         cx.beginPath();cx.arc(0,0,d.r*.45,0,Math.PI*2);cx.stroke();cx.restore();break;
       case'pipe':
-        cx.save();cx.globalAlpha=.04;cx.strokeStyle=def.theme.acc;cx.lineWidth=1;
-        cx.setLineDash([8,12]);cx.beginPath();cx.moveTo(d.x,d.y);cx.lineTo(d.x2,d.y2);cx.stroke();cx.setLineDash([]);cx.restore();break;
+        cx.save();cx.globalAlpha=.04;cx.strokeStyle=def.theme.acc;cx.lineWidth=1;cx.setLineDash([8,12]);
+        cx.beginPath();cx.moveTo(d.x,d.y);cx.lineTo(d.x2,d.y2);cx.stroke();cx.setLineDash([]);cx.restore();break;
+      case'stack-hint':
+        cx.save();cx.globalAlpha=.08+Math.sin(t*1.5)*.04;cx.fillStyle=def.theme.acc;
+        cx.beginPath();cx.arc(d.x,d.y+10,5,0,Math.PI*2);cx.fill();
+        cx.beginPath();cx.arc(d.x,d.y-5,5,0,Math.PI*2);cx.fill();
+        cx.strokeStyle=def.theme.acc;cx.lineWidth=1.2;
+        cx.beginPath();cx.moveTo(d.x,d.y-14);cx.lineTo(d.x,d.y-28);
+        cx.moveTo(d.x-5,d.y-22);cx.lineTo(d.x,d.y-28);cx.lineTo(d.x+5,d.y-22);cx.stroke();
+        cx.restore();break;
     }
   })
 }
+
 function drPlats(def){def.plats.forEach(p=>{cx.save();cx.fillStyle=def.theme.pf;cx.strokeStyle=def.theme.ps;cx.lineWidth=1.2;rr(p.x,p.y,p.w,p.h,3);cx.fill();cx.stroke();cx.fillStyle=def.theme.acc+'0a';cx.fillRect(p.x+2,p.y,p.w-4,2);cx.restore()})}
+
 function drDoor(d,open,anim){
-  cx.save();
-  let a=open?lrp(1,.3,anim):1;cx.globalAlpha=a;
+  cx.save();let a=open?lrp(1,.3,anim):1;cx.globalAlpha=a;
   cx.fillStyle=open?'#1e3a1e':'#222';rr(d.x-4,d.y-4,d.w+8,d.h+8,4);cx.fill();
   let g=cx.createLinearGradient(d.x,d.y,d.x,d.y+d.h);
   open?(g.addColorStop(0,'#4a8a4a'),g.addColorStop(1,'#2a5a2a')):(g.addColorStop(0,'#3a3a3a'),g.addColorStop(1,'#1a1a1a'));
@@ -318,17 +359,13 @@ function drDoor(d,open,anim){
   if(open){cx.globalAlpha=.3*(1-anim);let rg=cx.createRadialGradient(d.x+d.w/2,d.y+d.h/2,0,d.x+d.w/2,d.y+d.h/2,55);rg.addColorStop(0,'#8aff8a');rg.addColorStop(1,'transparent');cx.fillStyle=rg;cx.beginPath();cx.arc(d.x+d.w/2,d.y+d.h/2,55,0,Math.PI*2);cx.fill()}
   cx.restore()
 }
-function drSwitches(sw){
-  sw.forEach(s=>{
-    cx.save();cx.fillStyle=s.on?'#c4873b':'#2d2010';rr(s.x,s.y,s.w,s.h,3);cx.fill();
-    if(s.on){cx.shadowColor='#c4873b';cx.shadowBlur=18;cx.fillStyle='#c4873b30';rr(s.x-2,s.y-2,s.w+4,s.h+4,4);cx.fill()}
-    cx.restore()
-  })
-}
+
+function drSwitches(sw){sw.forEach(s=>{cx.save();cx.fillStyle=s.on?'#c4873b':'#2d2010';rr(s.x,s.y,s.w,s.h,3);cx.fill();if(s.on){cx.shadowColor='#c4873b';cx.shadowBlur=18;cx.fillStyle='#c4873b30';rr(s.x-2,s.y-2,s.w+4,s.h+4,4);cx.fill()}cx.restore()})}
+
 function drAnchors(ans,acc){ans.forEach(a=>{cx.save();cx.strokeStyle=acc+'50';cx.lineWidth=2;cx.beginPath();cx.arc(a.x,a.y,a.r,0,Math.PI*2);cx.stroke();cx.fillStyle=acc+'10';cx.beginPath();cx.arc(a.x,a.y,a.r*.55,0,Math.PI*2);cx.fill();cx.restore()})}
+
 function drAmb(){amb.forEach(p=>{if(p.x<0)p.x=GW;if(p.x>GW)p.x=0;if(p.y<0)p.y=GH;if(p.y>GH)p.y=0;cx.globalAlpha=.2*(.5+Math.sin(time*.015+p.x*.01)*.5);cx.fillStyle=p.col;cx.beginPath();cx.arc(p.x,p.y,p.sz,0,Math.PI*2);cx.fill()});cx.globalAlpha=1}
 
-// Title background
 function drTitleBg(){
   cx.fillStyle='#0a0a0a';cx.fillRect(0,0,cv.width,cv.height);
   cx.save();cx.translate(ox,oy);cx.scale(sc,sc);
@@ -338,9 +375,7 @@ function drTitleBg(){
   cx.globalAlpha=1;cx.restore()
 }
 
-// ═══════════════════════════════════════
-// ROOM INTRO
-// ═══════════════════════════════════════
+/* ═══════════════ ROOM INTRO ═══════════════ */
 function showIntro(){
   let ri=document.getElementById('room-intro');
   ri.querySelector('.room-name').textContent=ROOMS[cur].name;
@@ -348,25 +383,55 @@ function showIntro(){
   ri.classList.add('show');introT=150;state='intro'
 }
 
-// ═══════════════════════════════════════
-// UPDATE
-// ═══════════════════════════════════════
+/* ═══════════════ CEILING CLIP CHECK ═══════════════ */
+function checkClip(mp,plats){
+  for(let p of plats){
+    if(mp.x+PLAYER_R>p.x&&mp.x-PLAYER_R<p.x+p.w&&mp.y+PLAYER_R>p.y&&mp.y-PLAYER_R<p.y+p.h){
+      if(mp.mounted){mp.mounted.carrying=null;mp.mounted=null;mp._mcd=MOUNT_CD}
+      let ot=mp.y+PLAYER_R-p.y,ob=p.y+p.h-(mp.y-PLAYER_R);
+      if(ot<ob)mp.y=p.y-PLAYER_R-2;else mp.y=p.y+p.h+PLAYER_R+2;
+      break
+    }
+  }
+}
+
+/* ═══════════════ UPDATE ═══════════════ */
 function update(){
   time++;
   if(state==='title')return;
   if(state==='intro'){introT--;if(introT<=0){state='playing';document.getElementById('room-intro').classList.remove('show')}return}
   if(state==='trans'){
     if(transDir===1){transA+=.028;if(transA>=1){transA=1;cur++;if(cur>=ROOMS.length){cur=0;state='title';document.getElementById('title-screen').classList.remove('hide');return}loadRoom(cur);showIntro();transDir=-1}}
-    else if(state!=='intro'){transA-=.022;if(transA<=0){transA=0;state='playing'}}
+    else{transA-=.022;if(transA<=0){transA=0;state='playing'}}
     return
   }
 
   let d=ROOMS[cur];
-  p1.update(d.plats);p2.update(d.plats);link.update(p1,p2,d.anchors);
+
+  /* física */
+  if(!p1.mounted)p1.physics(d.plats);
+  if(!p2.mounted)p2.physics(d.plats);
+
+  /* montar */
+  if(!p1.mounted&&!p2.mounted){tryMount(p1,p2)||tryMount(p2,p1)}
+
+  /* seguir */
+  if(p1.mounted)p1.follow();
+  if(p2.mounted)p2.follow();
+
+  /* clip teto */
+  if(p1.carrying)checkClip(p1.carrying,d.plats);
+  if(p2.carrying)checkClip(p2.carrying,d.plats);
+
+  /* queda = reset ambos */
+  if(p1.y>GH+60||p2.y>GH+60){p1.respawn();p2.respawn()}
+
+  /* laço */
+  link.update(p1,p2,d.anchors);
   ptcls=ptcls.filter(p=>p.up());
   amb.forEach(p=>{p.x+=p.vx;p.y+=p.vy});
 
-  // Switches
+  /* switches */
   d.switches.forEach(s=>{
     let op=(Math.abs(p1.x-(s.x+s.w/2))<s.w/2+PLAYER_R+4&&Math.abs(p1.y-s.y)<PLAYER_R+12)||(Math.abs(p2.x-(s.x+s.w/2))<s.w/2+PLAYER_R+4&&Math.abs(p2.y-s.y)<PLAYER_R+12);
     let ol=link.touches(s.x+s.w/2,s.y+s.h/2,s.w+10);
@@ -380,14 +445,12 @@ function update(){
   doorOpen=allSw;if(doorOpen)doorAnim=Math.min(doorAnim+.018,1);else doorAnim=Math.max(doorAnim-.025,0);
   if(doorOpen&&p1d&&p2d){state='trans';transDir=1;transA=0}
 
-  // Tension particles
+  /* tensão */
   let tn=link.tension(p1,p2);
   if(tn>.75&&Math.random()<tn-.7)emit((p1.x+p2.x)/2+(Math.random()-.5)*30,(p1.y+p2.y)/2+(Math.random()-.5)*30,'#e8c547',2)
 }
 
-// ═══════════════════════════════════════
-// RENDER
-// ═══════════════════════════════════════
+/* ═══════════════ RENDER ═══════════════ */
 function render(){
   cx.clearRect(0,0,cv.width,cv.height);
   if(state==='title'){drTitleBg();return}
@@ -397,29 +460,19 @@ function render(){
   drSwitches(d.switches);drDoor(d.door,doorOpen,doorAnim);
   let tn=link.tension(p1,p2);link.render(tn);ptcls.forEach(p=>p.dr());
   p1.render();p2.render();
-
-  // Room name corner
   cx.globalAlpha=.12;cx.fillStyle='#f0ece4';cx.font='600 11px "DM Mono",monospace';cx.fillText(d.name.toUpperCase(),20,25);cx.globalAlpha=1;
-
-  // Grain
-  cx.globalAlpha=.03;cx.drawImage(grainCv,0,0);cx.globalAlpha=1;
+  cx.globalAlpha=.03;cx.drawImage(grCv,0,0);cx.globalAlpha=1;
   cx.restore();
-
-  // Transition overlay
   if(transA>0){cx.save();cx.globalAlpha=transA;cx.fillStyle=ROOMS[cur]?ROOMS[cur].theme.bgT:'#0a0a0a';cx.fillRect(0,0,cv.width,cv.height);cx.restore()}
 }
 
-// ═══════════════════════════════════════
-// MAIN LOOP
-// ═══════════════════════════════════════
+/* ═══════════════ LOOP ═══════════════ */
 (function loop(){update();render();requestAnimationFrame(loop)})();
 
-// ═══════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════
+/* ═══════════════ INIT ═══════════════ */
 function startGame(){if(state!=='title')return;document.getElementById('title-screen').classList.add('hide');cur=0;loadRoom(0);showIntro()}
 document.getElementById('title-screen').addEventListener('click',startGame);
-addEventListener('keydown',e=>{if(e.code==='Enter'&&state==='title')startGame();if(e.code==='Escape'&&state==='playing')loadRoom(cur)});
+addEventListener('keydown',e=>{if(e.code==='Enter'&&state==='title')startGame();if(e.code==='Escape'&&state==='playing'){p1.respawn();p2.respawn();loadRoom(cur)}});
 
 })();
 </script>
