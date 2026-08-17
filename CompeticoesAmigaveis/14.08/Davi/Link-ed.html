@@ -33,7 +33,7 @@ canvas{display:block;position:fixed;top:0;left:0;z-index:1}
   <div class="title-text"><span class="t-link">link</span><span class="t-dash"></span><span class="t-ed">ed</span></div>
   <div class="subtitle">um jogo cooperativo</div>
   <div class="start-hint">pressione ENTER</div>
-  <div class="controls-hint">Jogador 1: W A D &nbsp;&nbsp;|&nbsp;&nbsp; Jogador 2: Setas &nbsp;&nbsp;|&nbsp;&nbsp; ESC: reiniciar sala</div>
+  <div class="controls-hint">P1: W A D S(estacionar) &nbsp;&nbsp;|&nbsp;&nbsp; P2: ↑ ← → ↓(estacionar) &nbsp;&nbsp;|&nbsp;&nbsp; ESC: reiniciar sala</div>
 </div>
 <div id="room-intro"><div class="room-name"></div><div class="room-sub"></div></div>
 <div id="vignette"></div>
@@ -114,14 +114,15 @@ class Player{
     this.x=x;this.y=y;this.sx=x;this.sy=y;this.vx=0;this.vy=0;
     this.col=col;this.ctrl=ctrl;this.grnd=false;
     this.mounted=null;this.carrying=null;
-    this._jh=false;this._mcd=0;this._sq=1
+    this._jh=false;this._mcd=0;this._sq=1;
+    this.parked=false;this._pj=false
   }
 
   /* ── física normal ── */
   physics(pl){
-    let c=this.ctrl,spd=this.carrying?SPEED*CARRY_SPD:SPEED;
-    if(keys[c.l])this.vx=-spd;else if(keys[c.r])this.vx=spd;else this.vx*=.7;
-    if(keys[c.j]&&this.grnd&&!this._jh){this.vy=JUMP;this.grnd=false}
+    let c=this.ctrl;
+    if(this.parked){this.vx*=.5}else{let spd=this.carrying?SPEED*CARRY_SPD:SPEED;if(keys[c.l])this.vx=-spd;else if(keys[c.r])this.vx=spd;else this.vx*=.7}
+    if(!this.parked&&keys[c.j]&&this.grnd&&!this._jh){this.vy=JUMP;this.grnd=false}
     this._jh=keys[c.j];
     this.vy+=GRAV;if(this.vy>13)this.vy=13;
     this.x+=this.vx;
@@ -139,12 +140,19 @@ class Player{
     this.x+=(h.x-this.x)*.5;this.y=h.y-PLAYER_R*MOUNT_OFF;
     this.vx=0;this.vy=0;this.grnd=h.grnd;
     if(keys[this.ctrl.l])this.x-=1.5;else if(keys[this.ctrl.r])this.x+=1.5;
-    if(keys[this.ctrl.j]&&this.grnd&&!this._jh){
-      this.vy=JUMP*JUMP_BOOST;
-      h.vy+=2.5;
-      h.carrying=null;this.mounted=null;
-      this._mcd=MOUNT_CD;h._mcd=MOUNT_CD;
-      emit(this.x,this.y+PLAYER_R,'#fff',8)
+    let jp=keys[this.ctrl.j]&&!this._jh;
+    if(jp){
+      if(!h.grnd){
+        this.vy=JUMP*JUMP_BOOST*1.6;h.vy+=4;
+        h.carrying=null;this.mounted=null;
+        this._mcd=MOUNT_CD;h._mcd=MOUNT_CD;
+        emit(this.x,this.y+PLAYER_R,this.col,14)
+      }else if(this.grnd){
+        this.vy=JUMP*JUMP_BOOST;h.vy+=2.5;
+        h.carrying=null;this.mounted=null;
+        this._mcd=MOUNT_CD;h._mcd=MOUNT_CD;
+        emit(this.x,this.y+PLAYER_R,'#fff',8)
+      }
     }
     this._jh=keys[this.ctrl.j]
   }
@@ -154,7 +162,7 @@ class Player{
   respawn(){
     if(this.mounted){this.mounted.carrying=null;this.mounted=null}
     if(this.carrying){this.carrying.mounted=null;this.carrying=null}
-    this.x=this.sx;this.y=this.sy;this.vx=this.vy=0;this.grnd=false
+    this.x=this.sx;this.y=this.sy;this.vx=this.vy=0;this.grnd=false;this.parked=false
   }
 
   render(){
@@ -177,6 +185,13 @@ class Player{
       cx.beginPath();cx.ellipse(this.x,this.y-PLAYER_R-3,PLAYER_R*.9,3.5,0,0,Math.PI*2);cx.fill();
       cx.globalAlpha=1
     }
+    /* indicador de estacionado */
+    if(this.parked){
+      cx.globalAlpha=.25+Math.sin(time*.04)*.1;
+      cx.strokeStyle=this.col;cx.lineWidth=2;
+      cx.beginPath();cx.arc(this.x,this.y+PLAYER_R+2,PLAYER_R*1.3,0,Math.PI*2);cx.stroke();
+      cx.globalAlpha=1
+    }
     cx.restore()
   }
 }
@@ -197,7 +212,7 @@ function tryMount(r,b){
 }
 
 /* ═══════════════ ROOMS ═══════════════ */
-const C1={l:'KeyA',r:'KeyD',j:'KeyW'},C2={l:'ArrowLeft',r:'ArrowRight',j:'ArrowUp'};
+const C1={l:'KeyA',r:'KeyD',j:'KeyW',p:'KeyS'},C2={l:'ArrowLeft',r:'ArrowRight',j:'ArrowUp',p:'ArrowDown'};
 
 const ROOMS=[
 /* ── 1: DESPERTAR ── */
@@ -408,6 +423,12 @@ function update(){
 
   let d=ROOMS[cur];
 
+  /* park toggle */
+  if(!p1.mounted){if(keys[p1.ctrl.p]&&!p1._pj){p1.parked=!p1.parked;p1._sq=.7;if(p1.parked)emit(p1.x,p1.y,'#fff',6)}p1._pj=keys[p1.ctrl.p]}
+  if(!p2.mounted){if(keys[p2.ctrl.p]&&!p2._pj){p2.parked=!p2.parked;p2._sq=.7;if(p2.parked)emit(p2.x,p2.y,'#fff',6)}p2._pj=keys[p2.ctrl.p]}
+  if(p1.parked&&!p1.grnd)p1.parked=false;
+  if(p2.parked&&!p2.grnd)p2.parked=false;
+
   /* física */
   if(!p1.mounted)p1.physics(d.plats);
   if(!p2.mounted)p2.physics(d.plats);
@@ -426,8 +447,11 @@ function update(){
   /* queda = reset ambos */
   if(p1.y>GH+60||p2.y>GH+60){p1.respawn();p2.respawn()}
 
-  /* laço */
-  link.update(p1,p2,d.anchors);
+  /* laço com âncoras extras */
+  let extraAnc=[];
+  if(p1.parked&&!p1.mounted)extraAnc.push({x:p1.x,y:p1.y,r:PLAYER_R*1.5});
+  if(p2.parked&&!p2.mounted)extraAnc.push({x:p2.x,y:p2.y,r:PLAYER_R*1.5});
+  link.update(p1,p2,[...d.anchors,...extraAnc]);
   ptcls=ptcls.filter(p=>p.up());
   amb.forEach(p=>{p.x+=p.vx;p.y+=p.vy});
 
