@@ -44,7 +44,7 @@ canvas{display:block;position:fixed;top:0;left:0;z-index:1}
 'use strict';
 
 /* ═══════════════ CONFIG ═══════════════ */
-const GW=1200,GH=700,MAX_DIST=220,PLAYER_R=14,SPEED=3.2,GRAV=.38,JUMP=-8.5;
+const GW=1200,GH=700,MAX_DIST=220,PLAYER_R=14,SPEED=3.2,GRAV=.38,JUMP=-9.5;
 const JUMP_BOOST=1.35,MOUNT_OFF=2.3,CARRY_SPD=.82,LINK_N=22,LINK_IT=6,MOUNT_CD=18;
 
 /* ═══════════════ CANVAS ═══════════════ */
@@ -209,7 +209,7 @@ const ROOMS=[
     {x:0,y:620,w:1200,h:80},
     {x:240,y:510,w:150,h:16},
     {x:470,y:410,w:160,h:16},
-    {x:720,y:280,w:160,h:16},
+    {x:720,y:310,w:170,h:16},
     {x:940,y:230,w:170,h:16}
   ],
   door:{x:1010,y:165,w:40,h:60},
@@ -400,11 +400,11 @@ function update(){
   time++;
   if(state==='title')return;
   if(state==='intro'){introT--;if(introT<=0){state='playing';document.getElementById('room-intro').classList.remove('show')}return}
-  if(state==='trans'){
+  if(state==='trans'||transA>0){
     if(transDir===1){transA+=.028;if(transA>=1){transA=1;cur++;if(cur>=ROOMS.length){cur=0;state='title';document.getElementById('title-screen').classList.remove('hide');return}loadRoom(cur);showIntro();transDir=-1}}
-    else{transA-=.022;if(transA<=0){transA=0;state='playing'}}
+    else{transA-=.022;if(transA<=0){transA=0}}
     return
-  }
+}
 
   let d=ROOMS[cur];
 
