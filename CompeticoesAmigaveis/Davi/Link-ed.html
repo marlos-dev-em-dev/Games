@@ -44,8 +44,8 @@ canvas{display:block;position:fixed;top:0;left:0;z-index:1}
 'use strict';
 
 /* ═══════════════ CONFIG ═══════════════ */
-const GW=1200,GH=700,MAX_DIST=220,PLAYER_R=14,SPEED=3.2,GRAV=.38,JUMP=-9.5;
-const JUMP_BOOST=1.35,MOUNT_OFF=2.3,CARRY_SPD=.82,LINK_N=22,LINK_IT=6,MOUNT_CD=18;
+const GW=1200,GH=700,MAX_DIST=200,PLAYER_R=14,SPEED=3.2,GRAV=.38,JUMP=-9.5;
+const JUMP_BOOST=1.35,MOUNT_OFF=2.3,CARRY_SPD=.82,LINK_N=32,LINK_IT=3,MOUNT_CD=18;
 
 /* ═══════════════ CANVAS ═══════════════ */
 const cv=document.getElementById('game'),cx=cv.getContext('2d');
@@ -82,19 +82,19 @@ function emit(x,y,col,n){for(let i=0;i<(n||1);i++)ptcls.push(new Ptcl(x,y,col))}
 class Link{
   constructor(){this.s=[];for(let i=0;i<=LINK_N;i++)this.s.push({x:0,y:0,ox:0,oy:0})}
   init(a,b){for(let i=0;i<=LINK_N;i++){let t=i/LINK_N;this.s[i].x=this.s[i].ox=lrp(a.x,b.x,t);this.s[i].y=this.s[i].oy=lrp(a.y,b.y,t)}}
-  update(p1,p2,anc){
-    let s=this.s,n=LINK_N,seg=MAX_DIST/n;
+  update(p1,p2,anc,md){
+    let s=this.s,n=LINK_N,seg=(md||MAX_DIST)/n;
     s[0].x=p1.x;s[0].y=p1.y;s[n].x=p2.x;s[n].y=p2.y;
-    for(let i=1;i<n;i++){let vx=(s[i].x-s[i].ox)*.97,vy=(s[i].y-s[i].oy)*.97;s[i].ox=s[i].x;s[i].oy=s[i].y;s[i].x+=vx;s[i].y+=vy}
+    for(let i=1;i<n;i++){let vx=(s[i].x-s[i].ox)*.96,vy=(s[i].y-s[i].oy)*.96;s[i].ox=s[i].x;s[i].oy=s[i].y;s[i].x+=vx;s[i].y+=vy+.35}
     for(let it=0;it<LINK_IT;it++){
-      for(let i=0;i<n;i++){let a=s[i],b=s[i+1],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,df=(seg-d)/d*.5,ox=dx*df,oy=dy*df;if(i>0){a.x-=ox;a.y-=oy}if(i<n-1){b.x+=ox;b.y+=oy}}
+      for(let i=0;i<n;i++){let a=s[i],b=s[i+1],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,df=(seg-d)/d*.38,ox=dx*df,oy=dy*df;if(i>0){a.x-=ox;a.y-=oy}if(i<n-1){b.x+=ox;b.y+=oy}}
       if(anc)for(let an of anc)for(let i=2;i<n-2;i++){if(dst(s[i],an)<an.r*2.5){s[i].x=lrp(s[i].x,an.x,.15);s[i].y=lrp(s[i].y,an.y,.15)}}
       s[0].x=p1.x;s[0].y=p1.y;s[n].x=p2.x;s[n].y=p2.y
     }
-    let d=dst(p1,p2);if(d>MAX_DIST){let pu=(d-MAX_DIST)*.06,dx=(p2.x-p1.x)/d,dy=(p2.y-p1.y)/d;p1.x+=dx*pu;p1.y+=dy*pu;p2.x-=dx*pu;p2.y-=dy*pu}
+    let d=dst(p1,p2);if(d>(md||MAX_DIST)){let pu=(d-(md||MAX_DIST))*.04,dx=(p2.x-p1.x)/d,dy=(p2.y-p1.y)/d;if(p1.parked&&p1.grnd){p2.x-=dx*pu*1.3;p2.y-=dy*pu*1.3}else if(p2.parked&&p2.grnd){p1.x+=dx*pu*1.3;p1.y+=dy*pu*1.3}else{p1.x+=dx*pu;p1.y+=dy*pu;p2.x-=dx*pu;p2.y-=dy*pu}}
     if(Math.random()<.12){let i=Math.random()*n|0;emit(s[i].x,s[i].y,'#e8c547')}
   }
-  tension(p1,p2){return clp(dst(p1,p2)/MAX_DIST,0,1)}
+  tension(p1,p2,md){return clp(dst(p1,p2)/(md||MAX_DIST),0,1)}
   render(t){
     let s=this.s,hue=lrp(45,20,t),sat=lrp(55,85,t),lgt=lrp(55,68,t);
     [{w:26,a:.015+t*.02},{w:14,a:.04+t*.05},{w:5,a:.12+t*.2},{w:2,a:.55+t*.35}].forEach(l=>{
@@ -115,16 +115,18 @@ class Player{
     this.col=col;this.ctrl=ctrl;this.grnd=false;
     this.mounted=null;this.carrying=null;
     this._jh=false;this._mcd=0;this._sq=1;
-    this.parked=false;this._pj=false
+    this.parked=false;this._pj=false;this.hanging=false
   }
 
   /* ── física normal ── */
   physics(pl){
     let c=this.ctrl;
-    if(this.parked){this.vx*=.5}else{let spd=this.carrying?SPEED*CARRY_SPD:SPEED;if(keys[c.l])this.vx=-spd;else if(keys[c.r])this.vx=spd;else this.vx*=.7}
+    if(this.parked){this.vx*=.5}
+    else if(this.hanging){let spd=this.carrying?SPEED*CARRY_SPD:SPEED;if(keys[c.l])this.vx-=.35;else if(keys[c.r])this.vx+=.35;this.vx*=.97;this.vx=clp(this.vx,-spd*2.5,spd*2.5);if(keys[c.j]){this.vy-=.8;linkMax=Math.max(80,linkMax-1.5)}}
+    else{let spd=this.carrying?SPEED*CARRY_SPD:SPEED;if(keys[c.l])this.vx=-spd;else if(keys[c.r])this.vx=spd;else this.vx*=.7}
     if(!this.parked&&keys[c.j]&&this.grnd&&!this._jh){this.vy=JUMP;this.grnd=false}
     this._jh=keys[c.j];
-    this.vy+=GRAV;if(this.vy>13)this.vy=13;
+    this.vy+=GRAV;if(this.vy>13)this.vy=13;if(this.hanging&&this.vy<-6)this.vy=-6;
     this.x+=this.vx;
     for(let p of pl)if(this._hit(p)){if(this.vx>0)this.x=p.x-PLAYER_R;else this.x=p.x+p.w+PLAYER_R;this.vx=0}
     this.y+=this.vy;this.grnd=false;
@@ -183,6 +185,12 @@ class Player{
     if(this.carrying){
       cx.globalAlpha=.16+Math.sin(time*.06)*.08;cx.fillStyle=this.carrying.col;
       cx.beginPath();cx.ellipse(this.x,this.y-PLAYER_R-3,PLAYER_R*.9,3.5,0,0,Math.PI*2);cx.fill();
+      cx.globalAlpha=1
+    }
+    /* indicador de pendurado */
+    if(this.hanging){
+      cx.globalAlpha=.18+Math.sin(time*.05)*.06;cx.fillStyle=this.col;
+      cx.beginPath();cx.arc(this.x,this.y,PLAYER_R*1.6,0,Math.PI*2);cx.fill();
       cx.globalAlpha=1
     }
     /* indicador de estacionado */
@@ -246,7 +254,7 @@ const ROOMS=[
   plats:[
     {x:0,y:590,w:360,h:110},
     {x:840,y:590,w:360,h:110},
-    {x:420,y:470,w:80,h:14},
+    {x:420,y:500,w:80,h:14},
     {x:700,y:470,w:80,h:14},
     {x:530,y:350,w:140,h:14},
     {x:850,y:270,w:170,h:14}
@@ -295,7 +303,7 @@ const ROOMS=[
 /* ═══════════════ GAME STATE ═══════════════ */
 let state='title',cur=0,room=null,p1,p2,link;
 let doorOpen=false,doorAnim=0,time=0;
-let transA=0,transDir=0,introT=0,amb=[];
+let transA=0,transDir=0,introT=0,amb=[],linkMax=MAX_DIST;
 
 let tPts=[];
 for(let i=0;i<70;i++)tPts.push({x:Math.random()*GW,y:Math.random()*GH,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:.5+Math.random()*1.5,a:.08+Math.random()*.2});
@@ -451,7 +459,7 @@ function update(){
   let extraAnc=[];
   if(p1.parked&&!p1.mounted)extraAnc.push({x:p1.x,y:p1.y,r:PLAYER_R*1.5});
   if(p2.parked&&!p2.mounted)extraAnc.push({x:p2.x,y:p2.y,r:PLAYER_R*1.5});
-  link.update(p1,p2,[...d.anchors,...extraAnc]);
+  link.update(p1,p2,[...d.anchors,...extraAnc],linkMax);
   ptcls=ptcls.filter(p=>p.up());
   amb.forEach(p=>{p.x+=p.vx;p.y+=p.vy});
 
@@ -470,7 +478,7 @@ function update(){
   if(doorOpen&&p1d&&p2d){state='trans';transDir=1;transA=0}
 
   /* tensão */
-  let tn=link.tension(p1,p2);
+  let tn=link.tension(p1,p2,linkMax);
   if(tn>.75&&Math.random()<tn-.7)emit((p1.x+p2.x)/2+(Math.random()-.5)*30,(p1.y+p2.y)/2+(Math.random()-.5)*30,'#e8c547',2)
 }
 
@@ -482,7 +490,7 @@ function render(){
   let d=ROOMS[cur];
   drBg(d.theme);drDeco(d);drAmb();drAnchors(d.anchors,d.theme.acc);drPlats(d);
   drSwitches(d.switches);drDoor(d.door,doorOpen,doorAnim);
-  let tn=link.tension(p1,p2);link.render(tn);ptcls.forEach(p=>p.dr());
+  let tn=link.tension(p1,p2,linkMax);link.render(tn);ptcls.forEach(p=>p.dr());
   p1.render();p2.render();
   cx.globalAlpha=.12;cx.fillStyle='#f0ece4';cx.font='600 11px "DM Mono",monospace';cx.fillText(d.name.toUpperCase(),20,25);cx.globalAlpha=1;
   cx.globalAlpha=.03;cx.drawImage(grCv,0,0);cx.globalAlpha=1;
