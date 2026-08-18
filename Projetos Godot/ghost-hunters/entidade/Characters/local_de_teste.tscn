@@ -466,7 +466,7 @@ tile_map_data = PackedByteArray("AAD8//v/BAAAAAAAAAD8//z/BAAAAAEAAAD8//3/BAAAAAI
 tile_set = SubResource("TileSet_ljxup")
 
 [node name="Player - guy" parent="." unique_id=41794541 instance=ExtResource("1_mc3gj")]
-position = Vector2(249, 382)
+position = Vector2(514, 362)
 
 [node name="terrain" type="TileMapLayer" parent="." unique_id=382761548]
 light_mask = 3

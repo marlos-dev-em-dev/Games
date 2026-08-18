@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eu Não Sei Nem Você</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   RESET & ROOT
+   ═══════════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#4a2e14;--bg2:#5a3a1e;
+  --paper:#f0e2c4;--paper-dark:#d4c4a0;--paper-shadow:#c8b890;
+  --ink:#2a1a0a;--ink-light:#6a5a4a;--ink-muted:#8a7a6a;
+  --safe:#6a9e52;--safe-bg:#b8d8a0;--safe-text:#2a4a1a;
+  --danger:#b83a3a;--danger-bg:#e8a0a0;--danger-text:#4a1a1a;
+  --resource:#3a8e8e;--resource-bg:#a0d8d8;--resource-text:#1a4a4a;
+  --event:#c4983a;--event-bg:#e8d8a0;--event-text:#4a3a1a;
+  --accent:#d4643a;--gold:#c4a44a;
+  --tape:rgba(255,245,210,0.65);--tape-border:rgba(210,190,150,0.5);
+  --shadow:rgba(20,10,0,0.35);
+  --radius:6px;
+}
+html{font-size:15px}
+body{
+  font-family:'Patrick Hand',cursive;
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(ellipse at 20% 40%,rgba(0,0,0,.12) 0%,transparent 55%),
+    radial-gradient(ellipse at 80% 70%,rgba(0,0,0,.1) 0%,transparent 50%),
+    radial-gradient(circle at 50% 100%,rgba(90,60,30,.5) 0%,transparent 60%);
+  color:var(--ink);min-height:100vh;overflow-x:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+h2{font-family:'Permanent Marker',cursive;font-size:1.15rem;letter-spacing:.04em}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCREENS
+   ═══════════════════════════════════════════════════════════════════ */
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex}
+
+/* ── TITLE ─────────────────────────────────────────────────────────── */
+#screen-title{
+  align-items:center;justify-content:center;
+  flex-direction:column;padding:2rem;
+}
+.poster{
+  position:relative;background:var(--paper);
+  border:4px solid var(--ink);border-radius:var(--radius);
+  padding:3rem 2.5rem;text-align:center;
+  max-width:520px;width:100%;
+  box-shadow:8px 8px 0 var(--shadow);
+  background-image:
+    linear-gradient(to bottom,rgba(0,0,0,.015) 1px,transparent 1px),
+    linear-gradient(to right,rgba(0,0,0,.015) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.tape{
+  position:absolute;width:110px;height:28px;
+  background:var(--tape);border:1px solid var(--tape-border);
+  z-index:5;
+}
+.tape-t{top:-14px;left:50%;transform:translateX(-50%) rotate(-2deg)}
+.tape-b{bottom:-14px;left:50%;transform:translateX(-50%) rotate(1.5deg)}
+.title-main{
+  font-family:'Bangers',cursive;font-size:3.2rem;
+  letter-spacing:.06em;line-height:1.1;color:var(--ink);
+  text-shadow:3px 3px 0 var(--paper-shadow);
+  margin-bottom:.5rem;
+}
+.title-divider{
+  width:60%;height:3px;background:var(--ink);
+  margin:1rem auto;border-radius:2px;
+}
+.title-tagline{
+  font-size:1.25rem;color:var(--ink-light);
+  margin-bottom:.3rem;font-style:italic;
+}
+.title-desc{font-size:1rem;color:var(--ink-muted);margin-bottom:2rem}
+.btn{
+  font-family:'Permanent Marker',cursive;
+  padding:.7rem 1.8rem;border-radius:var(--radius);
+  font-size:1.05rem;letter-spacing:.04em;
+  transition:transform .15s,box-shadow .15s,background .15s;
+}
+.btn-primary{
+  background:var(--accent);color:#fff;
+  border:3px solid var(--ink);
+  box-shadow:4px 4px 0 var(--shadow);
+}
+.btn-primary:hover{
+  transform:translate(-1px,-1px);
+  box-shadow:5px 5px 0 var(--shadow);
+  background:#e07040;
+}
+.btn-primary:active{
+  transform:translate(2px,2px);
+  box-shadow:1px 1px 0 var(--shadow);
+}
+.btn-secondary{
+  background:var(--paper);color:var(--ink);
+  border:3px solid var(--ink);
+  box-shadow:4px 4px 0 var(--shadow);
+  margin-top:.8rem;
+}
+.btn-secondary:hover{
+  transform:translate(-1px,-1px);
+  box-shadow:5px 5px 0 var(--shadow);
+  background:var(--paper-dark);
+}
+.title-buttons{display:flex;flex-direction:column;align-items:center}
+
+/* ── HOW TO PLAY ────────────────────────────────────────────────────── */
+#screen-tutorial{
+  align-items:center;justify-content:flex-start;
+  flex-direction:column;padding:2rem;
+  min-height:100vh;
+}
+.tutorial-wrap{
+  max-width:680px;width:100%;
+  display:flex;flex-direction:column;gap:1rem;
+  padding-bottom:2rem;
+}
+.tutorial-header{
+  position:relative;background:var(--paper);
+  border:4px solid var(--ink);border-radius:var(--radius);
+  padding:1.5rem 2rem;text-align:center;
+  box-shadow:6px 6px 0 var(--shadow);
+}
+.tutorial-header h1{
+  font-family:'Bangers',cursive;font-size:2.2rem;
+  letter-spacing:.06em;color:var(--ink);
+  text-shadow:2px 2px 0 var(--paper-shadow);
+}
+.tutorial-header p{color:var(--ink-light);font-size:1rem;margin-top:.3rem}
+
+.tutorial-card{
+  position:relative;background:var(--paper);
+  border:3px solid var(--ink);border-radius:var(--radius);
+  padding:1.2rem 1.5rem;
+  box-shadow:4px 4px 0 var(--shadow);
+  background-image:
+    linear-gradient(to bottom,rgba(0,0,0,.012) 1px,transparent 1px);
+  background-size:22px 22px;
+  animation:slideUp .4s ease-out both;
+}
+.tutorial-card:nth-child(2){animation-delay:.05s}
+.tutorial-card:nth-child(3){animation-delay:.1s}
+.tutorial-card:nth-child(4){animation-delay:.15s}
+.tutorial-card:nth-child(5){animation-delay:.2s}
+.tutorial-card:nth-child(6){animation-delay:.25s}
+.tutorial-card:nth-child(7){animation-delay:.3s}
+.tutorial-card:nth-child(8){animation-delay:.35s}
+
+.card-header{
+  display:flex;align-items:center;gap:.6rem;
+  margin-bottom:.6rem;
+}
+.card-num{
+  font-family:'Bangers',cursive;font-size:1.5rem;
+  width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--ink);border-radius:50%;
+  background:var(--accent);color:#fff;
+  line-height:1;
+}
+.card-title{
+  font-family:'Permanent Marker',cursive;font-size:1.05rem;
+  color:var(--ink);letter-spacing:.03em;
+}
+.card-body{
+  font-size:.92rem;color:var(--ink-light);line-height:1.55;
+  padding-left:2.8rem;
+}
+.card-body strong{color:var(--ink)}
+
+.card-example{
+  margin-top:.6rem;padding:.5rem .7rem;
+  background:rgba(0,0,0,.04);border:1px dashed var(--paper-shadow);
+  border-radius:var(--radius);font-size:.85rem;
+  color:var(--ink-muted);padding-left:2.8rem;
+}
+
+.card-grid{
+  display:flex;gap:.4rem;flex-wrap:wrap;
+  margin-top:.5rem;padding-left:2.8rem;
+}
+.card-chip{
+  padding:.2rem .5rem;border-radius:4px;
+  font-size:.8rem;font-weight:bold;border:2px solid var(--ink);
+}
+.chip-safe{background:var(--safe-bg);color:var(--safe-text)}
+.chip-danger{background:var(--danger-bg);color:var(--danger-text)}
+.chip-resource{background:var(--resource-bg);color:var(--resource-text)}
+.chip-event{background:var(--event-bg);color:var(--event-text)}
+.chip-unknown{background:#3a3a3a;color:#888}
+
+.tutorial-footer{
+  position:relative;background:var(--paper);
+  border:3px solid var(--ink);border-radius:var(--radius);
+  padding:1.2rem 1.5rem;text-align:center;
+  box-shadow:4px 4px 0 var(--shadow);
+  animation:slideUp .4s ease-out both;
+  animation-delay:.4s;
+}
+.tutorial-footer .card-title{font-size:1.2rem;margin-bottom:.5rem}
+.tutorial-tips{
+  display:grid;grid-template-columns:1fr 1fr;gap:.5rem;
+  text-align:left;margin-bottom:1rem;
+}
+.tip{
+  padding:.35rem .5rem;border-radius:4px;
+  font-size:.82rem;color:var(--ink-light);
+  background:rgba(0,0,0,.03);border-left:3px solid var(--accent);
+}
+.tip strong{color:var(--ink)}
+
+/* ── GAME ──────────────────────────────────────────────────────────── */
+#screen-game{flex-direction:column;min-height:100vh}
+
+/* header */
+.game-header{
+  display:flex;align-items:center;gap:1.2rem;
+  padding:.7rem 1.2rem;
+  background:var(--ink);color:var(--paper);
+  border-bottom:4px solid var(--bg2);
+  flex-wrap:wrap;
+}
+.round-box{
+  text-align:center;min-width:70px;
+  border:2px solid var(--paper-dark);border-radius:var(--radius);
+  padding:.3rem .6rem;
+}
+.round-label{font-size:.7rem;letter-spacing:.12em;display:block;opacity:.7}
+.round-num{font-family:'Bangers',cursive;font-size:1.6rem;display:block;line-height:1}
+.status-bars{flex:1;display:flex;flex-direction:column;gap:.35rem;min-width:180px}
+.bar-group{display:flex;align-items:center;gap:.5rem}
+.bar-label{font-size:.7rem;letter-spacing:.1em;min-width:60px;opacity:.8}
+.bar-track{
+  flex:1;height:14px;background:rgba(255,255,255,.1);
+  border-radius:7px;overflow:hidden;border:1px solid rgba(255,255,255,.15);
+}
+.bar-fill{height:100%;border-radius:7px;transition:width .6s ease}
+.bar-score{background:linear-gradient(90deg,var(--gold),#e8c860)}
+.bar-danger{background:linear-gradient(90deg,#e86060,var(--danger))}
+.bar-value{font-size:.75rem;min-width:35px;text-align:right;font-weight:bold}
+.radio-box{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--radius);padding:.3rem .7rem;
+  font-size:.75rem;max-width:220px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.radio-dot{
+  display:inline-block;width:6px;height:6px;
+  background:#e86060;border-radius:50%;margin-right:5px;
+  animation:blink 1.5s infinite;
+}
+
+/* main layout */
+.game-main{
+  display:flex;flex:1;gap:0;overflow:hidden;
+}
+.map-panel{
+  flex:1;padding:1.2rem;display:flex;flex-direction:column;
+  align-items:center;
+  background:
+    radial-gradient(ellipse at 30% 40%,rgba(120,80,40,.15) 0%,transparent 60%),
+    var(--bg2);
+}
+.panel-title{
+  font-family:'Permanent Marker',cursive;font-size:1.1rem;
+  color:var(--paper);letter-spacing:.05em;margin-bottom:.15rem;
+}
+.panel-sub{font-size:.78rem;color:var(--paper-dark);opacity:.7;margin-bottom:.8rem}
+
+/* map grid */
+.map-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:6px;max-width:420px;width:100%;
+}
+.map-cell{
+  aspect-ratio:1;border:3px solid var(--ink);
+  border-radius:4px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  font-weight:bold;font-size:1rem;
+  cursor:pointer;position:relative;
+  transition:transform .15s,box-shadow .15s,border-color .15s;
+  box-shadow:2px 2px 0 var(--shadow);
+}
+.map-cell:hover{transform:translateY(-2px);box-shadow:3px 5px 0 var(--shadow)}
+.map-cell:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--shadow)}
+.map-cell.safe{background:var(--safe-bg);color:var(--safe-text)}
+.map-cell.danger{background:var(--danger-bg);color:var(--danger-text)}
+.map-cell.resource{background:var(--resource-bg);color:var(--resource-text)}
+.map-cell.event{background:var(--event-bg);color:var(--event-text)}
+.map-cell.unknown{
+  background:#3a3a3a;color:#5a5a5a;
+  background-image:
+    radial-gradient(circle,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:8px 8px;
+}
+.map-cell.selected{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,164,74,.4)}
+.cell-icon{font-size:1.3rem;line-height:1}
+.cell-pos{font-size:.55rem;opacity:.5;position:absolute;bottom:2px;right:4px}
+.map-legend{
+  display:flex;gap:.8rem;margin-top:.8rem;flex-wrap:wrap;justify-content:center;
+}
+.legend-item{
+  display:flex;align-items:center;gap:.3rem;
+  font-size:.75rem;color:var(--paper-dark);opacity:.8;
+}
+.legend-dot{
+  width:12px;height:12px;border-radius:3px;
+  border:2px solid var(--ink);
+}
+
+/* side panel */
+.side-panel{
+  width:380px;min-width:300px;
+  display:flex;flex-direction:column;
+  background:var(--paper);
+  border-left:4px solid var(--ink);
+  background-image:
+    linear-gradient(to bottom,rgba(0,0,0,.012) 1px,transparent 1px),
+    linear-gradient(to right,rgba(0,0,0,.012) 1px,transparent 1px);
+  background-size:22px 22px;
+}
+.side-inner{
+  flex:1;display:flex;flex-direction:column;padding:1rem;
+  overflow:hidden;
+}
+.side-inner .panel-title{color:var(--ink)}
+.side-inner .panel-sub{color:var(--ink-muted)}
+
+/* comms log */
+.comms-log{
+  flex:1;overflow-y:auto;margin-bottom:.8rem;
+  padding-right:.3rem;
+  display:flex;flex-direction:column;gap:.5rem;
+}
+.comms-log::-webkit-scrollbar{width:5px}
+.comms-log::-webkit-scrollbar-thumb{background:var(--paper-shadow);border-radius:3px}
+
+.bubble{
+  padding:.55rem .8rem;border-radius:10px 10px 10px 3px;
+  border:2px solid var(--ink);font-size:.9rem;
+  position:relative;animation:bubbleIn .3s ease-out;
+  box-shadow:2px 2px 0 rgba(0,0,0,.08);
+}
+.bubble .speaker{font-weight:bold;margin-right:.3rem}
+.bubble.you{background:#dde8f0;border-color:#5a8aaa}
+.bubble.luna{background:#f0e8dd;border-color:#8a7a5a}
+.bubble.kael{background:#f0dddd;border-color:#8a5a5a}
+.bubble.sage{background:#ddf0dd;border-color:#5a8a5a}
+.bubble.system{
+  background:var(--paper-dark);border-color:var(--ink-muted);
+  font-style:italic;font-size:.8rem;text-align:center;
+  border-radius:6px;
+}
+
+/* comms actions */
+.comms-actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:.4rem;
+  padding-top:.6rem;border-top:2px dashed var(--paper-shadow);
+}
+.btn-action{
+  padding:.5rem;border:2px solid var(--ink);border-radius:var(--radius);
+  font-family:'Permanent Marker',cursive;font-size:.85rem;
+  background:var(--paper);color:var(--ink);
+  transition:background .15s,transform .1s;
+}
+.btn-action:hover{background:var(--paper-dark);transform:translateY(-1px)}
+.btn-action:active{transform:translateY(1px)}
+.btn-action.active{background:var(--gold);color:var(--ink);border-color:var(--accent)}
+.btn-skip{
+  grid-column:1/-1;padding:.4rem;
+  background:transparent;border:2px dashed var(--ink-muted);
+  border-radius:var(--radius);font-size:.85rem;color:var(--ink-muted);
+  font-family:'Permanent Marker',cursive;
+  transition:color .15s,border-color .15s;
+}
+.btn-skip:hover{color:var(--ink);border-color:var(--ink)}
+
+/* action prompt */
+.action-prompt{
+  margin-top:.5rem;padding:.6rem;
+  background:rgba(0,0,0,.04);border-radius:var(--radius);
+  border:1px solid var(--paper-shadow);font-size:.85rem;
+}
+.action-prompt.hidden{display:none}
+.player-select{
+  display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.3rem;
+}
+.player-btn{
+  padding:.3rem .6rem;border:2px solid var(--ink);
+  border-radius:var(--radius);font-size:.8rem;
+  background:var(--paper);font-weight:bold;
+  transition:background .15s;
+}
+.player-btn:hover{background:var(--paper-dark)}
+.player-btn.trust-low{border-color:var(--danger)}
+.player-btn.trust-high{border-color:var(--safe)}
+
+/* vote */
+.vote-options{
+  display:flex;flex-direction:column;gap:.5rem;
+  flex:1;overflow-y:auto;
+}
+.vote-card{
+  padding:.7rem;border:3px solid var(--ink);border-radius:var(--radius);
+  background:var(--paper);cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  transition:transform .15s,box-shadow .15s,border-color .15s;
+  box-shadow:3px 3px 0 var(--shadow);
+}
+.vote-card:hover{
+  transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--shadow);
+}
+.vote-card:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--shadow)}
+.vote-card.chosen{border-color:var(--gold);background:#faf5e0}
+.vote-card .vote-name{font-family:'Permanent Marker',cursive;font-size:1rem}
+.vote-card .vote-hint{font-size:.78rem;color:var(--ink-muted)}
+.vote-tally{
+  margin-top:.8rem;padding:.6rem;
+  border:2px dashed var(--paper-shadow);border-radius:var(--radius);
+  font-size:.85rem;
+}
+.vote-tally .voter{display:inline-block;padding:.1rem .4rem;margin:.1rem;
+  background:var(--paper-dark);border-radius:4px;font-size:.78rem}
+
+/* result */
+.result-narrative{
+  flex:1;padding:.5rem;font-size:1rem;line-height:1.5;
+}
+.result-narrative .result-icon{font-size:2rem;display:block;margin-bottom:.5rem}
+.next-btn-wrap{margin-top:auto;padding-top:.8rem;text-align:center}
+
+/* end screen */
+#screen-end{
+  align-items:center;justify-content:center;
+  padding:2rem;flex-direction:column;
+}
+.end-card{
+  position:relative;background:var(--paper);
+  border:4px solid var(--ink);border-radius:var(--radius);
+  padding:2.5rem 2rem;max-width:560px;width:100%;
+  text-align:center;box-shadow:8px 8px 0 var(--shadow);
+  background-image:
+    linear-gradient(to bottom,rgba(0,0,0,.015) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.end-card h1{font-family:'Bangers',cursive;font-size:2.8rem;margin-bottom:.3rem}
+.end-card h1.win{color:var(--safe)}
+.end-card h1.lose{color:var(--danger)}
+.end-sub{color:var(--ink-light);margin-bottom:1.5rem;font-size:1.1rem}
+.end-stats{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;
+  margin-bottom:1.5rem;
+}
+.stat-box{
+  border:2px solid var(--ink);border-radius:var(--radius);
+  padding:.5rem;background:rgba(0,0,0,.03);
+}
+.stat-label{font-size:.7rem;letter-spacing:.1em;opacity:.6;display:block}
+.stat-value{font-family:'Bangers',cursive;font-size:1.6rem}
+.end-subtitle{font-family:'Permanent Marker',cursive;font-size:1rem;margin-bottom:.5rem;color:var(--ink)}
+.end-reveal{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:4px;margin-bottom:1rem;
+}
+.end-cell{
+  aspect-ratio:1;border:2px solid var(--ink);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:bold;
+}
+.trust-list{text-align:left;margin-bottom:1.5rem}
+.trust-row{
+  display:flex;align-items:center;gap:.5rem;
+  margin-bottom:.3rem;
+}
+.trust-name{min-width:50px;font-weight:bold;font-size:.9rem}
+.trust-bar-track{
+  flex:1;height:12px;background:var(--paper-dark);
+  border-radius:6px;overflow:hidden;border:1px solid var(--ink-muted);
+}
+.trust-bar-fill{height:100%;border-radius:6px;transition:width .6s}
+.trust-val{min-width:30px;text-align:right;font-size:.85rem}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════ */
+@keyframes bubbleIn{
+  from{opacity:0;transform:translateY(8px) scale(.95)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-4px)}
+  40%{transform:translateX(4px)}
+  60%{transform:translateX(-3px)}
+  80%{transform:translateX(3px)}
+}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(196,164,74,.4)}
+  50%{box-shadow:0 0 0 6px rgba(196,164,74,0)}
+}
+.shake{animation:shake .4s ease}
+.pulse{animation:pulse 1.5s infinite}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+@media(max-width:800px){
+  .game-main{flex-direction:column}
+  .side-panel{width:100%;min-width:0;border-left:none;border-top:4px solid var(--ink)}
+  .map-grid{max-width:320px}
+  .game-header{gap:.6rem;padding:.5rem .8rem}
+  .title-main{font-size:2.4rem}
+  .end-stats{grid-template-columns:1fr}
+  .tutorial-tips{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+<div id="app">
+
+<!-- ════════════════════════════════════════════════════════════════
+     TITLE SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<section id="screen-title" class="screen active">
+  <div class="poster">
+    <div class="tape tape-t"></div>
+    <h1 class="title-main">EU NÃO SEI<br>NEM VOCÊ</h1>
+    <div class="title-divider"></div>
+    <p class="title-tagline">"Ninguém vê tudo. Todos dependem de todos."</p>
+    <p class="title-desc">4 exploradores. 1 mapa fragmentado. Muitas mentiras possíveis.</p>
+    <div class="title-buttons">
+      <button id="btn-start" class="btn btn-primary">INICIAR EXPLORAÇÃO</button>
+      <button id="btn-howto" class="btn btn-secondary">COMO JOGAR?</button>
+    </div>
+    <div class="tape tape-b"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     HOW TO PLAY SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<section id="screen-tutorial" class="screen">
+  <div class="tutorial-wrap">
+
+    <!-- Header -->
+    <div class="tutorial-header">
+      <div class="tape tape-t"></div>
+      <h1>COMO JOGAR</h1>
+      <p>Guia de sobrevivência para quem não sabe de nada</p>
+      <div class="tape tape-b"></div>
+    </div>
+
+    <!-- Card 1: Premissa -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">1</span>
+        <span class="card-title">A SITUAÇÃO</span>
+      </div>
+      <div class="card-body">
+        Vocês são <strong>4 exploradores</strong> em território desconhecido. O mapa é uma grade de <strong>5×5</strong> (25 células). O problema: <strong>ninguém vê o mapa inteiro</strong>. Cada jogador enxerga apenas um <strong>fragmento</strong> — algumas células visíveis, outras ocultas. E algumas das que você vê podem estar <strong>distorcidas</strong> (mostrando informação falsa).
+      </div>
+      <div class="card-example">
+        Exemplo: Você vê "SEGURO" numa célula. Mas na verdade é "PERIGO". Você só descobre quando alguém duvida de você — ou quando o grupo pisa lá.
+      </div>
+    </div>
+
+    <!-- Card 2: Objetivo -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">2</span>
+        <span class="card-title">OBJETIVO</span>
+      </div>
+      <div class="card-body">
+        O grupo precisa acumular <strong>10 pontos</strong> antes de sofrer <strong>3 eventos de perigo</strong>. Vitória é coletiva — todo mundo ganha ou todo mundo perde. Ninguém vence sozinho.
+      </div>
+      <div class="card-grid">
+        <span class="card-chip chip-safe">≥10 pontos = VITÓRIA</span>
+        <span class="card-chip chip-danger">3 perigos = DERROTA</span>
+      </div>
+    </div>
+
+    <!-- Card 3: Rodada -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">3</span>
+        <span class="card-title">COMO FUNCIONA UMA RODADA</span>
+      </div>
+      <div class="card-body">
+        Cada rodada tem <strong>3 fases</strong>. Elas acontecem sempre na mesma ordem:
+      </div>
+      <div class="card-grid">
+        <span class="card-chip" style="background:var(--resource-bg);color:var(--resource-text)">1. Comunicação</span>
+        <span class="card-chip" style="background:var(--event-bg);color:var(--event-text)">2. Votação</span>
+        <span class="card-chip" style="background:var(--safe-bg);color:var(--safe-text)">3. Resolução</span>
+      </div>
+    </div>
+
+    <!-- Card 4: Comunicação -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">4</span>
+        <span class="card-title">FASE 1: COMUNICAÇÃO</span>
+      </div>
+      <div class="card-body">
+        Você começa com <strong>3 tokens</strong>. Cada ação gasta 1 token. Os NPCs vão compartilhar o que veem — mas <strong>eles podem estar mentindo</strong> (ou sendo sinceros sem saber que estão errados).
+      </div>
+      <div class="card-example">
+        <strong>COMPARTILHAR</strong> — Clique no mapa para revelar o que você vê numa célula. Todo mundo ouve.<br><br>
+        <strong>PERGUNTAR</strong> — Escolha um jogador e uma célula. Ele responde o que vê lá. Pode mentir.<br><br>
+        <strong>DUVIDAR</strong> — Escolha um jogador que fez uma afirmação. Se ele mentiu, ele perde confiança. Se falou a verdade, VOCÊ perde confiança.<br><br>
+        <strong>PULAR</strong> — Encerrar comunicação e ir para votação.
+      </div>
+    </div>
+
+    <!-- Card 5: Mapa -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">5</span>
+        <span class="card-title">ENTENDENDO O MAPA</span>
+      </div>
+      <div class="card-body">
+        Cada célula do mapa é de um tipo. O que ela mostra no seu fragmento pode ser diferente da realidade:
+      </div>
+      <div class="card-grid">
+        <span class="card-chip chip-safe">✓ SEG — Seguro, dá pontos</span>
+        <span class="card-chip chip-danger">⚠ PRG — Perigo, perigo +1</span>
+        <span class="card-chip chip-resource">◆ REC — Recurso, dá pontos e tokens</span>
+        <span class="card-chip chip-event">★ EVT — Evento, pode ser bom ou ruim</span>
+        <span class="card-chip chip-unknown">? ??? — Oculto, você não enxerga</span>
+      </div>
+      <div class="card-example">
+        Células <strong>???</strong> não aparecem no seu fragmento. Você só descobre o que há lá perguntando aos outros ou votando para ir até lá.
+      </div>
+    </div>
+
+    <!-- Card 6: Votação -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">6</span>
+        <span class="card-title">FASE 2: VOTAÇÃO</span>
+      </div>
+      <div class="card-body">
+        O sistema gera <strong>4 locais</strong> para explorar. Você só vê o que o SEU fragmento mostra sobre cada local. Os outros jogadores votam com base no que ELES veem. <strong>A opção com mais votos vence.</strong>
+      </div>
+      <div class="card-example">
+        <strong>Empate</strong> = ninguém vai a lugar nenhum. Todos perdem 1 token na próxima rodada como penalidade. Coordene-se, mas lembre: as pessoas podem estar erradas.
+      </div>
+    </div>
+
+    <!-- Card 7: Resolução -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">7</span>
+        <span class="card-title">FASE 3: RESOLUÇÃO</span>
+      </div>
+      <div class="card-body">
+        O grupo vai até o local escolhido. A célula é revelada e seus efeitos acontecem:
+      </div>
+      <div class="card-grid">
+        <span class="card-chip chip-safe">✓ Seguro → +pontos</span>
+        <span class="card-chip chip-danger">⚠ Perigo → perigo +1</span>
+        <span class="card-chip chip-resource">◆ Recurso → +pontos e +tokens</span>
+        <span class="card-chip chip-event">★ Evento → surpresa (bom ou ruim)</span>
+      </div>
+      <div class="card-example">
+        Depois da resolução, a próxima rodada começa com novos tokens. Informações compartilhadas nas rodadas anteriores continuam relevantes — use para montar seu mapa mental.
+      </div>
+    </div>
+
+    <!-- Card 8: Confiança -->
+    <div class="tutorial-card">
+      <div class="card-header">
+        <span class="card-num">8</span>
+        <span class="card-title">CONFIANÇA</span>
+      </div>
+      <div class="card-body">
+        Cada jogador tem um score de <strong>confiança</strong> (0–100). Você não vê o número exato dos outros — apenas percebe se alguém parece confiável ou suspeito pelo comportamento. <strong>Se você duvida de alguém que estava dizendo a verdade, VOCÊ perde confiança.</strong> Se duvida de um mentiroso, ELE perde.
+      </div>
+      <div class="card-example">
+        Dica: Jogadores <strong>agressivos</strong> mentem mais. Jogadores <strong>cautiosos</strong> mentem menos. Mas ninguém é 100% confiável — nem você, porque suas próprias informações podem estar distorcidas.
+      </div>
+    </div>
+
+    <!-- Footer / Tips -->
+    <div class="tutorial-footer">
+      <div class="tape tape-t"></div>
+      <div class="card-title">DICAS DE SOBREVIVÊNCIA</div>
+      <div class="tutorial-tips">
+        <div class="tip"><strong>Compare informações.</strong> Se dois jogadores dizem coisas diferentes sobre a mesma célula, alguém está errado ou mentindo.</div>
+        <div class="tip"><strong>Não confie cegamente.</strong> Sua própria visão pode ter distorções. Alguém pode estar te corrigindo.</div>
+        <div class="tip"><strong>Tokens são escassos.</strong> Não gaste todos de uma vez. Às vezes, ouvir é mais valioso que falar.</div>
+        <div class="tip"><strong>Empate é derrota parcial.</strong> Coordene antes de votar. Dois votos desperdiçados são pior que uma aposta errada.</div>
+      </div>
+      <button id="btn-tutorial-start" class="btn btn-primary">ENTENDI — INICIAR JOGO</button>
+      <button id="btn-tutorial-back" class="btn btn-secondary" style="margin-top:.5rem">VOLTAR AO MENU</button>
+      <div class="tape tape-b"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     GAME SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<section id="screen-game" class="screen">
+  <header class="game-header">
+    <div class="round-box">
+      <span class="round-label">RODADA</span>
+      <span id="round-num" class="round-num">01</span>
+    </div>
+    <div class="status-bars">
+      <div class="bar-group">
+        <span class="bar-label">PLACAR</span>
+        <div class="bar-track"><div id="bar-score" class="bar-fill bar-score" style="width:0%"></div></div>
+        <span id="score-text" class="bar-value">0/10</span>
+      </div>
+      <div class="bar-group">
+        <span class="bar-label">PERIGOS</span>
+        <div class="bar-track"><div id="bar-danger" class="bar-fill bar-danger" style="width:0%"></div></div>
+        <span id="danger-text" class="bar-value">0/3</span>
+      </div>
+    </div>
+    <div class="radio-box">
+      <span class="radio-dot"></span>
+      <span id="radio-text">O rádio chiou. Algo mudou lá fora...</span>
+    </div>
+  </header>
+
+  <main class="game-main">
+    <!-- MAP -->
+    <div class="map-panel">
+      <div class="panel-title">SEU FRAGMENTO</div>
+      <div id="vis-count" class="panel-sub">Você enxerga ?/25 células</div>
+      <div id="map-grid" class="map-grid"></div>
+      <div class="map-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--safe-bg)"></span>Seguro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--danger-bg)"></span>Perigo</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--resource-bg)"></span>Recurso</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--event-bg)"></span>Evento</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#3a3a3a"></span>???</span>
+      </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel">
+      <div class="side-inner">
+        <!-- COMMS PHASE -->
+        <div id="phase-comms" class="phase">
+          <div class="panel-title">COMUNICAÇÃO</div>
+          <div class="panel-sub">Tokens restantes: <strong id="token-count">3</strong></div>
+          <div id="comms-log" class="comms-log"></div>
+          <div id="comms-actions" class="comms-actions">
+            <button class="btn-action" data-action="share">COMPARTILHAR</button>
+            <button class="btn-action" data-action="ask">PERGUNTAR</button>
+            <button class="btn-action" data-action="doubt">DUVIDAR</button>
+            <button class="btn-skip" data-action="skip">PULAR →</button>
+          </div>
+          <div id="action-prompt" class="action-prompt hidden"></div>
+        </div>
+
+        <!-- VOTE PHASE -->
+        <div id="phase-vote" class="phase" style="display:none">
+          <div class="panel-title">VOTAÇÃO</div>
+          <div class="panel-sub">Onde o grupo vai explorar?</div>
+          <div id="vote-options" class="vote-options"></div>
+          <div id="vote-tally" class="vote-tally" style="display:none"></div>
+        </div>
+
+        <!-- RESULT PHASE -->
+        <div id="phase-result" class="phase" style="display:none">
+          <div class="panel-title">RESULTADO</div>
+          <div id="result-narrative" class="result-narrative"></div>
+          <div class="next-btn-wrap">
+            <button id="btn-next" class="btn btn-primary">PRÓXIMA RODADA</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     END SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<section id="screen-end" class="screen">
+  <div class="end-card">
+    <div class="tape tape-t"></div>
+    <h1 id="end-title" class="win">VITÓRIA</h1>
+    <p id="end-sub" class="end-sub">O grupo sobreviveu à incerteza.</p>
+    <div id="end-stats" class="end-stats"></div>
+    <div class="end-subtitle">MAPA COMPLETO — A verdade que ninguém viu</div>
+    <div id="end-reveal" class="end-reveal"></div>
+    <div class="end-subtitle">CONFIANÇA FINAL</div>
+    <div id="end-trust" class="trust-list"></div>
+    <button id="btn-restart" class="btn btn-primary">JOGAR NOVAMENTE</button>
+    <div class="tape tape-b"></div>
+  </div>
+</section>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     JAVASCRIPT — MOTOR COMPLETO
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+
+/* ═══════════════════════════════════════════════════════════════════
+   CONFIG (DNA)
+   ═══════════════════════════════════════════════════════════════════ */
+const CFG = {
+  GRID: 5,
+  TOKENS: 3,
+  WIN_SCORE: 10,
+  MAX_DANGER: 3,
+  OPTIONS: 4,
+  DISTORT_RATE: 0.15,
+  KINDS: ['SAFE','DANGER','RESOURCE','EVENT'],
+  WEIGHTS: [0.35, 0.2, 0.25, 0.2],
+  MIN_VIS: 0.4,
+  MAX_VIS: 0.65,
+};
+
+const KIND_META = {
+  SAFE:     { label:'SEG', icon:'✓', short:'Seguro' },
+  DANGER:   { label:'PRG', icon:'⚠', short:'Perigo' },
+  RESOURCE: { label:'REC', icon:'◆', short:'Recurso' },
+  EVENT:    { label:'EVT', icon:'★', short:'Evento' },
+};
+
+const RADIOS = [
+  'O rádio chiou. Algo mudou lá fora...',
+  'Uma explosão distante. Ou foi trovão?',
+  'A luz piscou. Ninguém comenta.',
+  'Passos? Não. Deve ser o vento.',
+  'A bússola gira sem parar.',
+  'Silêncio. O tipo que pesa.',
+  'O chão tremeu. Breve, mas tremeu.',
+  'Alguém sussurrou. Não foi nenhum de vocês.',
+  'O rádio toca uma música antiga. Está ao contrário?',
+  'Cheiro de ozônio. Tempestade ou algo pior?',
+  'O mapa mudou. Ou vocês que não lembram?',
+  '3 baterias restantes. Aproveitem.',
+  'O sol nasceu errado. Ou parece.',
+  'Uma sombra passou pela janela. Rápida demais.',
+];
+
+/* ═══════════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════════ */
+const pick  = a => a[Math.floor(Math.random()*a.length)];
+const wait  = ms => new Promise(r=>setTimeout(r,ms));
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const rint  = (lo,hi) => lo+Math.floor(Math.random()*(hi-lo+1));
+
+function shuffle(a){
+  const b=[...a];
+  for(let i=b.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [b[i],b[j]]=[b[j],b[i]];
+  }
+  return b;
+}
+
+const LOC_NAMES = shuffle([
+  'Floresta Sussurrante','Ruínas Esquecidas','Caverna Profunda',
+  'Pântano Nebuloso','Planície Eterna','Montanha Escarlate',
+  'Rio Silencioso','Deserto Brilhante','Vilarejo Abandonado',
+  'Torre Sombria','Lago Congelado','Campo de Cinzas',
+  'Bosque Antigo','Pico da Névoa','Passagem Estreita',
+  'Clareira Dourada','Abismo Verde','Colina dos Ventos',
+  'Templo Partido','Trilha Oculta',
+]);
+
+/* ═══════════════════════════════════════════════════════════════════
+   GAME STATE
+   ═══════════════════════════════════════════════════════════════════ */
+let S = {};
+
+function freshState(){
+  return {
+    phase: 'title',
+    world: null,
+    players: null,
+    round: 0,
+    score: 0,
+    danger: 0,
+    bonusTokens: 0,
+    options: null,
+    log: [],
+    pendingAction: null,
+    askTarget: null,
+    selectedCell: null,
+    humanVoted: false,
+  };
+}
+
+function makeWorld(){
+  const g = [];
+  let cum = CFG.WEIGHTS.reduce((a,b)=>a+b,0);
+  for(let r=0;r<CFG.GRID;r++){
+    g[r]=[];
+    for(let c=0;c<CFG.GRID;c++){
+      let rand=Math.random()*cum, kind='SAFE';
+      for(let i=0;i<CFG.KINDS.length;i++){
+        rand -= CFG.WEIGHTS[i];
+        if(rand<=0){ kind=CFG.KINDS[i]; break; }
+      }
+      g[r][c] = { kind, value: rint(1,5), revealed:false };
+    }
+  }
+  return g;
+}
+
+function makeMask(){
+  const total = CFG.GRID*CFG.GRID;
+  const pos = shuffle(Array.from({length:total},(_,i)=>`${Math.floor(i/CFG.GRID)},${i%CFG.GRID}`));
+  const minV = Math.ceil(total*CFG.MIN_VIS);
+  const maxV = Math.ceil(total*CFG.MAX_VIS);
+  const vc = minV + Math.floor(Math.random()*(maxV-minV+1));
+  const visible = new Set(pos.slice(0,vc));
+  const vArr = [...visible];
+  const dN = Math.floor(vArr.length*CFG.DISTORT_RATE);
+  const distorted = new Map();
+  for(let i=0;i<dN;i++){
+    distorted.set(vArr[i], pick(CFG.KINDS));
+  }
+  return { visible, distorted };
+}
+
+function makePlayer(name, personality, isHuman){
+  return {
+    name, personality, isHuman,
+    mask: makeMask(),
+    tokens: CFG.TOKENS,
+    trust: isHuman ? 50 : personality==='cautious'?60 : personality==='aggressive'?40 : 50,
+    lastClaim: null,
+    vote: null,
+  };
+}
+
+function see(r,c,mask){
+  const k=`${r},${c}`;
+  if(!mask.visible.has(k)) return '???';
+  if(mask.distorted.has(k)) return mask.distorted.get(k);
+  return S.world[r][c].kind;
+}
+
+function human(){ return S.players[0]; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   DOM REFS
+   ═══════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const screenTitle    = $('screen-title');
+const screenTutorial = $('screen-tutorial');
+const screenGame     = $('screen-game');
+const screenEnd      = $('screen-end');
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCREEN MANAGEMENT
+   ═══════════════════════════════════════════════════════════════════ */
+function showScreen(el){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER — STATUS
+   ═══════════════════════════════════════════════════════════════════ */
+function renderStatus(){
+  $('round-num').textContent = String(S.round).padStart(2,'0');
+  $('bar-score').style.width  = (S.score/CFG.WIN_SCORE*100)+'%';
+  $('score-text').textContent = S.score+'/'+CFG.WIN_SCORE;
+  $('bar-danger').style.width = (S.danger/CFG.MAX_DANGER*100)+'%';
+  $('danger-text').textContent = S.danger+'/'+CFG.MAX_DANGER;
+  $('radio-text').textContent = pick(RADIOS);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER — MAP
+   ═══════════════════════════════════════════════════════════════════ */
+function renderMap(selectable=false, onSelect=null){
+  const grid = $('map-grid');
+  grid.innerHTML = '';
+  const mask = human().mask;
+  let visCount = 0;
+
+  for(let r=0;r<CFG.GRID;r++){
+    for(let c=0;c<CFG.GRID;c++){
+      const kind = see(r,c,mask);
+      if(kind!=='???') visCount++;
+      const cell = document.createElement('div');
+      const kindClass = kind==='???' ? 'unknown' : kind.toLowerCase();
+      cell.className = `map-cell ${kindClass}`;
+      if(S.selectedCell===`${r},${c}`) cell.classList.add('selected');
+
+      const meta = kind==='???' ? {icon:'?',label:'?'} : KIND_META[kind];
+      cell.innerHTML = `
+        <span class="cell-icon">${meta.icon}</span>
+        <span class="cell-pos">${r},${c}</span>
+      `;
+
+      if(selectable){
+        cell.addEventListener('click', ()=> onSelect(r,c,kind));
+      }
+      grid.appendChild(cell);
+    }
+  }
+  $('vis-count').textContent = `Você enxerga ${visCount}/${CFG.GRID*CFG.GRID} células`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER — LOG
+   ═══════════════════════════════════════════════════════════════════ */
+function addLog(html, cls='system'){
+  S.log.push({html, cls});
+  renderLog();
+}
+
+function renderLog(){
+  const el = $('comms-log');
+  el.innerHTML = '';
+  for(const entry of S.log){
+    const div = document.createElement('div');
+    div.className = `bubble ${entry.cls}`;
+    div.innerHTML = entry.html;
+    el.appendChild(div);
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER — PHASES
+   ═══════════════════════════════════════════════════════════════════ */
+function showPhase(name){
+  ['phase-comms','phase-vote','phase-result'].forEach(id=>{
+    $(id).style.display = 'none';
+  });
+  if(name==='comms')  $('phase-comms').style.display  = '';
+  if(name==='vote')   $('phase-vote').style.display   = '';
+  if(name==='result') $('phase-result').style.display = '';
+  S.phase = name;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GAME FLOW
+   ═══════════════════════════════════════════════════════════════════ */
+function startGame(){
+  S = freshState();
+  S.world = makeWorld();
+  S.players = [
+    makePlayer('Você','analytical',true),
+    makePlayer('Luna','cautious',false),
+    makePlayer('Kael','aggressive',false),
+    makePlayer('Sage','analytical',false),
+  ];
+  showScreen(screenGame);
+  nextRound();
+}
+
+function nextRound(){
+  S.round++;
+  S.log = [];
+  S.selectedCell = null;
+  S.pendingAction = null;
+  S.askTarget = null;
+  S.humanVoted = false;
+
+  for(const p of S.players){
+    p.tokens = CFG.TOKENS + S.bonusTokens;
+    p.vote = null;
+  }
+  S.bonusTokens = 0;
+
+  renderStatus();
+  renderMap(false);
+  renderLog();
+  $('token-count').textContent = human().tokens;
+  $('action-prompt').classList.add('hidden');
+  showPhase('comms');
+
+  setTimeout(()=> aiShares(), 600);
+}
+
+function gameOver(){
+  return S.score >= CFG.WIN_SCORE || S.danger >= CFG.MAX_DANGER;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMMUNICATION — AI
+   ═══════════════════════════════════════════════════════════════════ */
+async function aiShares(){
+  const ai = S.players.filter(p=>!p.isHuman);
+  for(const p of ai){
+    if(Math.random()<0.55 && p.tokens>0){
+      const vis = [...p.mask.visible];
+      if(vis.length>0){
+        const cell = pick(vis);
+        const [r,c] = cell.split(',').map(Number);
+        const seen = see(r,c,p.mask);
+        const isDist = p.mask.distorted.has(cell);
+        if(seen!=='???'){
+          p.tokens--;
+          p.lastClaim = {cell, kind:seen};
+          const hint = isDist ? ' <em>(algo parece… estranho)</em>' : ' <em>(parece consistente)</em>';
+          addLog(`<span class="speaker">${p.name}:</span> "Vejo <strong>${seen}</strong> em [${cell}]."${hint}`, p.name.toLowerCase());
+          await wait(400);
+        }
+      }
+    }
+  }
+  if(S.log.length===0){
+    addLog('Ninguém diz nada. O silêncio pesa.');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMMUNICATION — HUMAN ACTIONS
+   ═══════════════════════════════════════════════════════════════════ */
+function refreshTokens(){ $('token-count').textContent = human().tokens; }
+
+function clearAction(){
+  S.pendingAction = null;
+  S.askTarget = null;
+  S.selectedCell = null;
+  $('action-prompt').classList.add('hidden');
+  document.querySelectorAll('.btn-action').forEach(b=>b.classList.remove('active'));
+  renderMap(false);
+}
+
+function handleAction(action){
+  if(human().tokens<=0){
+    addLog('<span class="speaker">Você:</span> Sem tokens restantes.','you');
+    return;
+  }
+
+  clearAction();
+
+  if(action==='skip'){
+    startVoting();
+    return;
+  }
+
+  S.pendingAction = action;
+  document.querySelector(`[data-action="${action}"]`).classList.add('active');
+  const prompt = $('action-prompt');
+  prompt.classList.remove('hidden');
+
+  if(action==='share'){
+    prompt.innerHTML = '👆 <strong>Clique numa célula do mapa</strong> para compartilhar o que vê.';
+    renderMap(true, doShare);
+  }
+  else if(action==='ask'){
+    prompt.innerHTML = 'Escolha um jogador para perguntar:';
+    const div = document.createElement('div');
+    div.className = 'player-select';
+    S.players.filter(p=>!p.isHuman).forEach(p=>{
+      const btn = document.createElement('button');
+      btn.className = 'player-btn';
+      if(p.trust<30) btn.classList.add('trust-low');
+      if(p.trust>70) btn.classList.add('trust-high');
+      btn.textContent = `${p.name} (${p.trust})`;
+      btn.addEventListener('click', ()=>{
+        S.askTarget = p;
+        prompt.innerHTML = `Perguntando a <strong>${p.name}</strong>. 👆 <strong>Clique numa célula</strong> do mapa.`;
+        renderMap(true, doAsk);
+      });
+      div.appendChild(btn);
+    });
+    prompt.appendChild(div);
+  }
+  else if(action==='doubt'){
+    prompt.innerHTML = 'Escolha quem duvidar:';
+    const div = document.createElement('div');
+    div.className = 'player-select';
+    S.players.filter(p=>!p.isHuman).forEach(p=>{
+      const btn = document.createElement('button');
+      btn.className = 'player-btn';
+      if(p.lastClaim) btn.textContent = `${p.name} (afirmou algo)`;
+      else btn.textContent = `${p.name} (sem afirmação)`;
+      btn.addEventListener('click', ()=> doDoubt(p));
+      div.appendChild(btn);
+    });
+    prompt.appendChild(div);
+  }
+}
+
+function doShare(r,c){
+  const p = human();
+  if(p.tokens<=0) return;
+  p.tokens--;
+  refreshTokens();
+
+  const cell = `${r},${c}`;
+  const seen = see(r,c,p.mask);
+  const isDist = p.mask.distorted.has(cell);
+
+  if(seen==='???'){
+    addLog('<span class="speaker">Você:</span> "Não consigo ver ['+cell+']. Está oculto para mim."','you');
+  } else {
+    p.lastClaim = {cell, kind:seen};
+    const hint = isDist ? ' <em>(você não tem certeza…)</em>' : '';
+    addLog(`<span class="speaker">Você:</span> "Vejo <strong>${seen}</strong> em [${cell}]."${hint}`,'you');
+  }
+  clearAction();
+  renderMap(false);
+}
+
+function doAsk(r,c){
+  const src = human();
+  const tgt = S.askTarget;
+  if(!tgt || src.tokens<=0) return;
+  src.tokens--;
+  refreshTokens();
+
+  const cell = `${r},${c}`;
+  const targetSees = see(r,c,tgt.mask);
+
+  if(targetSees==='???'){
+    addLog(`<span class="speaker">${tgt.name}:</span> sobre [${cell}]: "Não consigo ver essa área."`, tgt.name.toLowerCase());
+  } else {
+    const baseChance = tgt.personality==='aggressive' ? 0.35 : 0.1;
+    const trustMod = tgt.trust<30 ? 0.15 : tgt.trust>70 ? -0.1 : 0;
+    const willLie = Math.random() < baseChance + trustMod;
+
+    if(willLie){
+      const lie = pick(CFG.KINDS.filter(k=>k!==targetSees));
+      tgt.lastClaim = {cell, kind:lie};
+      addLog(`<span class="speaker">${tgt.name}:</span> sobre [${cell}]: "<strong>${lie}</strong>" <em>(algo parece… estranho)</em>`, tgt.name.toLowerCase());
+    } else {
+      tgt.lastClaim = {cell, kind:targetSees};
+      addLog(`<span class="speaker">${tgt.name}:</span> sobre [${cell}]: "<strong>${targetSees}</strong>"`, tgt.name.toLowerCase());
+    }
+  }
+  clearAction();
+  renderMap(false);
+}
+
+function doDoubt(tgt){
+  const src = human();
+  if(src.tokens<=0) return;
+  src.tokens--;
+  refreshTokens();
+
+  if(!tgt.lastClaim){
+    addLog(`<span class="speaker">Você:</span> duvida de ${tgt.name}… mas não havia afirmação. Token desperdiçado.`,'you');
+    clearAction();
+    return;
+  }
+
+  const [r,c] = tgt.lastClaim.cell.split(',').map(Number);
+  const truth = S.world[r][c].kind;
+  const honest = truth===tgt.lastClaim.kind;
+
+  if(honest){
+    src.trust = Math.max(0, src.trust-8);
+    addLog(`<strong style="color:var(--safe)">${tgt.name} estava dizendo a VERDADE!</strong> Você perde credibilidade. (sua confiança: ${src.trust})`);
+  } else {
+    tgt.trust = Math.max(0, tgt.trust-15);
+    addLog(`<strong style="color:var(--danger)">${tgt.name} MENTIU ou estava ERRADO!</strong> Afirmou ${tgt.lastClaim.kind}, mas é ${truth}. (confiança de ${tgt.name}: ${tgt.trust})`);
+  }
+
+  clearAction();
+  renderMap(false);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   VOTING
+   ═══════════════════════════════════════════════════════════════════ */
+function startVoting(){
+  clearAction();
+  showPhase('vote');
+
+  const used = new Set();
+  const opts = [];
+  let ni = 0;
+  while(opts.length<CFG.OPTIONS){
+    const r = Math.floor(Math.random()*CFG.GRID);
+    const c = Math.floor(Math.random()*CFG.GRID);
+    const k = `${r},${c}`;
+    if(used.has(k)) continue;
+    used.add(k);
+    opts.push({ id:'opt'+opts.length, label:LOC_NAMES[ni++], row:r, col:c });
+  }
+  S.options = opts;
+  S.humanVoted = false;
+
+  renderVoteCards();
+  $('vote-tally').style.display = 'none';
+}
+
+function renderVoteCards(){
+  const cont = $('vote-options');
+  cont.innerHTML = '';
+  const mask = human().mask;
+
+  S.options.forEach((o,i)=>{
+    const vis = see(o.row, o.col, mask);
+    const hint = vis!=='???' ? `Você vê: ${vis}` : 'Desconhecido';
+    const card = document.createElement('div');
+    card.className = 'vote-card';
+    card.innerHTML = `
+      <div>
+        <div class="vote-name">${i+1}. ${o.label}</div>
+        <div class="vote-hint">[${o.row},${o.col}] — ${hint}</div>
+      </div>
+    `;
+    card.addEventListener('click', ()=> castVote(o.id, card));
+    cont.appendChild(card);
+  });
+}
+
+function castVote(optId, cardEl){
+  if(S.humanVoted) return;
+  S.humanVoted = true;
+  human().vote = optId;
+
+  document.querySelectorAll('.vote-card').forEach(c=>c.classList.remove('chosen'));
+  cardEl.classList.add('chosen');
+
+  setTimeout(()=>{
+    const ai = S.players.filter(p=>!p.isHuman);
+    ai.forEach(p=>{ p.vote = aiVote(p); });
+    showVoteResults();
+  }, 800);
+}
+
+function aiVote(p){
+  const scored = S.options.map(o=>{
+    const seen = see(o.row, o.col, p.mask);
+    let s = 0;
+    if(p.personality==='cautious'){
+      if(seen==='SAFE')s+=5; if(seen==='RESOURCE')s+=3;
+      if(seen==='DANGER')s-=4; if(seen==='EVENT')s-=1;
+      if(seen==='???')s+=1;
+    } else if(p.personality==='aggressive'){
+      if(seen==='RESOURCE')s+=6; if(seen==='EVENT')s+=3;
+      if(seen==='SAFE')s+=1; if(seen==='DANGER')s-=2;
+      if(seen==='???')s+=3;
+    } else {
+      if(seen==='SAFE')s+=3; if(seen==='RESOURCE')s+=4;
+      if(seen==='DANGER')s-=5; if(seen==='EVENT')s+=0;
+      if(seen==='???')s-=1;
+    }
+    s += rint(-1,1);
+    return {id:o.id, score:s};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  if(scored.length>1 && Math.random()<0.2) return scored[1].id;
+  return scored[0].id;
+}
+
+function showVoteResults(){
+  const tally = new Map();
+  for(const p of S.players){
+    if(!tally.has(p.vote)) tally.set(p.vote,[]);
+    tally.get(p.vote).push(p.name);
+  }
+
+  const el = $('vote-tally');
+  el.style.display = '';
+  let html = '<strong>Votos:</strong><br>';
+  for(const [id, voters] of tally){
+    const label = S.options.find(o=>o.id===id)?.label || '?';
+    html += `<div style="margin:.3rem 0"><strong>${label}:</strong> `;
+    voters.forEach(v=> html+=`<span class="voter">${v}</span> `);
+    html += '</div>';
+  }
+
+  let max=0, winner=null, atMax=0;
+  for(const [id,voters] of tally){
+    if(voters.length>max){ max=voters.length; winner=id; atMax=1; }
+    else if(voters.length===max){ atMax++; }
+  }
+  const tie = atMax>1;
+
+  if(tie){
+    html += `<br><strong style="color:var(--event)">EMPATE! O grupo não chega a um consenso.</strong>`;
+    el.innerHTML = html;
+    S.bonusTokens = -1;
+    setTimeout(()=>{
+      addLog('<strong>EMPATE!</strong> Todos perdem 1 token na próxima rodada.');
+      showPhase('result');
+      $('result-narrative').innerHTML = `
+        <span class="result-icon">⚖️</span>
+        O grupo ficou dividido. Ninguém se moveu.
+        <br><em>Penalidade: -1 token para todos na próxima rodada.</em>
+      `;
+      renderStatus();
+    }, 2000);
+  } else {
+    const chosen = S.options.find(o=>o.id===winner);
+    html += `<br><strong style="color:var(--safe)">Decisão: ${chosen.label}</strong>`;
+    el.innerHTML = html;
+
+    setTimeout(()=> resolveAction(chosen), 1500);
+  }
+}
+
+function resolveAction(opt){
+  const cell = S.world[opt.row][opt.col];
+  cell.revealed = true;
+
+  let icon='', narrative='', scoreDelta=0, dangerHit=false, bonusTk=0;
+
+  switch(cell.kind){
+    case 'SAFE':
+      icon = '✓';
+      scoreDelta = cell.value;
+      narrative = `A região é segura. O grupo avança cautelosamente e encontra recursos naturais. <strong style="color:var(--safe)">+${cell.value} pontos</strong>.`;
+      break;
+    case 'DANGER':
+      icon = '⚠';
+      dangerHit = true;
+      narrative = `<strong style="color:var(--danger)">PERIGO!</strong> Uma emboscada! O grupo sobrevive, mas a zona está marcada. <strong style="color:var(--danger)">Perigo +1</strong>.`;
+      break;
+    case 'RESOURCE':
+      icon = '◆';
+      scoreDelta = cell.value*2;
+      bonusTk = 1;
+      narrative = `<strong style="color:var(--resource)">RECURSOS!</strong> Provisões abundantes. <strong style="color:var(--resource)">+${cell.value*2} pontos</strong> e <strong>+1 token</strong> para todos na próxima rodada.`;
+      break;
+    case 'EVENT':
+      icon = '★';
+      const good = Math.random()>0.4;
+      if(good){
+        scoreDelta = cell.value;
+        narrative = `<strong style="color:var(--event)">EVENTO BENÉFICO!</strong> Uma descoberta inesperada. <strong style="color:var(--safe)">+${cell.value} pontos</strong>.`;
+      } else {
+        scoreDelta = -Math.min(cell.value,2);
+        dangerHit = true;
+        narrative = `<strong style="color:var(--event)">EVENTO ADVERSO!</strong> O ambiente reage mal. <strong style="color:var(--danger)">${scoreDelta} pontos</strong> e <strong>Perigo +1</strong>.`;
+      }
+      break;
+  }
+
+  S.score = Math.max(0, S.score+scoreDelta);
+  if(dangerHit) S.danger++;
+  if(bonusTk!==0) S.bonusTokens = bonusTk;
+
+  addLog(`<strong>${opt.label}</strong>: ${narrative}`);
+  renderStatus();
+
+  if(dangerHit){
+    document.querySelector('.game-header').classList.add('shake');
+    setTimeout(()=> document.querySelector('.game-header').classList.remove('shake'), 500);
+  }
+
+  showPhase('result');
+  renderMap(false);
+
+  if(gameOver()){
+    setTimeout(()=> endGame(), 1500);
+  } else {
+    $('result-narrative').innerHTML = `<span class="result-icon">${icon}</span>${narrative}`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   END GAME
+   ═══════════════════════════════════════════════════════════════════ */
+function endGame(){
+  showScreen(screenEnd);
+  const won = S.score >= CFG.WIN_SCORE;
+
+  $('end-title').textContent = won ? 'VITÓRIA' : 'DERROTA';
+  $('end-title').className = won ? 'win' : 'lose';
+  $('end-sub').textContent = won
+    ? 'O grupo sobreviveu à incerteza. Juntos, encontraram o caminho.'
+    : 'O território consumiu o grupo. A incerteza venceu.';
+
+  $('end-stats').innerHTML = `
+    <div class="stat-box"><span class="stat-label">PLACAR</span><span class="stat-value">${S.score}/${CFG.WIN_SCORE}</span></div>
+    <div class="stat-box"><span class="stat-label">PERIGOS</span><span class="stat-value">${S.danger}/${CFG.MAX_DANGER}</span></div>
+    <div class="stat-box"><span class="stat-label">RODADAS</span><span class="stat-value">${S.round}</span></div>
+  `;
+
+  const reveal = $('end-reveal');
+  reveal.innerHTML = '';
+  for(let r=0;r<CFG.GRID;r++){
+    for(let c=0;c<CFG.GRID;c++){
+      const cell = S.world[r][c];
+      const div = document.createElement('div');
+      div.className = `end-cell`;
+      div.style.background = cell.kind==='SAFE'?'var(--safe-bg)':cell.kind==='DANGER'?'var(--danger-bg)':cell.kind==='RESOURCE'?'var(--resource-bg)':'var(--event-bg)';
+      div.style.color = cell.kind==='SAFE'?'var(--safe-text)':cell.kind==='DANGER'?'var(--danger-text)':cell.kind==='RESOURCE'?'var(--resource-text)':'var(--event-text)';
+      div.textContent = KIND_META[cell.kind].icon;
+      reveal.appendChild(div);
+    }
+  }
+
+  const trustEl = $('end-trust');
+  trustEl.innerHTML = '';
+  for(const p of S.players){
+    const color = p.trust>60?'var(--safe)':p.trust>30?'var(--event)':'var(--danger)';
+    trustEl.innerHTML += `
+      <div class="trust-row">
+        <span class="trust-name">${p.name}</span>
+        <div class="trust-bar-track"><div class="trust-bar-fill" style="width:${p.trust}%;background:${color}"></div></div>
+        <span class="trust-val">${p.trust}</span>
+      </div>
+    `;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EVENT LISTENERS
+   ═══════════════════════════════════════════════════════════════════ */
+$('btn-start').addEventListener('click', startGame);
+$('btn-howto').addEventListener('click', ()=> showScreen(screenTutorial));
+$('btn-tutorial-start').addEventListener('click', startGame);
+$('btn-tutorial-back').addEventListener('click', ()=> showScreen(screenTitle));
+$('btn-restart').addEventListener('click', startGame);
+$('btn-next').addEventListener('click', ()=>{
+  if(gameOver()){ endGame(); return; }
+  nextRound();
+});
+
+document.querySelectorAll('.btn-action').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    handleAction(btn.dataset.action);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════════ */
+S = freshState();
+
+})();
+</script>
+</body>
+</html>

@@ -4,3 +4,4 @@ bin/
 .venv/
 
 *_save.json
+node_modules/

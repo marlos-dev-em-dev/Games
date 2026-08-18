@@ -1,0 +1,13 @@
+{
+  "name": "eu-nao-sei-nem-voce",
+  "version": "0.1.0",
+  "description": "Ninguém sabe. Nem você.",
+  "scripts": {
+    "start": "ts-node src/game.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.11.0"
+  }
+}

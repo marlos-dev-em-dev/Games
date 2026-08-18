@@ -3,29 +3,10 @@
 [ext_resource type="Script" uid="uid://b7rrqj8nuljld" path="res://entidade/Characters/player_guy.gd" id="1_6pcw7"]
 [ext_resource type="Texture2D" uid="uid://b6l74q7d2pxwq" path="res://Assets/Assets/Main Characters/Virtual Guy/Wall Jump (32x32).png" id="2_wulmo"]
 [ext_resource type="Texture2D" uid="uid://b5ur2boo12fd" path="res://Assets/Assets/Main Characters/Virtual Guy/Double Jump (32x32).png" id="3_dl4s6"]
+[ext_resource type="Texture2D" uid="uid://c2wtkhok1tvq6" path="res://Assets/Assets/Main Characters/Virtual Guy/Jump (32x32).png" id="4_3k367"]
 [ext_resource type="Texture2D" uid="uid://cwg01c3aqsbfp" path="res://Assets/Assets/Main Characters/Virtual Guy/Idle (32x32).png" id="4_uu06o"]
 [ext_resource type="Texture2D" uid="uid://bd60g8bn5l2u7" path="res://Assets/Assets/Main Characters/Virtual Guy/Run (32x32).png" id="5_lkq4h"]
 [ext_resource type="Texture2D" uid="uid://b0wpmpvm2024c" path="res://Assets/Assets/Main Characters/Virtual Guy/Hit (32x32).png" id="6_a5dvs"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_y6ocd"]
-atlas = ExtResource("2_wulmo")
-region = Rect2(0, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_o7q4g"]
-atlas = ExtResource("2_wulmo")
-region = Rect2(32, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_0k8rl"]
-atlas = ExtResource("2_wulmo")
-region = Rect2(64, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_47xur"]
-atlas = ExtResource("2_wulmo")
-region = Rect2(96, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_ukct5"]
-atlas = ExtResource("2_wulmo")
-region = Rect2(128, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_swvgf"]
 atlas = ExtResource("3_dl4s6")
@@ -94,6 +75,10 @@ region = Rect2(288, 0, 32, 32)
 [sub_resource type="AtlasTexture" id="AtlasTexture_gycs4"]
 atlas = ExtResource("4_uu06o")
 region = Rect2(320, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_573ka"]
+atlas = ExtResource("4_3k367")
+region = Rect2(0, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_utdub"]
 atlas = ExtResource("5_lkq4h")
@@ -171,28 +156,28 @@ region = Rect2(160, 0, 32, 32)
 atlas = ExtResource("6_a5dvs")
 region = Rect2(192, 0, 32, 32)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_y6ocd"]
+atlas = ExtResource("2_wulmo")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_o7q4g"]
+atlas = ExtResource("2_wulmo")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0k8rl"]
+atlas = ExtResource("2_wulmo")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_47xur"]
+atlas = ExtResource("2_wulmo")
+region = Rect2(96, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ukct5"]
+atlas = ExtResource("2_wulmo")
+region = Rect2(128, 0, 32, 32)
+
 [sub_resource type="SpriteFrames" id="SpriteFrames_af0o8"]
 animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_y6ocd")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_o7q4g")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_0k8rl")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_47xur")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_ukct5")
-}],
-"loop": 1,
-"name": &"before wall jump",
-"speed": 5.0
-}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_swvgf")
@@ -252,6 +237,14 @@ animations = [{
 }],
 "loop": 1,
 "name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_573ka")
+}],
+"loop": 1,
+"name": &"jump",
 "speed": 5.0
 }, {
 "frames": [{
@@ -320,6 +313,26 @@ animations = [{
 "loop": 1,
 "name": &"take damage",
 "speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_y6ocd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_o7q4g")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0k8rl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_47xur")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ukct5")
+}],
+"loop": 1,
+"name": &"wall jump",
+"speed": 5.0
 }]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_nkh0r"]
@@ -331,7 +344,7 @@ script = ExtResource("1_6pcw7")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1980512412]
 sprite_frames = SubResource("SpriteFrames_af0o8")
-animation = &"take damage"
+animation = &"double jump"
 autoplay = "idle"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=355961190]
@@ -340,3 +353,4 @@ shape = SubResource("CapsuleShape2D_nkh0r")
 debug_color = Color(0.5263674, 0.6483022, 0.3862147, 0.41960785)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=625185201]
+visible = false
