@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRREPLACEABLE</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#000;--win:rgba(0,0,50,0.95);--bdr:#4488ff;--bdr2:#88bbff;
+  --txt:#fff;--dim:#8888bb;--gold:#ffd700;--red:#ff4444;--grn:#44ff44;
+  --hp-mid:#ffaa00;--mp:#4488ff;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Press Start 2P',monospace;color:var(--txt);user-select:none}
+#game{width:100%;height:100%;position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center}
+.screen.active{display:flex}
+.ff{background:var(--win);border:3px solid var(--bdr);
+  box-shadow:inset 0 0 0 1px var(--bdr2),inset 0 0 30px rgba(0,0,80,0.5),0 0 20px rgba(68,136,255,0.15);
+  padding:16px;image-rendering:pixelated}
+
+/* TITLE */
+#title .logo{font-size:clamp(18px,4vw,36px);color:var(--gold);
+  text-shadow:0 0 30px rgba(255,215,0,0.4),0 2px 0 #aa8800;letter-spacing:6px;
+  animation:pulse 3s ease-in-out infinite}
+#title .sub{font-family:'VT323',monospace;font-size:clamp(14px,2.5vw,22px);
+  color:var(--dim);margin-top:20px;font-style:italic}
+#title .press{font-size:10px;margin-top:60px;animation:blink 1.2s step-start infinite}
+#title .credits{font-family:'VT323',monospace;font-size:14px;color:#555;margin-top:40px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+@keyframes shake{
+  0%,100%{transform:translate(0)}20%{transform:translate(-5px,3px)}
+  40%{transform:translate(5px,-3px)}60%{transform:translate(-3px,5px)}
+  80%{transform:translate(3px,-5px)}}
+@keyframes dmgFloat{0%{opacity:1;transform:translateY(0)}
+  100%{opacity:0;transform:translateY(-50px)}}
+@keyframes flashWhite{0%{filter:brightness(1)}50%{filter:brightness(4)}100%{filter:brightness(1)}}
+
+/* TRANSITION */
+#transition{position:absolute;inset:0;background:#000;z-index:999;pointer-events:none;opacity:0}
+
+/* GAME SCREEN */
+#game-screen{background:#000}
+#scene-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'VT323',monospace;font-size:20px;color:#333;flex-direction:column;gap:8px}
+#scene-bg .scene-text{opacity:0.4;text-align:center;line-height:1.6}
+
+/* PARTY STATUS */
+#party-hud{position:absolute;top:10px;right:10px;z-index:10}
+.hud-member{font-size:8px;margin-bottom:6px;text-align:right}
+.hud-member .name{color:var(--gold);margin-bottom:2px}
+.hud-bar{width:100px;height:6px;background:#222;border:1px solid #444;display:inline-block;vertical-align:middle}
+.hud-fill{height:100%;transition:width .5s ease}
+.hud-fill.high{background:linear-gradient(#44ff44,#22cc22)}
+.hud-fill.mid{background:linear-gradient(#ffaa00,#cc8800)}
+.hud-fill.low{background:linear-gradient(#ff4444,#cc2222)}
+
+/* DIALOG BOX */
+#dialog{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  width:min(92%,800px);z-index:20;min-height:120px}
+#dialog .namebox{position:absolute;top:-16px;left:16px;
+  background:var(--win);border:2px solid var(--bdr);padding:3px 14px;
+  font-size:10px;color:var(--gold);white-space:nowrap}
+#dialog .text{font-family:'VT323',monospace;font-size:20px;line-height:1.6;
+  min-height:60px;padding-top:8px}
+#dialog .indicator{position:absolute;bottom:8px;right:16px;
+  font-size:10px;animation:blink 1s step-start infinite;display:none}
+#dialog.hidden{display:none}
+
+/* CHOICE OVERLAY */
+#choice-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);
+  z-index:30;display:none;align-items:center;justify-content:center;flex-direction:column}
+#choice-overlay.active{display:flex}
+#choice-box{max-width:600px;width:90%}
+#choice-prompt{font-family:'VT323',monospace;font-size:20px;margin-bottom:16px;
+  color:var(--gold);text-align:center;line-height:1.4}
+#choice-options .opt{font-family:'VT323',monospace;font-size:18px;padding:10px 16px;
+  margin:4px 0;cursor:pointer;border:2px solid transparent;transition:all .15s}
+#choice-options .opt.sel{border-color:var(--bdr);background:rgba(68,136,255,0.15)}
+#choice-options .opt .cost{font-size:13px;color:var(--red);margin-top:4px}
+#choice-options .opt:hover{border-color:var(--bdr2)}
+
+/* BATTLE SCREEN */
+#battle{background:#000}
+#battle-canvas-wrap{flex:1;position:relative;display:flex;align-items:center;justify-content:center}
+#battle-canvas-wrap.shake{animation:shake .3s ease-in-out}
+#battle-canvas-wrap.flash{animation:flashWhite .15s ease}
+canvas{image-rendering:pixelated;max-width:100%;max-height:100%}
+
+/* BATTLE HUD */
+#battle-hud{position:absolute;bottom:0;left:0;right:0;z-index:10;
+  display:flex;flex-direction:column}
+#battle-bars{display:flex;gap:16px;padding:8px 16px;flex-wrap:wrap;justify-content:center}
+.b-bar{text-align:center;font-size:8px}
+.b-bar .bname{color:var(--gold);margin-bottom:3px}
+.b-bar .bhp{width:110px;height:6px;background:#222;border:1px solid #444;margin:0 auto}
+.b-bar .bhp-fill{height:100%;transition:width .4s ease}
+
+/* BATTLE MENU */
+#battle-menu-area{display:flex;gap:12px;padding:8px 16px 12px;justify-content:center;flex-wrap:wrap}
+#battle-menu .menu-title{font-size:9px;color:var(--gold);margin-bottom:8px}
+#battle-menu .mopt{font-size:11px;padding:5px 12px;cursor:pointer;border:2px solid transparent;transition:all .1s}
+#battle-menu .mopt.sel{border-color:var(--bdr);background:rgba(68,136,255,0.2)}
+#battle-menu .mopt:hover{border-color:var(--bdr2)}
+#battle-log{font-family:'VT323',monospace;font-size:16px;padding:4px 16px;
+  min-height:40px;color:var(--txt);text-align:center}
+
+/* DAMAGE NUMBERS */
+.dmg-num{position:absolute;font-family:'Press Start 2P';font-size:16px;
+  pointer-events:none;z-index:50;animation:dmgFloat 1s ease forwards;
+  text-shadow:2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000}
+.dmg-num.crit{font-size:22px;color:var(--gold)}
+.dmg-num.heal{color:var(--grn)}
+.dmg-num.normal{color:var(--red)}
+
+/* ENDING */
+#ending{background:#000;overflow-y:auto}
+#ending-content{max-width:700px;width:90%;padding:30px 0;text-align:center}
+#ending-content h2{color:var(--gold);font-size:clamp(14px,3vw,22px);margin-bottom:20px}
+#ending-content .e-section{text-align:left;margin:20px 0}
+#ending-content .e-section h3{font-size:10px;color:var(--bdr2);margin-bottom:10px}
+#ending-content .e-item{font-family:'VT323',monospace;font-size:18px;padding:3px 0}
+#ending-content .alive{color:var(--grn)}
+#ending-content .dead{color:var(--red)}
+#ending-content .final-msg{font-family:'VT323',monospace;font-size:22px;
+  color:var(--gold);margin:30px 0;line-height:1.5}
+#ending-content .replay{font-size:10px;margin-top:30px;cursor:pointer;
+  color:var(--bdr2);border:2px solid var(--bdr);display:inline-block;padding:10px 24px;
+  transition:all .2s}
+#ending-content .replay:hover{background:rgba(68,136,255,0.2)}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  #dialog .text{font-size:16px}
+  .ff{padding:10px}
+  #choice-box{width:95%}
+  canvas{width:100%!important;height:auto!important}
+}
+</style>
+</head>
+<body>
+<div id="game">
+
+<!-- TITLE SCREEN -->
+<div id="title" class="screen active">
+  <div class="logo">IRREPLACEABLE</div>
+  <div class="sub">"Tudo que voce perder, esta perdido."</div>
+  <div class="press">Pressione ENTER para comecar</div>
+  <div class="credits">Prototype v0.3 — Final Fantasy Edition</div>
+</div>
+
+<!-- GAME SCREEN (DIALOG) -->
+<div id="game-screen" class="screen">
+  <div id="scene-bg"><div class="scene-text" id="scene-text"></div></div>
+  <div id="party-hud" class="ff" style="padding:8px"></div>
+  <div id="dialog" class="ff hidden">
+    <div class="namebox" id="dlg-name"></div>
+    <div class="text" id="dlg-text"></div>
+    <div class="indicator" id="dlg-ind">▼</div>
+  </div>
+</div>
+
+<!-- CHOICE OVERLAY -->
+<div id="choice-overlay">
+  <div id="choice-box" class="ff">
+    <div id="choice-prompt"></div>
+    <div id="choice-options"></div>
+  </div>
+</div>
+
+<!-- BATTLE SCREEN -->
+<div id="battle" class="screen">
+  <div id="battle-canvas-wrap"><canvas id="bc"></canvas></div>
+  <div id="battle-hud">
+    <div id="battle-log" class="ff" style="border-bottom:none;padding-bottom:8px"></div>
+    <div id="battle-bars"></div>
+    <div id="battle-menu-area">
+      <div id="battle-menu" class="ff"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSITION -->
+<div id="transition"></div>
+
+<!-- ENDING SCREEN -->
+<div id="ending" class="screen">
+  <div id="ending-content"></div>
+</div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// SOUND ENGINE (Web Audio API — retro beeps)
+// ═══════════════════════════════════════════════════════════
+let audioCtx;
+function ensureAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+function beep(f,d,t='square',v=0.08){
+  ensureAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=t;o.frequency.value=f;g.gain.value=v;
+  o.connect(g);g.connect(audioCtx.destination);
+  o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);
+  o.stop(audioCtx.currentTime+d);
+}
+function sText(){beep(800,0.03,'square',0.04)}
+function sCursor(){beep(600,0.05,'square',0.06)}
+function sConfirm(){beep(800,0.05);setTimeout(()=>beep(1200,0.08),50)}
+function sCancel(){beep(300,0.08,'triangle',0.1)}
+function sHit(){beep(150,0.15,'sawtooth',0.12);beep(80,0.1,'square',0.1)}
+function sCrit(){beep(200,0.05);setTimeout(()=>beep(400,0.05),40);setTimeout(()=>beep(800,0.15),80)}
+function sHeal(){beep(400,0.1,'sine',0.08);setTimeout(()=>beep(600,0.1,'sine',0.08),80);setTimeout(()=>beep(900,0.15,'sine',0.08),160)}
+function sDeath(){beep(400,0.2,'sawtooth',0.1);setTimeout(()=>beep(200,0.3,'sawtooth',0.1),150)}
+function sVictory(){const n=[523,659,784,1047];n.forEach((f,i)=>setTimeout(()=>beep(f,0.2,'square',0.07),i*150))}
+function sSelect(){beep(500,0.04,'triangle',0.06)}
+
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const dice=(sides=20)=>Math.floor(Math.random()*sides)+1;
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+
+// Screen management
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById(id);
+  if(el)el.classList.add('active');
+}
+
+// Transition
+async function fade(ms=600){
+  const t=document.getElementById('transition');
+  t.style.transition=`opacity ${ms/2}ms`;
+  t.style.opacity='1';
+  await sleep(ms/2);
+  t.style.opacity='0';
+  await sleep(ms/2);
+}
+
+// ═══════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════
+const G={
+  player:null,
+  allies:[],
+  allEntities:[],
+  bonds:[],
+  flags:{},
+  log:[],
+  ch3Choice:null,
+  ch1Choice:null,
+};
+
+function makeChar(name,epithet,hp,atk,def,spd,colors){
+  return{uid:uid(),name,epithet,hp,maxHp:hp,atk,def,spd,alive:true,
+    colors,inventory:[],dead:false};
+}
+function makeItem(name,desc){
+  return{uid:uid(),name,desc,unique:true};
+}
+
+function addBond(src,tgt,type,intensity){
+  G.bonds.push({uid:uid(),src:src.uid,tgt:tgt.uid,type,intensity,
+    broken:false,reason:'',memories:[]});
+}
+function evolveBond(src,tgt,desc,delta){
+  const b=G.bonds.find(b=>!b.broken&&b.src===src.uid&&b.tgt===tgt.uid);
+  if(b){b.intensity=clamp(b.intensity+delta,0,1);b.memories.push({desc,delta});}
+}
+function breakBonds(uid,reason){
+  G.bonds.filter(b=>(b.src===uid||b.tgt===uid)&&!b.broken)
+    .forEach(b=>{b.broken=true;b.reason=reason;b.intensity=0;});
+}
+function getAlive(){return G.allEntities.filter(e=>e.alive)}
+function getDead(){return G.allEntities.filter(e=>!e.alive)}
+
+// ═══════════════════════════════════════════════════════════
+// SPRITE DATA (Pixel Art)
+// ═══════════════════════════════════════════════════════════
+const PAL={
+  '.':null,
+  H:'#3a3a5c',h:'#c0a060',S:'#e8b87a',s:'#c89a60',E:'#fff',e:'#222',
+  A:'#2a4a8a',a:'#1a3a6a',G:'#808090',g:'#606070',R:'#8b3030',r:'#6b2020',
+  P:'#2a2a3a',p:'#1a1a2a',B:'#8b7355',b:'#6b5335',M:'#5a3a6a',m:'#3a2a4a',
+  W:'#c0c0d0',w:'#909098',K:'#1a0a2e',k:'#2a1a3e',X:'#ff3333',x:'#cc1111',
+  O:'#ffd700',o:'#cc9900',C:'#e8d8c0',c:'#b8a890',T:'#2a6a3a',t:'#1a4a2a',
+  D:'#4a2a6a',d:'#3a1a4a',L:'#aaaacc',l:'#8888aa',
+};
+
+const SPR={
+  kael:['...HHH...','..HHHHH..','..HSSSH..','..SEeSe..','...sSs...',
+    '..AAAAA..','.AaAOAaA.','.A.AAA.A.','.A.AAA.A.','..PP.PP..','..PPPP...','..BB.BB..'],
+  lirael:['...hhhh..','..hhhhhh.','..hSSSh..','..SEeSe..','...sSs...',
+    '.MMMMMMM.','.MmMWMmM.','.M.MMM.M.','..MMMMM..','..MmMmM..','..mMmMm..','...BBB...'],
+  gorath:['..GGGGG..','.GGGGGGG.','.GgSSSgG.','..SEeSe..','...sSs...',
+    '.GGGGGGG.','.GgGRGgG.','.G.GGG.G.','..GGGGG..','..PP.PP..','..PPPP...','..BB.BB..'],
+  voss:['...CCC...','..cCCcc..','..CSSSc..','..SEeSe..','...sSs...',
+    '..CCCCC..','.CcCCCcC.','.C.CCC.C.','..CCCCC..','..cCCCc..','..cCcCc..','...BBB...'],
+  shadow:['..KKKKK..','.KKKKKKK.','.KkKkKkK.','.KXXXXXXK','.KXXkXXkK',
+    '.KKKKKKK.','.KKkKkKK.','..KKKKK..','.KkKKKkK.','KKkkkkkKK','.kk...kk.','.........'],
+  ocos:['.KK..KK.','.KK..KK.','.KKKKKK.','.KKKKKK.','.KXXXXXK',
+    '.KXkXkXK','.KKKKKK.','.KkKKkK.','KKKKKKKK','KKKKKKKK','.KKkKkKK.',
+    '.KKKKKK.','.KK..KK.','.KK..KK.','KKK..KKK','.........'],
+};
+
+function drawSprite(ctx,key,x,y,scale){
+  const data=SPR[key];if(!data)return;
+  for(let r=0;r<data.length;r++){
+    for(let c=0;c<data[r].length;c++){
+      const col=PAL[data[r][c]];
+      if(!col)continue;
+      ctx.fillStyle=col;
+      ctx.fillRect(x+c*scale,y+r*scale,scale,scale);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CANVAS DRAWING
+// ═══════════════════════════════════════════════════════════
+const CW=800,CH=400;
+let bc,bctx,bAnimId=null,battleSprites={allies:[],enemies:[],effects:[]};
+
+function initCanvas(){
+  bc=document.getElementById('bc');
+  bc.width=CW;bc.height=CH;
+  bctx=bc.getContext('2d');
+}
+
+function drawBg(type,t){
+  const ctx=bctx,w=CW,h=CH;
+  if(type==='cabin'){
+    ctx.fillStyle='#1a1008';ctx.fillRect(0,0,w,h);
+    // Walls
+    for(let i=0;i<10;i++){ctx.fillStyle=i%2?'#2a1a0a':'#221408';
+      ctx.fillRect(i*(w/10),0,w/10,h);}
+    // Window
+    ctx.fillStyle='#0a0a3a';ctx.fillRect(w*0.6,h*0.15,w*0.15,h*0.25);
+    ctx.strokeStyle='#8b7355';ctx.lineWidth=3;ctx.strokeRect(w*0.6,h*0.15,w*0.15,h*0.25);
+    ctx.fillStyle='rgba(100,120,200,0.08)';
+    ctx.fillRect(w*0.6,h*0.15,w*0.15,h*0.25);
+    // Lamp
+    const flicker=Math.sin(t*0.01)*0.15+0.85;
+    ctx.fillStyle=`rgba(255,180,60,${0.12*flicker})`;
+    ctx.beginPath();ctx.arc(w*0.35,h*0.3,80,0,Math.PI*2);ctx.fill();
+    // Table
+    ctx.fillStyle='#3a2a18';ctx.fillRect(w*0.25,h*0.55,w*0.3,h*0.04);
+    ctx.fillRect(w*0.28,h*0.59,w*0.03,h*0.15);
+    ctx.fillRect(w*0.49,h*0.59,w*0.03,h*0.15);
+  }else if(type==='forest'){
+    const sky=ctx.createLinearGradient(0,0,0,h*0.55);
+    sky.addColorStop(0,'#050510');sky.addColorStop(1,'#0a1a0a');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,w,h*0.55);
+    ctx.fillStyle='#060e06';ctx.fillRect(0,h*0.55,w,h*0.45);
+    // Trees
+    ctx.fillStyle='#030a03';
+    for(let i=0;i<7;i++){
+      const tx=w*0.07+i*w*0.14,th=90+Math.sin(i*2.3)*30;
+      ctx.fillRect(tx-4,h*0.55-th,8,th);
+      ctx.beginPath();ctx.moveTo(tx-22,h*0.55-th+15);
+      ctx.lineTo(tx,h*0.55-th-25);ctx.lineTo(tx+22,h*0.55-th+15);ctx.fill();
+    }
+    // Fog
+    for(let i=0;i<4;i++){
+      const fx=((t*0.015+i*250)%(w+300))-150;
+      ctx.fillStyle='rgba(60,80,60,0.06)';
+      ctx.beginPath();ctx.ellipse(fx,h*0.45,100,15,0,0,Math.PI*2);ctx.fill();
+    }
+  }else if(type==='void'){
+    ctx.fillStyle='#06020e';ctx.fillRect(0,0,w,h);
+    // Stars
+    for(let i=0;i<30;i++){
+      const sx=(i*137.5+t*0.01*(i%3+1))%w,sy=(i*97.3)%h;
+      const bright=0.3+Math.sin(t*0.005+i)*0.2;
+      ctx.fillStyle=`rgba(200,180,255,${bright})`;
+      ctx.fillRect(sx,sy,2,2);
+    }
+    // Void rift
+    const pulse=Math.sin(t*0.003)*0.3+0.5;
+    const grd=ctx.createRadialGradient(w*0.5,h*0.4,10,w*0.5,h*0.4,200);
+    grd.addColorStop(0,`rgba(80,20,120,${pulse*0.3})`);
+    grd.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,w,h);
+  }
+}
+
+function startBattleRender(allies,enemies,bg){
+  battleSprites={allies:allies.map((a,i)=>({
+    char:a,x:CW*0.62+i*90,y:CH*0.35-i*5,sprite:a.colors?.sprite||'kael',visible:true,flash:0
+  })),enemies:enemies.map((e,i)=>({
+    char:e,x:CW*0.1+i*100,y:CH*0.28,sprite:e.colors?.sprite||'shadow',visible:true,flash:0
+  })),effects:[],bg};
+  function render(t){
+    bctx.clearRect(0,0,CW,CH);
+    drawBg(bg,t);
+    // Ground line
+    bctx.fillStyle='rgba(255,255,255,0.05)';
+    bctx.fillRect(0,CH*0.7,CW,1);
+    // Sprites
+    for(const s of battleSprites.enemies){
+      if(!s.visible)continue;
+      if(s.flash>0){bctx.globalAlpha=0.3+s.flash*0.7;s.flash-=0.05;}
+      else bctx.globalAlpha=1;
+      const sc=s.sprite==='ocos'?5:4;
+      drawSprite(bctx,s.sprite,s.x,s.y,sc);
+    }
+    for(const s of battleSprites.allies){
+      if(!s.visible)continue;
+      if(s.flash>0){bctx.globalAlpha=0.3+s.flash*0.7;s.flash-=0.05;}
+      else bctx.globalAlpha=1;
+      drawSprite(bctx,s.sprite,s.x,s.y,4);
+    }
+    bctx.globalAlpha=1;
+    // Effects
+    battleSprites.effects=battleSprites.effects.filter(e=>{
+      const age=t-e.start;
+      if(age>e.dur)return false;
+      const p=age/e.dur;
+      if(e.type==='slash'){
+        bctx.strokeStyle=`rgba(255,255,255,${1-p})`;bctx.lineWidth=3;
+        bctx.beginPath();bctx.moveTo(e.x-20,e.y-20*p);bctx.lineTo(e.x+20,e.y+20*p);bctx.stroke();
+        bctx.beginPath();bctx.moveTo(e.x+20,e.y-20*p);bctx.lineTo(e.x-20,e.y+20*p);bctx.stroke();
+      }else if(e.type==='heal'){
+        bctx.fillStyle=`rgba(68,255,68,${0.6*(1-p)})`;
+        bctx.beginPath();bctx.arc(e.x,e.y-p*40,15*(1-p*0.5),0,Math.PI*2);bctx.fill();
+      }else if(e.type==='dark'){
+        bctx.fillStyle=`rgba(60,20,100,${0.5*(1-p)})`;
+        bctx.beginPath();bctx.arc(e.x,e.y,30*p,0,Math.PI*2);bctx.fill();
+      }
+      return true;
+    });
+    bAnimId=requestAnimationFrame(render);
+  }
+  if(bAnimId)cancelAnimationFrame(bAnimId);
+  bAnimId=requestAnimationFrame(render);
+}
+function stopBattleRender(){if(bAnimId){cancelAnimationFrame(bAnimId);bAnimId=null;}}
+
+// ═══════════════════════════════════════════════════════════
+// UI — DIALOG SYSTEM
+// ═══════════════════════════════════════════════════════════
+let inputResolve=null;
+document.addEventListener('keydown',e=>{
+  if(inputResolve){
+    if(e.key==='Enter'||e.key===' '){const r=inputResolve;inputResolve=null;r();}
+  }
+});
+function waitInput(){return new Promise(r=>{
+  if(inputResolve)return;
+  inputResolve=r;
+  const handler=()=>{document.removeEventListener('click',handler);
+    if(inputResolve){const r2=inputResolve;inputResolve=null;r2();}};
+  setTimeout(()=>document.addEventListener('click',handler,{once:true}),100);
+})}
+
+function setSceneText(txt){const el=document.getElementById('scene-text');if(el)el.textContent=txt;}
+
+function updatePartyHUD(){
+  const hud=document.getElementById('party-hud');
+  hud.innerHTML=G.allies.map(a=>{
+    const pct=a.maxHp>0?(a.hp/a.maxHp*100):0;
+    const cls=pct>50?'high':pct>25?'mid':'low';
+    return`<div class="hud-member"><div class="name">${a.name}</div>
+      <div class="hud-bar"><div class="hud-fill ${cls}" style="width:${pct}%"></div></div>
+      <span style="font-size:7px;margin-left:4px">${a.hp}/${a.maxHp}</span></div>`;
+  }).join('');
+}
+
+async function dialog(name,text){
+  const box=document.getElementById('dialog');
+  const nameEl=document.getElementById('dlg-name');
+  const textEl=document.getElementById('dlg-text');
+  const ind=document.getElementById('dlg-ind');
+
+  box.classList.remove('hidden');
+  nameEl.textContent=name;
+  textEl.textContent='';
+  ind.style.display='none';
+
+  // Wrap text for display
+  for(let i=0;i<text.length;i++){
+    textEl.textContent+=text[i];
+    if(i%3===0)sText();
+    await sleep(25);
+  }
+  ind.style.display='block';
+  sConfirm();
+  await waitInput();
+  box.classList.add('hidden');
+}
+
+async function choiceScene(prompt,opts){
+  const overlay=document.getElementById('choice-overlay');
+  const promptEl=document.getElementById('choice-prompt');
+  const optsEl=document.getElementById('choice-options');
+
+  overlay.classList.add('active');
+  promptEl.textContent=prompt;
+
+  let sel=0;
+  function render(){
+    optsEl.innerHTML=opts.map((o,i)=>`<div class="opt ${i===sel?'sel':''}">
+      ${i===sel?'▶ ':'  '}${o.label}
+      ${o.cost?`<div class="cost">Custo: ${o.cost}</div>`:''}
+      </div>`).join('');
+  }
+  render();
+
+  return new Promise(resolve=>{
+    function handler(e){
+      if(e.key==='ArrowUp'){sel=Math.max(0,sel-1);sCursor();render();}
+      else if(e.key==='ArrowDown'){sel=Math.min(opts.length-1,sel+1);sCursor();render();}
+      else if(e.key==='Enter'||e.key===' '){
+        overlay.classList.remove('active');
+        sConfirm();
+        document.removeEventListener('keydown',handler);
+        resolve(sel);
+      }
+    }
+    document.addEventListener('keydown',handler);
+    // Click support
+    optsEl.querySelectorAll('.opt').forEach((el,i)=>{
+      el.addEventListener('click',()=>{
+        sel=i;render();
+        setTimeout(()=>{
+          overlay.classList.remove('active');sConfirm();resolve(sel);
+        },150);
+      });
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI — BATTLE SYSTEM
+// ═══════════════════════════════════════════════════════════
+function updateBattleBars(){
+  const el=document.getElementById('battle-bars');
+  const all=[...G.allies,...battleSprites.enemies.map(s=>s.char)];
+  el.innerHTML=all.filter(a=>a.alive).map(a=>{
+    const pct=a.maxHp>0?(a.hp/a.maxHp*100):0;
+    const cls=pct>50?'high':pct>25?'mid':'low';
+    return`<div class="b-bar"><div class="bname">${a.name}</div>
+      <div class="bhp"><div class="bhp-fill ${cls}" style="width:${pct}%"></div></div>
+      <div style="font-size:7px;margin-top:2px">${a.hp}/${a.maxHp}</div></div>`;
+  }).join('');
+}
+
+function showBattleLog(msg){document.getElementById('battle-log').textContent=msg;}
+
+function showDmgOnSprite(targetIdx,isEnemy,amount,crit=false,heal=false){
+  const sp=isEnemy?battleSprites.enemies[targetIdx]:battleSprites.allies[targetIdx];
+  if(!sp)return;
+  const el=document.createElement('div');
+  el.className='dmg-num '+(crit?'crit':heal?'heal':'normal');
+  el.textContent=(heal?'+':'-')+amount;
+  el.style.left=(sp.x+bc.getBoundingClientRect().left-10)+'px';
+  el.style.top=(sp.y+bc.getBoundingClientRect().top-20)+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1000);
+}
+
+function flashSprite(targetIdx,isEnemy){
+  const sp=isEnemy?battleSprites.enemies[targetIdx]:battleSprites.allies[targetIdx];
+  if(sp)sp.flash=1;
+}
+
+async function battleTurn(char,isAlly,allies,enemies){
+  if(!char.alive)return;
+
+  if(isAlly){
+    // Show menu
+    const menuEl=document.getElementById('battle-menu');
+    const opts=['ATACAR','DEFENDER','FUGIR'];
+    let sel=0;
+
+    function renderMenu(){
+      menuEl.innerHTML=`<div class="menu-title">${char.name}</div>`+
+        opts.map((o,i)=>`<div class="mopt ${i===sel?'sel':''}">${i===sel?'▶ ':'  '}${o}</div>`).join('');
+    }
+    renderMenu();
+
+    const action=await new Promise(resolve=>{
+      function handler(e){
+        if(e.key==='ArrowUp'){sel=Math.max(0,sel-1);sCursor();renderMenu();}
+        else if(e.key==='ArrowDown'){sel=Math.min(opts.length-1,sel+1);sCursor();renderMenu();}
+        else if(e.key==='Enter'||e.key===' '){
+          document.removeEventListener('keydown',handler);sConfirm();resolve(sel);
+        }
+      }
+      document.addEventListener('keydown',handler);
+      menuEl.querySelectorAll('.mopt').forEach((el,i)=>{
+        el.addEventListener('click',()=>{sel=i;renderMenu();
+          setTimeout(()=>{document.removeEventListener('keydown',handler);sConfirm();resolve(i);},100);});
+      });
+    });
+
+    if(action===0){ // Attack
+      const aliveEnemies=enemies.filter(e=>e.alive);
+      const target=aliveEnemies[0];
+      const tIdx=enemies.indexOf(target);
+      await resolveAttack(char,target,tIdx,true);
+    }else if(action===1){ // Defend
+      showBattleLog(`${char.name} assume postura defensiva.`);
+      char._defending=true;
+      await sleep(800);
+    }else if(action===2){ // Flee
+      showBattleLog(`Nao ha para onde fugir.`);
+      await sleep(800);
+    }
+    menuEl.innerHTML='';
+  }else{
+    // Enemy AI — attack lowest HP ally
+    const aliveAllies=allies.filter(a=>a.alive);
+    if(aliveAllies.length===0)return;
+    const target=aliveAllies.reduce((a,b)=>a.hp<b.hp?a:b);
+    const tIdx=allies.indexOf(target);
+    await resolveAttack(char,target,tIdx,false);
+  }
+}
+
+async function resolveAttack(atk,def,defIdx,atkIsAlly){
+  const roll=dice(20);
+  const isCrit=roll>=18;
+  const isMiss=roll<=2;
+
+  flashSprite(atkIsAlly?G.allies.indexOf(atk):battleSprites.enemies.findIndex(s=>s.char===atk),!atkIsAlly);
+
+  if(isMiss){
+    showBattleLog(`${atk.name} erra o ataque! (${roll})`);
+    sCancel();await sleep(600);return;
+  }
+
+  let dmg=Math.max(1,atk.atk-def.def+Math.floor(Math.random()*4));
+  if(isCrit)dmg=Math.floor(dmg*2);
+  if(def._defending){dmg=Math.floor(dmg*0.4);def._defending=false;}
+
+  def.hp=Math.max(0,def.hp-dmg);
+
+  const wrap=document.getElementById('battle-canvas-wrap');
+
+  if(isCrit){
+    showBattleLog(`GOLPE CRITICO! ${atk.name} → ${def.name} (-${dmg}) [${roll}]`);
+    sCrit();wrap.classList.add('flash');flashSprite(defIdx,!atkIsAlly);
+    await sleep(200);wrap.classList.remove('flash');
+  }else{
+    showBattleLog(`${atk.name} ataca ${def.name}. (-${dmg}) [${roll}]`);
+    sHit();wrap.classList.add('shake');flashSprite(defIdx,!atkIsAlly);
+    await sleep(200);wrap.classList.remove('shake');
+  }
+
+  showDmgOnSprite(defIdx,!atkIsAlly,dmg,isCrit);
+
+  updateBattleBars();
+  await sleep(400);
+
+  if(def.hp<=0){
+    def.alive=false;def.dead=true;
+    sDeath();
+    showBattleLog(`${def.name} caiu. PERMANENTEMENTE.`);
+    breakBonds(def.uid,`Morte em combate`);
+    // Hide sprite
+    const spList=atkIsAlly?battleSprites.enemies:battleSprites.allies;
+    const sp=spList[defIdx];
+    if(sp)sp.visible=false;
+    await sleep(800);
+  }
+}
+
+async function runBattle(enemies,allies,bg,stakes){
+  showScreen('battle');
+  document.getElementById('battle').style.display='flex';
+  await fade(400);
+
+  setSceneText(stakes);
+
+  startBattleRender(allies,enemies,bg);
+  updateBattleBars();
+
+  showBattleLog(`COMBATE INICIADO — ${stakes}`);
+  await sleep(1000);
+
+  const combatants=[...allies,...enemies];
+  let round=0;
+
+  while(allies.some(a=>a.alive)&&enemies.some(e=>e.alive)){
+    round++;
+    const turnOrder=combatants.filter(c=>c.alive).sort((a,b)=>b.spd-a.spd);
+
+    for(const c of turnOrder){
+      if(!c.alive)continue;
+      if(!allies.some(a=>a.alive)||!enemies.some(e=>e.alive))break;
+      const isAlly=allies.includes(c);
+      await battleTurn(c,isAlly,allies,enemies);
+    }
+  }
+
+  const won=enemies.every(e=>!e.alive);
+  if(won){
+    showBattleLog(`VITORIA!`);
+    sVictory();
+  }else{
+    showBattleLog(`DERROTA...`);
+    sDeath();
+  }
+  await sleep(1500);
+
+  stopBattleRender();
+  document.getElementById('battle-menu').innerHTML='';
+  return won;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PARTY HUD (for game screen)
+// ═══════════════════════════════════════════════════════════
+function showPartyHUD(){updatePartyHUD();document.getElementById('party-hud').style.display='block';}
+function hidePartyHUD(){document.getElementById('party-hud').style.display='none';}
+
+// ═══════════════════════════════════════════════════════════
+// ENDING SCREEN
+// ═══════════════════════════════════════════════════════════
+async function showEnding(){
+  showScreen('ending');
+  await fade(800);
+
+  const alive=G.allEntities.filter(e=>e.alive);
+  const dead=G.allEntities.filter(e=>!e.alive);
+  const broken=G.bonds.filter(b=>b.broken);
+  const active=G.bonds.filter(b=>!b.broken);
+
+  const playerAlive=G.player.alive;
+
+  let finalMsg='';
+  if(playerAlive&&alive.length>3)finalMsg='Voce sobreviveu. E trouxe outros junto. Nao e perfeito, mas e real.';
+  else if(playerAlive&&alive.length>1)finalMsg='Voce sobreviveu. Com poucos. Mas os que estao aqui sabem o que significa estar aqui.';
+  else if(playerAlive)finalMsg='Voce sobreviveu. Sozinho. Cada espaco vazio e uma historia que nao vai terminar.';
+  else finalMsg='Kael caiu. Como tantos antes dele. O mundo continua. Sem ele.';
+
+  document.getElementById('ending-content').innerHTML=`
+    <h2>F I M</h2>
+    <div class="final-msg">${finalMsg}</div>
+
+    <div class="e-section"><h3>✦ SOBREVIVENTES</h3>
+    ${alive.length>0?alive.map(e=>`<div class="e-item alive">✦ ${e.name} — ${e.epithet} (HP: ${e.hp}/${e.maxHp})</div>`).join('')
+      :'<div class="e-item">Ninguem sobreviveu.</div>'}</div>
+
+    <div class="e-section"><h3>✝ PERDIDOS PARA SEMPRE</h3>
+    ${dead.length>0?dead.map(e=>`<div class="e-item dead">✝ ${e.name} — ${e.epithet}</div>`).join('')
+      :'<div class="e-item">Ninguem se foi.</div>'}</div>
+
+    <div class="e-section"><h3>🔗 LAÇOS</h3>
+    ${active.length>0?active.map(b=>{
+      const src=G.allEntities.find(e=>e.uid===b.src);
+      const tgt=G.allEntities.find(e=>e.uid===b.tgt);
+      return`<div class="e-item alive">${src?.name||'?'} ──${b.type}(${b.intensity.toFixed(2)})── ${tgt?.name||'?'}</div>`;
+    }).join(''):'<div class="e-item">Nenhum laço sobreviveu.</div>'}
+    ${broken.length>0?broken.map(b=>{
+      const src=G.allEntities.find(e=>e.uid===b.src);
+      const tgt=G.allEntities.find(e=>e.uid===b.tgt);
+      return`<div class="e-item dead">✖ ${src?.name||'?'} ──ROMPIDO── ${tgt?.name||'?'}: ${b.reason}</div>`;
+    }).join(''):''}</div>
+
+    <div class="e-section"><h3>📦 INVENTÁRIO FINAL</h3>
+    ${G.player.alive?G.player.inventory.length>0?
+      G.player.inventory.map(i=>`<div class="e-item alive">✦ ${i.name} — ${i.desc}</div>`).join('')
+      :'<div class="e-item">Vazio.</div>'
+      :'<div class="e-item">Irrelevante.</div>'}</div>
+
+    <div class="e-section"><h3>📊 ESTATÍSTICAS</h3>
+    <div class="e-item">Entidades criadas: ${G.allEntities.length}</div>
+    <div class="e-item">Sobreviventes: ${alive.length}</div>
+    <div class="e-item">Perdidos: ${dead.length}</div>
+    <div class="e-item">Laços criados: ${G.bonds.length}</div>
+    <div class="e-item">Laços rompidos: ${broken.length}</div>
+    <div class="e-item">Escolha do Cap.1: ${G.ch1Choice||'N/A'}</div>
+    <div class="e-item">Escolha do Cap.3: ${G.ch3Choice||'N/A'}</div></div>
+
+    <div class="replay" onclick="location.reload()">JOGAR NOVAMENTE</div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// GAME CONTENT — CHAPTERS
+// ═══════════════════════════════════════════════════════════
+
+async function titleScreen(){
+  showScreen('title');
+  await new Promise(r=>{
+    function h(e){if(e.key==='Enter'){document.removeEventListener('keydown',h);r();}}
+    document.addEventListener('keydown',h);
+    document.getElementById('title').addEventListener('click',r,{once:true});
+  });
+  sConfirm();
+}
+
+async function chapter1(){
+  // Create world
+  const player=makeChar('Kael','o Sobrevivente',24,9,6,7,{sprite:'kael'});
+  const lirael=makeChar('Lirael','a Tecelã',16,7,4,10,{sprite:'lirael'});
+  const voss=makeChar('Madame Voss','a Última Mestra',8,3,3,4,{sprite:'voss'});
+  const gorath=makeChar('Gorath','o Silencioso',18,11,8,5,{sprite:'gorath'});
+
+  G.player=player;
+  G.allies=[player,lirael,gorath];
+  G.allEntities=[player,lirael,voss,gorath];
+
+  // Items
+  const swordItem=makeItem('Espada do Crepúsculo','Lâmina que sangra luz.');
+  const amuletItem=makeItem('Amuleto do Último Coração','Pode salvar uma vida. Uma única vez.');
+  const shieldItem=makeItem('Escudo Quebrado de Althena','Memória de uma guardiã.');
+  player.inventory.push(swordItem,amuletItem,shieldItem);
+
+  // Bonds
+  addBond(player,lirael,'ALLY',0.3);
+  addBond(lirael,player,'ALLY',0.5);
+  addBond(player,voss,'MENTOR',0.6);
+  addBond(voss,player,'MENTOR',0.7);
+  addBond(player,gorath,'RIVAL',0.15);
+
+  // Scene
+  showScreen('game-screen');
+  await fade(600);
+  setSceneText('Uma cabana velha. Cheiro de cinzas. Uma lamparina treme.');
+  showPartyHUD();
+
+  await dialog('Voss','Voce nao lembra como chegou aqui, nao e?');
+  await dialog('Voss','Nao se preocupe. Ninguem lembra. A diferenca e o que voce faz com o tempo que resta.');
+  await dialog('Voss','Existe algo na Floresta Cinzenta. Algo que nao devia existir.');
+  await dialog('Voss','Esse amuleto e a unica coisa que me mantem viva. Mas ele nao e meu.');
+  await dialog('Voss','Ele e seu agora. E o que voce fizer com ele... define tudo.');
+
+  const ch1=await choiceScene('Lirael aparece na porta. Gorath esta encostado na parede. O que voce faz?',[
+    {label:'Concordar em ir a Floresta Cinzenta',cost:'Voss ficara sozinha e fragil.'},
+    {label:'Recusar — isso nao e problema seu',cost:'Laço com Voss enfraquece.'},
+  ]);
+
+  G.ch1Choice=ch1===0?'Aceitou':'Recusou';
+
+  if(ch1===0){
+    await dialog('Voss','Obrigada, garoto. Lirael conhece o caminho. Gorath... bom, ele vai porque quer.');
+    evolveBond(player,voss,'Aceitou o pedido de Voss.',0.15);
+    evolveBond(voss,player,'Kael aceitou. Ha esperanca.',0.1);
+  }else{
+    await dialog('Voss','Eu entendo. Nao e obrigado a nada.');
+    await dialog('Voss','Mas saiba: o amuleto continua com voce. E ele vai chamar voce.');
+    evolveBond(player,voss,'Recusou o pedido.',-0.2);
+    evolveBond(voss,player,'Kael recusou. Silencio.',-0.15);
+  }
+}
+
+async function chapter2(){
+  setSceneText('A Floresta Cinzenta. Silenciosa demais. Nenhum passaro.');
+  await fade(500);
+
+  await dialog('Lirael','Tem algo aqui. Nao se move.');
+  await dialog('Gorath','Entao e assim que vai ser, e?');
+
+  // Create enemies
+  const s1=makeChar('Sombra Errante','fragmento de escuridão',14,7,3,8,{sprite:'shadow'});
+  const s2=makeChar('Sombra Errante','fragmento de escuridão',14,7,3,8,{sprite:'shadow'});
+  G.allEntities.push(s1,s2);
+
+  const won=await runBattle([s1,s2],G.allies,'forest','Emboscada na Floresta Cinzenta');
+
+  // Return to game screen
+  showScreen('game-screen');
+  await fade(400);
+  showPartyHUD();
+
+  const deadAllies=G.allies.filter(a=>!a.alive);
+  if(deadAllies.length>0){
+    let msg='Perdas irreparaveis: '+deadAllies.map(a=>a.name).join(', ');
+    await dialog('...',msg);
+  }
+
+  if(won){
+    await dialog('...','As sombras se dissolvem. O silencio volta. Mas diferente agora.');
+
+    // Discovery
+    const relicItem=makeItem('Pedra do Vazio','Pulsa com a escuridao das sombras.');
+    const relicChoice=await choiceScene('Entre as sombras dissolvidas, algo brilha no chao. Uma pedra preta. Fria.',[
+      {label:'Pegar a Pedra do Vazio',cost:'Confianca no desconhecido.'},
+      {label:'Deixar — nao confio no que nao entendo',cost:'Perder uma oportunidade.'},
+    ]);
+    if(relicChoice===0){
+      G.player.inventory.push(relicItem);
+      await dialog('...','Voce guarda a pedra. Ela e fria contra sua pele. Algo mudou no ar.');
+    }else{
+      await dialog('...','Voce deixa a pedra. Lirael observa. Gorath da de ombros.');
+    }
+  }else{
+    await dialog('...','A escuridao venceu. Mas ha sempre um amanha... talvez.');
+  }
+}
+
+async function chapter3(){
+  if(!G.player.alive)return;
+
+  setSceneText('A cabana de Voss. O ar esta mais pesado.');
+  await fade(500);
+
+  // Check if Voss is alive (she wasn't in combat, so she should be)
+  await dialog('Voss','Kael... voce voltou. Eu sabia que voce voltaria.');
+  await dialog('Voss','O amuleto... ele vai parar de pulsar em breve.');
+  await dialog('Voss','Voce pode usa-lo para me salvar. Mas ele vai se desfazer.');
+  await dialog('Voss','Ou pode guarda-lo. O que ele protege e maior que eu.');
+  await dialog('Voss','Escolha, garoto. Escolha e nao olhe para tras.');
+
+  const ch3=await choiceScene('O Amuleto do Último Coração pulsa no seu bolso. Cada pulso e mais fraco.',[
+    {label:'Usar o Amuleto para salvar Voss',cost:'O Amuleto se desfaz PERMANENTEMENTE.'},
+    {label:'Guardar o Amuleto — Voss nao resistira',cost:'Madame Voss morre. PERMANENTEMENTE.'},
+  ]);
+
+  G.ch3Choice=ch3===0?'Salvou Voss':'Sacrificou Voss';
+
+  if(ch3===0){
+    // Remove amulet from inventory
+    G.player.inventory=G.player.inventory.filter(i=>i.name!=='Amuleto do Último Coração');
+    voss=G.allEntities.find(e=>e.name==='Madame Voss');
+    if(voss)voss.hp=voss.maxHp;
+
+    await dialog('...','Voce pressiona o Amuleto contra o peito de Voss.');
+    await dialog('...','Uma luz dourada pulsa. Uma vez. Duas vezes.');
+    await dialog('...','Voss respira fundo. Seus olhos se abrem. Ela sorri.');
+    await dialog('...','O Amuleto se desfaz em cinzas douradas entre seus dedos.');
+    await dialog('Voss','Obrigada... garoto. Obrigada.');
+
+    evolveBond(G.player,voss,'Salvou Voss com o Amuleto.',0.35);
+    evolveBond(voss,G.player,'Kael sacrificou o impossivel por mim.',0.4);
+  }else{
+    voss=G.allEntities.find(e=>e.name==='Madame Voss');
+    if(voss){voss.alive=false;voss.dead=true;}
+    breakBonds(voss.uid,'Morte de Voss');
+
+    await dialog('...','Voce guarda o Amuleto. Suas maos tremem.');
+    await dialog('Voss','Eu entendo. Nao era para ser meu.');
+    await dialog('Voss','Viva bem, garoto. Viva como se fosse...');
+    await dialog('...','Silencio. O silencio que se segue nunca vai embora.');
+
+    evolveBond(G.player,voss,'Nao usou o Amuleto. Voss morreu.',-1.0);
+  }
+
+  // Show current bonds
+  await dialog('...',`Laços ativos: ${G.bonds.filter(b=>!b.broken).map(b=>{
+    const src=G.allEntities.find(e=>e.uid===b.src);
+    const tgt=G.allEntities.find(e=>e.uid===b.tgt);
+    return `${src?.name}→${tgt?.name}(${b.type})`;
+  }).join(', ')}`);
+}
+
+async function chapter4(){
+  if(!G.player.alive)return;
+
+  setSceneText('O chao treme. As arvores se inclinam.');
+  await fade(600);
+
+  const ocos=makeChar('Ocos','o Devorador',45,14,10,6,{sprite:'ocos'});
+  G.allEntities.push(ocos);
+
+  await dialog('Ocos','Kael... eu conheco esse cheiro. Medo. Perda. Decisoes.');
+  await dialog('Ocos','Voce carrega coisas que nao deviam existir. Me deixa provar.');
+
+  // Filter allies to only alive
+  const finalAllies=G.allies.filter(a=>a.alive);
+  await dialog('...',`Seu grupo: ${finalAllies.map(a=>`${a.name}(${a.hp}HP)`).join(', ')}`);
+
+  const won=await runBattle([ocos],finalAllies,'void','Confronto final — Nao ha volta.');
+
+  showScreen('game-screen');
+  await fade(400);
+
+  if(won){
+    await dialog('...','Ocos se dissolve. O chao para de tremer.');
+    await dialog('...','O que resta e silencio. Mas um silencio diferente.');
+    await dialog('...','E o silencio de quem escolheu estar aqui.');
+  }else{
+    await dialog('...','Ocos venceu. A escuridao devora tudo.');
+    await dialog('...','Mas mesmo na escuridao, as escolhas feitas ecoam.');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════
+let voss; // declare here so chapters can access
+
+async function main(){
+  initCanvas();
+
+  while(true){
+    await titleScreen();
+    await fade(600);
+
+    await chapter1();
+    await chapter2();
+    await chapter3();
+    await chapter4();
+    await showEnding();
+
+    // Wait for replay click (handled by button in ending)
+    await new Promise(r=>setTimeout(r,999999));
+  }
+}
+
+main();
+</script>
+</body>
+</html>

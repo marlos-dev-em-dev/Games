@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MICRO::DRIFT v0.2.0</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Cormorant+Garamond:wght@300;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#030508;font-family:'DM Mono',monospace}
+canvas{display:block;position:fixed;top:0;left:0;width:100vw;height:100vh}
+
+/* ---- HUD ---- */
+#hud{position:fixed;z-index:10;pointer-events:none;top:0;left:0;width:100%;height:100%;display:none}
+.htl{position:absolute;top:16px;left:20px;display:flex;flex-direction:column;gap:5px}
+.htitle{font-size:10px;letter-spacing:.2em;color:#56b6c2;text-transform:uppercase}
+.hr{display:flex;align-items:center;gap:8px}
+.hl{font-size:8px;color:#4a5568;text-transform:uppercase;letter-spacing:.1em;width:50px}
+.bb{width:120px;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.bf{height:100%;border-radius:2px;transition:width .2s;background:#6fcf97;width:100%}
+.bf.w{background:#e8c547}.bf.c{background:#eb5757}
+.hv{font-size:10px;color:#d4d4d8;min-width:28px}
+.hstage{position:absolute;top:16px;left:50%;transform:translateX(-50%);text-align:center}
+.hstage-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;color:#e8c547;letter-spacing:.1em}
+.hstage-sub{font-size:9px;color:#4a5568;letter-spacing:.08em;margin-top:2px}
+.hobj{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);font-size:10px;color:#e8c547;letter-spacing:.06em;text-align:center;white-space:nowrap;opacity:.9}
+.hobj .dist{color:#56b6c2}
+.hdash{position:absolute;top:16px;right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.dlbl{font-size:8px;color:#4a5568;letter-spacing:.1em}
+.dbar{width:50px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.dfill{height:100%;background:#56b6c2;border-radius:2px;transition:width .15s;width:100%}
+.dfill.r{background:#4a5568}
+.htraits{position:absolute;top:50px;right:20px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
+.tr{font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(45,138,94,.1);border:1px solid rgba(45,138,94,.2);color:#b8f0d8;letter-spacing:.04em;text-transform:uppercase}
+.hcombo{position:absolute;top:80px;right:20px;font-size:11px;color:#f2c94c;letter-spacing:.05em;opacity:0;transition:opacity .3s}
+.hcombo.show{opacity:1}
+.hbl{position:absolute;bottom:14px;left:20px;font-size:8px;color:#333d48;line-height:1.8}
+.hbl kbd{padding:1px 4px;border:1px solid #1a2530;border-radius:2px;color:#4a5568;font-size:8px;font-family:inherit}
+.hmsgs{position:absolute;bottom:14px;right:20px;display:flex;flex-direction:column;gap:1px;align-items:flex-end;max-width:350px}
+.m{font-size:9px;opacity:0;animation:mi .3s ease forwards}
+.m.i{color:#56b6c2}.m.w{color:#e8c547}.m.d{color:#eb5757}.m.g{color:#6fcf97}
+@keyframes mi{to{opacity:1}}
+
+/* ---- Overlays ---- */
+.ov{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;z-index:50;pointer-events:all}
+.ov.on{display:flex}
+.bg-dim{background:rgba(3,5,8,.95)}
+
+/* Select */
+.sel{text-align:center;max-width:460px;width:90%}
+.slogo{font-family:'Cormorant Garamond',serif;font-size:44px;font-weight:300;color:#b8f0d8;letter-spacing:.14em;text-shadow:0 0 50px rgba(111,207,151,.12);margin-bottom:2px}
+.sver{font-size:9px;color:#333d48;letter-spacing:.22em;margin-bottom:36px}
+.slab{font-size:9px;color:#4a5568;letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px}
+.bc{width:400px;max-width:100%;padding:14px 18px;border:1px solid #1a2530;border-radius:6px;margin:0 auto 8px;cursor:pointer;text-align:left;transition:border-color .2s,background .2s}
+.bc:hover{border-color:#2d8a5e;background:rgba(45,138,94,.04)}
+.bn{font-size:13px;color:#f0f0f0;margin-bottom:2px}
+.bd{font-size:9px;color:#4a5568;margin-bottom:6px}
+.bs{display:flex;gap:16px;font-size:8px;color:#4a5568}
+.bs .d{display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:3px;vertical-align:middle}
+.shint{margin-top:18px;font-size:8px;color:#2a3040}
+
+/* Evolution */
+.ebox{border:1px solid #e8c547;border-radius:8px;padding:28px 32px;background:#0c1218;max-width:420px;width:90%}
+.et{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;color:#e8c547;letter-spacing:.1em;margin-bottom:2px}
+.es{font-size:9px;color:#4a5568;margin-bottom:18px}
+.eo{padding:12px 14px;border:1px solid #1a2530;border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s,opacity .15s}
+.eo:hover{border-color:#2d8a5e;background:rgba(45,138,94,.05)}
+.eo.na{opacity:.35;cursor:default;pointer-events:none}
+.en{font-size:12px;color:#f0f0f0;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
+.ecost{font-size:9px;color:#e8c547}
+.ecost.cheap{color:#6fcf97}
+.ed{font-size:9px;color:#4a5568}
+.ek{font-size:8px;color:#56b6c2;margin-top:4px}
+.eskip{margin-top:14px;font-size:8px;color:#333d48;text-align:center}
+.eskip kbd{padding:1px 5px;border:1px solid #1a2530;border-radius:2px;color:#4a5568;font-size:8px;font-family:inherit}
+
+/* End screen */
+.endbox{border:1px solid;border-radius:8px;padding:28px 32px;background:#0c1218;max-width:400px;width:90%;text-align:center}
+.end-t{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;letter-spacing:.12em;margin-bottom:4px}
+.end-rank{font-size:12px;letter-spacing:.15em;margin-bottom:20px}
+.er{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a2530;font-size:10px}
+.er .l{color:#4a5568}.er .r{color:#d4d4d8}
+.er .r.b{color:#6fcf97;font-weight:bold}
+.ef{margin-top:20px;font-size:9px;color:#4a5568}
+.ef kbd{padding:2px 7px;border:1px solid #1a2530;border-radius:2px;color:#7a8594;font-size:9px;font-family:inherit}
+.end-score{font-size:32px;font-weight:300;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="htl">
+    <div class="htitle">MICRO::DRIFT</div>
+    <div class="hr"><span class="hl">Energia</span><div class="bb"><div class="bf" id="bar"></div></div><span class="hv" id="vE">100</span></div>
+    <div class="hr"><span class="hl">Massa</span><span class="hv" id="vM">1.0</span></div>
+  </div>
+  <div class="hstage"><div class="hstage-name" id="sName">STAGE 1</div><div class="hstage-sub" id="sSub">Alcance o beacon</div></div>
+  <div class="hdash"><span class="dlbl">DASH [SPACE]</span><div class="dbar"><div class="dfill" id="dashBar"></div></div></div>
+  <div class="htraits" id="traits"></div>
+  <div class="hcombo" id="combo"></div>
+  <div class="hobj" id="obj"></div>
+  <div class="hbl"><kbd>WASD</kbd> mover <kbd>SPACE</kbd> dash <kbd>E</kbd> evoluir <kbd>Q</kbd> sair</div>
+  <div class="hmsgs" id="msgs"></div>
+</div>
+
+<div class="ov bg-dim" id="select">
+  <div class="sel">
+    <div class="slogo">MICRO::DRIFT</div>
+    <div class="sver">PROTOTYPE v0.2.0</div>
+    <div class="slab">Selecione o Bioma</div>
+    <div id="blist"></div>
+    <div class="sh">3 stages por run · evoluções custam massa · chegue ao beacon</div>
+  </div>
+</div>
+
+<div class="ov" id="evo">
+  <div class="ebox">
+    <div class="et">Micro-Decisão</div>
+    <div class="es">Escolha uma evolução — cada uma custa massa</div>
+    <div id="eopts"></div>
+    <div class="eskip"><kbd>ESC</kbd> pular · economizar massa</div>
+  </div>
+</div>
+
+<div class="ov bg-dim" id="end">
+  <div class="endbox" id="endBox"></div>
+</div>
+
+<script>
+'use strict';
+
+// ================================================================
+//  CORE ENGINE v1.0.0 — IMMUTABLE
+// ================================================================
+const Core=(()=>{const L={};const S=[];let raf=null;
+function on(e,f,p){(L[e]=L[e]||[]).push({f,p:p||0});L[e].sort((a,b)=>b.p-a.p);}
+function emit(e,d){const q=L[e];if(q)for(const{f}of q)if(f(d)==='STOP')break;}
+function reg(s){S.push(s);}
+function boot(st){for(const s of S)if(s.init)s.init(st);st.running=true;let last=performance.now();
+(function loop(now){if(!st.running)return;const dt=Math.min((now-last)/1000,.1);last=now;st.tick++;for(const s of S)if(s.update)s.update(st,dt);raf=requestAnimationFrame(loop);})(last);}
+function halt(st){st.running=false;if(raf)cancelAnimationFrame(raf);}
+function clr(){S.length=0;}
+return{on,emit,reg,boot,halt,clr};})();
+
+// ================================================================
+//  AUDIO — minimal Web Audio bleeps
+// ================================================================
+const SFX=(()=>{let c;try{c=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+function b(f,d,v,t){if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=t||'sine';o.frequency.value=f;g.gain.value=v||.06;g.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}catch(e){}}
+return{
+dash(){b(280,.12,.07,'sawtooth');},
+eat(){b(520+Math.random()*200,.08,.05,'sine');},
+hit(){b(90,.18,.09,'square');},
+evo(){b(400,.25,.07,'sine');setTimeout(()=>b(550,.25,.07,'sine'),120);},
+beacon(){b(500,.15,.06,'sine');setTimeout(()=>b(700,.15,.06,'sine'),80);setTimeout(()=>b(900,.2,.07,'sine'),160);},
+death(){b(180,.4,.09,'sawtooth');setTimeout(()=>b(90,.6,.09,'sawtooth'),180);},
+wave(){b(120,.1,.07,'square');setTimeout(()=>b(120,.1,.07,'square'),180);},
+stage(){b(600,.15,.06,'sine');setTimeout(()=>b(800,.15,.06,'sine'),100);setTimeout(()=>b(1000,.25,.07,'sine'),200);},
+};})();
+
+// ================================================================
+//  CONTENT — DATA ONLY
+// ================================================================
+const C={
+biomes:{
+  primordial_soup:{name:'Sopa Primordial',visc:1,drain:.1,thrLv:1,r:280,bg:'#0c1628',edge:'rgba(42,74,107,.4)',desc:'Mar primordial morno. Seguro mas pobre.'},
+  blood_stream:{name:'Corrente Sanguínea',visc:1.4,drain:.18,thrLv:3,r:240,bg:'#1c0808',edge:'rgba(160,40,40,.4)',desc:'Glóbulos flutuam. Viscosidade alta.'},
+  volcanic_pore:{name:'Poro Vulcânico',visc:.5,drain:.28,thrLv:5,r:220,bg:'#1c0e00',edge:'rgba(255,110,20,.3)',desc:'Calor intenso. Alto risco, alta recompensa.'},
+  deep_sediment:{name:'Sedimento Profundo',visc:2.2,drain:.06,thrLv:2,r:320,bg:'#080a0c',edge:'rgba(60,60,60,.45)',desc:'Escuridão. Pouca comida, pouca ameaça.'}
+},
+nutT:{
+  glucose:{val:10,mass:.1,r:4,col:'#6fcf97',gl:'rgba(111,207,151,.2)'},
+  amino:{val:18,mass:.25,r:5,col:'#f2c94c',gl:'rgba(242,201,76,.2)'},
+  iron:{val:6,mass:.4,r:3,col:'#8a9aa4',gl:'rgba(138,154,164,.15)'}
+},
+thrT:{
+  phagocyte:{spd:1.2,dmg:12,aggro:140,r:11,col:'#eb5757',inn:'#8b2020'},
+  virus:{spd:2.4,dmg:22,aggro:90,r:5,col:'#bb6bd9',inn:'#6a2d8a'},
+  toxin:{spd:0,dmg:4,aggro:0,r:32,col:'rgba(80,180,80,.1)',inn:'rgba(60,140,60,.12)'}
+},
+spawn:{
+  primordial_soup:{nut:[{t:'glucose',n:22},{t:'amino',n:7},{t:'iron',n:8}],thr:[{t:'phagocyte',n:2},{t:'virus',n:1}]},
+  blood_stream:{nut:[{t:'glucose',n:14},{t:'amino',n:10},{t:'iron',n:6}],thr:[{t:'phagocyte',n:4},{t:'virus',n:2},{t:'toxin',n:1}]},
+  volcanic_pore:{nut:[{t:'amino',n:18},{t:'iron',n:12}],thr:[{t:'phagocyte',n:3},{t:'virus',n:4},{t:'toxin',n:2}]},
+  deep_sediment:{nut:[{t:'glucose',n:8},{t:'iron',n:5}],thr:[{t:'virus',n:2}]}
+},
+evos:[
+  {id:'pseudopod',name:'Pseudópode',desc:'+50% alcance de absorção',tier:1,cost:1,need:o=>o.mass>=1.2,apply:o=>{o.traits.push('pseudopod');}},
+  {id:'flagellum',name:'Flagelo',desc:'+40% velocidade',tier:1,cost:1,need:o=>o.mass>=1.5,apply:o=>{o.agility*=1.4;o.traits.push('flagellum');}},
+  {id:'membrane',name:'Membrana Reforçada',desc:'-40% dano recebido',tier:1,cost:1,need:o=>o.mass>=2,apply:o=>{o.res+=3;o.traits.push('membrane');}},
+  {id:'efficient',name:'Metab. Eficiente',desc:'+50% valor de nutrientes',tier:2,cost:2,need:o=>o.traits.length>=1&&o.mass>=2.5,apply:o=>{o.traits.push('efficient');}},
+  {id:'photosyn',name:'Fotossíntese',desc:'+40 energia máx, regen lenta',tier:2,cost:2,need:o=>o.traits.length>=1&&o.mass>=3.5,apply:o=>{o.maxEn+=40;o.energy=Math.min(o.energy+40,o.maxEn);o.traits.push('photosyn');}},
+  {id:'spore',name:'Esporos',desc:'Ao morrer: +25 energia p/ próximo',tier:2,cost:2,need:o=>o.evoH.length>=1&&o.mass>=4,apply:o=>{o.traits.push('spore');}}
+]};
+
+// ================================================================
+//  HELPERS
+// ================================================================
+let _u=0;const uid=()=>('e'+(_u++));
+const hypot=Math.hypot;const dist=(ax,ay,bx,by)=>hypot(ax-bx,ay-by);
+const clamp=(v,lo,hi)=>v<lo?lo:v>hi?hi:v;
+const rndC=(cx,cy,r)=>{const a=Math.random()*6.2832,d=Math.sqrt(Math.random())*r;return{x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d};};
+const shuffle=a=>{const b=[...a];for(let i=b.length-1;i>0;i--){const j=0|Math.random()*(i+1);[b[i],b[j]]=[b[j],b[i]];}return b;};
+
+// ================================================================
+//  PARTICLES
+// ================================================================
+const parts=[];
+function sp(x,y,n,col,spd,life){for(let i=0;i<n;i++){const a=Math.random()*6.2832,s=spd*(.4+Math.random()*.6);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,ml:life,col,r:1+Math.random()*2});}}
+
+// ================================================================
+//  STATE FACTORY
+// ================================================================
+function mkOrg(){return{x:0,y:0,size:12,mass:1,energy:100,maxEn:100,agility:100,res:3,traits:[],evoH:[],_lastDash:0,_combo:0,_comboT:0,_hitN:0};}
+function mkSt(biome){return{biome,stage:1,maxStage:3,phase:'EXPLORE',nuts:[],thrs:[],org:null,beacon:null,tick:0,dt:0,cam:{x:0,y:0},shake:{x:0,y:0,i:0},keys:{},msgs:[],evoOpts:[],death:'',score:0,t0:0,waveT:0,_spaceWas:false};}
+function msg(st,s,c){st.msgs.push({s,c:c||'',t:performance.now()});if(st.msgs.length>6)st.msgs.shift();}
+
+// ================================================================
+//  SYSTEMS
+// ================================================================
+
+// AMBIENT
+const AmbientSys={id:'ambient',
+init(st){const R=C.biomes[st.biome].r;for(let i=0;i<R*.12;i++){const p=rndC(0,0,R);parts.push({x:p.x,y:p.y,vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,life:999,ml:999,col:'rgba(180,200,220,.08)',r:Math.random()*2+.5,_ph:Math.random()*6.2832,_ambient:true});}},
+update(st){const R=C.biomes[st.biome].r;for(const p of parts){if(!p._ambient)continue;p.x+=p.vx;p.y+=p.vy;if(dist(p.x,p.y,0,0)>R){p.vx*=-1;p.vy*=-1;}}}
+};
+
+// SPAWNER
+const SpawnSys={id:'spawner',_nt:0,
+init(st){const sp=C.spawn[st.biome];if(!sp)return;const R=C.biomes[st.biome].r;
+for(const e of sp.nut){const t=C.nutT[e.t];for(let i=0;i<e.n;i++){const p=rndC(0,0,R*.85);st.nuts.push({id:uid(),x:p.x,y:p.y,type:e.t,val:t.val,mass:t.mass,r:t.r,col:t.col,gl:t.gl});}}
+for(const e of sp.thr){const t=C.thrT[e.t];for(let i=0;i<e.n;i++){const p=rndC(0,0,R*.6);st.thrs.push({id:uid(),x:p.x,y:p.y,type:e.t,...t,_mc:0,_hc:0,_kb:0});}}},
+update(st){if(st.phase!=='EXPLORE')return;const R=C.biomes[st.biome].r;this._nt++;if(this._nt>220&&st.nuts.length<26){this._nt=0;const ks=Object.keys(C.nutT),k=ks[0|Math.random()*ks.length],t=C.nutT[k],p=rndC(0,0,R*.85);st.nuts.push({id:uid(),x:p.x,y:p.y,type:k,...t});}}
+};
+
+// PLAYER (movement + dash + metabolism)
+const PlayerSys={id:'player',_warn:false,
+update(st,dt){if(st.phase!=='EXPLORE'||!st.org)return;const o=st.org,b=C.biomes[st.biome];
+// Movement
+let dx=0,dy=0;if(st.keys.w||st.keys.arrowup)dy=-1;if(st.keys.s||st.keys.arrowdown)dy=1;if(st.keys.a||st.keys.arrowleft)dx=-1;if(st.keys.d||st.keys.arrowright)dx=1;
+const mv=dx||dy;
+if(mv){const l=hypot(dx,dy);const spd=(o.agility/b.visc)*dt*.65;const nx=o.x+(dx/l)*spd,ny=o.y+(dy/l)*spd;if(dist(nx,ny,0,0)<b.r-o.size){o.x=nx;o.y=ny;}o.energy-=.08*b.visc*dt;sp(o.x,o.y,1,'rgba(45,138,94,.15)',30,.3);}
+// Dash
+if(st.keys[' ']&&!st._spaceWas&&performance.now()-o._lastDash>3000&&o.energy>=15&&mv){const l=hypot(dx,dy),dd=90;const nx=o.x+(dx/l)*dd,ny=o.y+(dy/l)*dd;
+if(dist(nx,ny,0,0)<b.r-o.size){for(let i=0;i<6;i++){const t=i/6;sp(o.x+(dx/l)*dd*t,o.y+(dy/l)*dd*t,1,'rgba(111,207,151,.3)',50,.4);}o.x=nx;o.y=ny;}o.energy-=15;o._lastDash=performance.now();SFX.dash();
+// Dash destroys small threats
+for(const t of st.thrs){if(t.type!=='toxin'&&dist(o.x,o.y,t.x,t.y)<o.size+t.r+25&&t.r<=7){t._dead=true;sp(t.x,t.y,14,t.col,160,.7);msg(st,'✦ '+t.type+' destruído! +50','g');st.score+=50;}}}
+st._spaceWas=!!st.keys[' '];
+// Metabolism
+if(o.traits.includes('photosyn'))o.energy=Math.min(o.energy+.05*dt*60,o.maxEn);
+o.energy-=b.drain*(1+o.mass*.03)*dt*60;
+if(o.energy<=30&&!this._warn){msg(st,'⚠ Energia baixa!','w');this._warn=true;}if(o.energy>30)this._warn=false;
+if(o.energy<=0){o.energy=0;st.death='Inanição';st.phase='DEAD';}
+// Combo decay
+if(o._combo>0){o._comboT-=dt;if(o._comboT<=0){o._combo=0;}}
+}
+};
+
+// FEEDING
+const FeedSys={id:'feed',
+update(st){if(st.phase!=='EXPLORE'||!st.org)return;const o=st.org;
+const range=o.size+10+(o.traits.includes('pseudopod')?22:0);
+// Nutrient attraction (gentle pull when close)
+for(const n of st.nuts){const d=dist(o.x,o.y,n.x,n.y);if(d<range*2&&d>1){const pull=.3/d;n.x+=(o.x-n.x)*pull;n.y+=(o.y-n.y)*pull;}}
+st.nuts=st.nuts.filter(n=>{if(dist(o.x,o.y,n.x,n.y)<range){let v=n.val;if(o.traits.includes('efficient'))v=Math.round(v*1.5);
+// Combo
+o._combo++;o._comboT=1.5;const cm=1+(o._combo-1)*.12;v=Math.round(v*cm);
+o.energy=Math.min(o.energy+v,o.maxEn);o.mass=+(o.mass+n.mass).toFixed(2);
+sp(n.x,n.y,4,n.col,60,.3);SFX.eat();
+msg(st,'+'+v+(o._combo>1?' x'+o._combo:''),'g');return false;}return true;});
+}
+};
+
+// THREATS
+const ThreatSys={id:'threats',
+update(st,dt){if(st.phase!=='EXPLORE'||!st.org)return;const o=st.org,b=C.biomes[st.biome];
+st.thrs=st.thrs.filter(t=>{if(t._dead)return false;
+if(t.type==='toxin'){if(dist(t.x,t.y,o.x,o.y)<t.r){o.energy-=t.dmg*dt;if(o.energy<=0){o.energy=0;st.deth='Intoxicação';st.phase='DEAD';}}return true;}
+const d=dist(t.x,t.y,o.x,o.y);t._mc+=t.spd*b.visc*dt;
+if(t._mc>=1){t._mc=0;if(d<t.aggro){const dx=o.x-t.x,dy=o.y-t.y,l=Math.max(1,hypot(dx,dy));t.x+=dx/l*2.5;t.y+=dy/l*2.5;}else if(Math.random()<.2){const rx=(Math.random()-.5)*4,ry=(Math.random()-.5)*4;if(dist(t.x+rx,t.y+ry,0,0)<b.r-t.r){t.x+=rx;t.y+=ry;}}}
+const d2=dist(t.x,t.y,o.x,o.y);if(d2<o.size+t.r&&(!t._hc||performance.now()-t._hc>700)){let dmg=t.dmg;if(o.traits.includes('membrane'))dmg=Math.round(dmg*.6);
+o.energy-=dmg;t._hc=performance.now();o._hitN++;st.shake.i=8;
+const dx=o.x-t.x,dy=o.y-t.y,l=Math.max(1,hypot(dx,dy));o.x+=dx/l*16;o.y+=dy/l*16;o.x=clamp(o.x,-b.r+o.size,b.r-o.size);o.y=clamp(o.y,-b.r+o.size,b.r-o.size);
+SFX.hit();msg(st,t.type+' — -'+dmg,'d');if(o.energy<=0){o.energy=0;st.death='Morto por '+t.type;st.phase='DEAD';}}
+if(t._kb>0)t._kb*=.88;return true;});}
+};
+
+// BEACON
+const BeaconSys={id:'beacon',
+init(st){this.placeBeacon(st);},
+placeBeacon(st){const R=C.biomes[st.biome].r;const a=Math.random()*6.2832;const d=R*.82;
+st.beacon={x:Math.cos(a)*d,y:Math.sin(a)*d,r:22};},
+update(st){if(!st.beacon||st.phase!=='EXPLORE')return;const o=st.org,d=dist(o.x,o.y,st.beacon.x,st.beacon.y);
+if(d<st.beacon.r+o.size){st.phase='STAGE_CLEAR';sp(st.beacon.x,st.beacon.y,30,'#e8c547',200,1);SFX.stage();st.score+=st.stage*200;
+setTimeout(()=>{if(st.stage>=st.maxStage){st.phase='COMPLETE';}else{st.phase='EVOLVE';showEvo(st);}},1200);}}
+};
+
+// WAVE
+const WaveSys={id:'wave',_t:0,_warn:false,
+update(st,dt){if(st.phase!=='EXPLORE')return;this._t+=dt;
+const interval=32-st.stage*6;
+if(this._t>interval-5&&!this._warn){this._warn=true;msg(st,'⚠ Onda em 5 segundos!','w');SFX.wave();}
+if(this._t>=interval){this._t=0;this._warn=false;
+const n=2+st.stage;const R=C.biomes[st.biome].r;
+for(let i=0;i<n;i++){const a=Math.random()*6.2832,d=130+Math.random()*80;let x=st.org.x+Math.cos(a)*d,y=st.org.y+Math.sin(a)*d;
+if(dist(x,y,0,0)>R-20){const f=(R-20)/dist(x,y,0,0);x*=f;y*=f;}
+const ks=Object.keys(C.thrT),k=ks[0|Math.random()*ks.length],t=C.thrT[k];
+if(k==='toxin'){x=rndC(0,0,R*.7).x;y=rndC(0,0,R*.7).y;}
+st.thrs.push({id:uid(),x,y,type:k,...t,_mc:0,_hc:0,_kb:0});}
+msg(st,'✦ Onda! '+n+' ameaças!','d');}
+}
+};
+
+// ================================================================
+//  CANVAS + RENDERER
+// ================================================================
+const cvs=document.getElementById('game'),cx=cvs.getContext('2d');
+function resize(){cvs.width=innerWidth;cvs.height=innerHeight;}addEventListener('resize',resize);resize();
+
+const RenderSys={id:'render',_t:0,
+update(st,dt){if(!st.org)return;this._t+=dt;const o=st.org,b=C.biomes[st.biome],W=cvs.width,H=cvs.height;
+// Camera
+st.cam.x+=(o.x-st.cam.x)*3.5*dt;st.cam.y+=(o.y-st.cam.y)*3.5*dt;
+// Shake
+st.shake.i*=.88;st.shake.x=(Math.random()-.5)*st.shake.i;st.shake.y=(Math.random()-.5)*st.shake.i;
+const ox=W/2-st.cam.x+st.shake.x,oy=H/2-st.cam.y+st.shake.y;
+
+cx.fillStyle='#030508';cx.fillRect(0,0,W,H);
+cx.save();cx.translate(ox,oy);
+
+const R=b.r;
+// Dish
+const dg=cx.createRadialGradient(0,0,R*.08,0,0,R);dg.addColorStop(0,b.bg);dg.addColorStop(.88,b.bg);dg.addColorStop(1,'transparent');
+cx.beginPath();cx.arc(0,0,R,0,6.2832);cx.fillStyle=dg;cx.fill();
+cx.strokeStyle=b.edge;cx.lineWidth=1.5;cx.stroke();
+// Grid
+cx.strokeStyle='rgba(255,255,255,.015)';cx.lineWidth=.5;for(let g=50;g<R;g+=50){cx.beginPath();cx.arc(0,0,g,0,6.2832);cx.stroke();}
+
+// Particles
+for(let i=parts.length-1;i>=0;i--){const p=parts[i];if(!p._ambient){p.x+=p.vx*dt*60;p.y+=p.vy*dt*60;p.life-=dt;if(p.life<=0){parts.splice(i,1);continue;}}
+cx.globalAlpha=p._ambient?Math.max(0,p.a||0):p.life/p.ml;cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.2832);cx.fillStyle=p.col;cx.fill();}
+cx.globalAlpha=1;
+
+// Ambient pulse update
+for(const p of parts)if(p._ambient)p.a=.03+Math.sin(st.tick*.02+p._ph)*.1;
+
+// Nutrients
+for(const n of st.nuts){const pulse=.85+Math.sin(this._t*3+n.x*.1)*.15;
+cx.beginPath();cx.arc(n.x,n.y,n.r*3,0,6.2832);cx.fillStyle=n.gl;cx.fill();
+cx.beginPath();cx.arc(n.x,n.y,n.r*pulse,0,6.2832);cx.fillStyle=n.col;cx.fill();}
+
+// Threats
+for(const t of st.thrs){const kx=t._kb>.3?(Math.random()-.5)*t._kb*.3:0,ky=t._kb>.3?(Math.random()-.5)*t._kb*.3:0;const tx=t.x+kx,ty=t.y+ky;
+if(t.type==='toxin'){const tg=cx.createRadialGradient(t.x,t.y,0,t.x,t.y,t.r);tg.addColorStop(0,'rgba(80,180,80,.08)');tg.addColorStop(.7,'rgba(80,180,80,.03)');tg.addColorStop(1,'transparent');
+cx.beginPath();cx.arc(t.x,t.y,t.r,0,6.2832);cx.fillStyle=tg;cx.fill();cx.setLineDash([5,5]);cx.strokeStyle='rgba(80,180,80,.1)';cx.lineWidth=1;cx.stroke();cx.setLineDash([]);}
+else{const gg=cx.createRadialGradient(tx,ty,0,tx,ty,t.r*2.5);gg.addColorStop(0,t.col+'28');gg.addColorStop(1,'transparent');
+cx.beginPath();cx.arc(tx,ty,t.r*2.5,0,6.2832);cx.fillStyle=gg;cx.fill();
+cx.beginPath();cx.arc(tx,ty,t.r,0,6.2832);cx.fillStyle=t.col;cx.fill();
+cx.beginPath();cx.arc(tx,ty,t.r*.4,0,6.2832);cx.fillStyle=t.inn;cx.fill();
+if(dist(t.x,t.y,o.x,o.y)<t.aggro){cx.beginPath();cx.moveTo(tx,ty);cx.lineTo(o.x,o.y);cx.strokeStyle='rgba(235,87,87,.06)';cx.lineWidth=.5;cx.stroke();}}}
+
+// BEACON
+if(st.beacon&&st.phase==='EXPLORE'){const bx=st.beacon.x,by=st.beacon.y;
+// Outer glow
+const bg=cx.createRadialGradient(bx,by,0,bx,by,50);bg.addColorStop(0,'rgba(232,197,71,.2)');bg.addColorStop(.5,'rgba(232,197,71,.06)');bg.addColorStop(1,'transparent');
+cx.beginPath();cx.arc(bx,by,50,0,6.2832);cx.fillStyle=bg;cx.fill();
+// Pulsing rings
+for(let i=0;i<3;i++){const ph=(this._t*1.8+i*.8)%3,rr=14+ph*10,a=Math.max(0,1-ph/3)*.35;
+cx.beginPath();cx.arc(bx,by,rr,0,6.2832);cx.strokeStyle=`rgba(232,197,71,${a})`;cx.lineWidth=1.5;cx.stroke();}
+// Core
+cx.beginPath();cx.arc(bx,by,10,0,6.2832);cx.fillStyle='#e8c547';cx.fill();
+cx.beginPath();cx.arc(bx,by,5,0,6.2832);cx.fillStyle='#fff8e0';cx.fill();
+// Distance text
+const bd=Math.round(dist(o.x,o.y,bx,by));cx.font='10px DM Mono';cx.fillStyle='rgba(232,197,71,.5)';cx.textAlign='center';cx.fillText(bd+'m',bx,by-18);}
+
+// ORGANISM
+// Glow
+const og=cx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.size*4);og.addColorStop(0,'rgba(111,207,151,.1)');og.addColorStop(1,'transparent');
+cx.beginPath();cx.arc(o.x,o.y,o.size*4,0,6.2832);cx.fillStyle=og;cx.fill();
+// Body
+const mg=cx.createRadialGradient(o.x-o.size*.3,o.y-o.size*.3,0,o.x,o.y,o.size);mg.addColorStop(0,'#c8f5e0');mg.addColorStop(.5,'#2d8a5e');mg.addColorStop(1,'#164a30');
+cx.beginPath();cx.arc(o.x,o.y,o.size,0,6.2832);cx.fillStyle=mg;cx.fill();
+// Nucleus
+cx.beginPath();cx.arc(o.x,o.y,o.size*.3,0,6.2832);cx.fillStyle='#0b2e1a';cx.fill();
+// Flagella
+if(o.traits.includes('flagellum')){for(let i=0;i<3;i++){const a=this._t*5+i*2.094;cx.beginPath();cx.moveTo(o.x,o.y);cx.quadraticCurveTo(o.x+Math.cos(a)*o.size*2.5,o.y+Math.sin(a)*o.size*1.8,o.x+Math.cos(a+.5)*o.size*3.5,o.y+Math.sin(a+.5)*o.size*3);cx.strokeStyle='rgba(45,138,94,.35)';cx.lineWidth=1.5;cx.stroke();}}
+// Membrane ring
+if(o.traits.includes('membrane')){cx.beginPath();cx.arc(o.x,o.y,o.size+3,0,6.2832);cx.strokeStyle='rgba(200,240,220,.25)';cx.lineWidth=2.5;cx.stroke();}
+// Pseudopod range
+if(o.traits.includes('pseudopod')){cx.beginPath();cx.arc(o.x,o.y,o.size+22,0,6.2832);cx.setLineDash([3,6]);cx.strokeStyle='rgba(111,207,151,.08)';cx.lineWidth=1;cx.stroke();cx.setLineDash([]);}
+// Photosyn arc
+if(o.traits.includes('photosyn')){cx.beginPath();cx.arc(o.x,o.y,o.size+6,this._t*1.5,this._t*1.5+1.2);cx.strokeStyle='rgba(242,201,71,.3)';cx.lineWidth=2;cx.stroke();}
+
+cx.restore();
+
+// OFF-SCREEN BEACON ARROW
+if(st.beacon&&st.phase==='EXPLORE'){const bsx=st.beacon.x+ox,bsy=st.beacon.y+oy;const m=50;
+if(bsx<m||bsx>W-m||bsy<m||bsy>H-m){const dx=bsx-W/2,dy=bsy-H/2,ang=Math.atan2(dy,dx);
+const ex=W/2+Math.cos(ang)*(Math.min(W,H)/2-m),ey=H/2+Math.sin(ang)*(Math.min(W,H)/2-m);
+cx.save();cx.translate(ex,ey);cx.rotate(ang);cx.beginPath();cx.moveTo(14,0);cx.lineTo(-7,-7);cx.lineTo(-4,0);cx.lineTo(-7,7);cx.closePath();cx.fillStyle='rgba(232,197,71,.7)';cx.fill();cx.restore();
+const dd=Math.round(dist(o.x,o.y,st.beacon.x,st.beacon.y));cx.font='10px DM Mono';cx.fillStyle='rgba(232,197,71,.5)';cx.textAlign='center';cx.fillText(dd+'m',ex+Math.cos(ang)*(-20),ey+Math.sin(ang)*(-20));}}
+
+// MINIMAP (bottom-right on canvas)
+const ms=80,sc=.12,mx=W-ms-14,my=H-ms-14;
+cx.fillStyle='rgba(6,10,16,.85)';cx.fillRect(mx,my,ms,ms);
+cx.strokeStyle='rgba(255,255,255,.08)';cx.lineWidth=.5;cx.strokeRect(mx,my,ms,ms);
+// Dish on minimap
+cx.beginPath();cx.arc(mx+ms/2,my+ms/2,R*sc,0,6.2832);cx.strokeStyle='rgba(255,255,255,.1)';cx.stroke();
+// Nutrients
+for(const n of st.nuts){cx.beginPath();cx.arc(mx+ms/2+n.x*sc,my+ms/2+n.y*sc,.8,0,6.2832);cx.fillStyle=n.col;cx.globalAlpha=.4;cx.fill();}
+cx.globalAlpha=1;
+// Threats
+for(const t of st.thrs){cx.beginPath();cx.arc(mx+ms/2+t.x*sc,my+ms/2+t.y*sc,1.2,0,6.2832);cx.fillStyle='#eb5757';cx.fill();}
+// Beacon
+if(st.beacon&&st.phase==='EXPLORE'){cx.beginPath();cx.arc(mx+ms/2+st.beacon.x*sc,my+ms/2+st.beacon.y*sc,2.5,0,6.2832);cx.fillStyle='#e8c547';cx.fill();}
+// Player
+cx.beginPath();cx.arc(mx+ms/2+o.x*sc,my+ms/2+o.y*sc,2,0,6.2832);cx.fillStyle='#6fcf97';cx.fill();
+
+// HUD UPDATE
+this.hud(st);
+},
+
+hud(st){
+const o=st.org,pct=Math.max(0,o.energy/o.maxEn);
+const bar=document.getElementById('bar');bar.style.width=pct*100+'%';bar.className='bf'+(pct<.2?' c':pct<.45?' w':'');
+document.getElementById('vE').textContent=Math.round(o.energy);
+document.getElementById('vM').textContent=o.mass.toFixed(1);
+document.getElementById('sName').textContent='STAGE '+st.stage+' / '+st.maxStage;
+
+// Objective text
+const obj=document.getElementById('obj');
+if(st.phase==='EXPLORE'&&st.beacon){const d=Math.round(dist(o.x,o.y,st.beacon.x,st.beacon.y));obj.innerHTML='Alcance o beacon · <span class="dist">'+d+'m</span>';}
+else if(st.phase==='EVOLVE')obj.textContent='Escolha uma evolução';
+else if(st.phase==='STAGE_CLEAR')obj.textContent='✦ Stage '+st.stage+' completo!';
+else if(st.phase==='COMPLETE')obj.textContent='✦ Run completa!';
+else if(st.phase==='DEAD')obj.textContent='';
+else obj.textContent='';
+
+// Dash cooldown
+const now=performance.now(),elapsed=now-o._lastDash,cdPct=Math.min(1,elapsed/3000);
+const db=document.getElementById('dashBar');db.style.width=cdPct*100+'%';db.className='dfill'+(cdPct<1?' r':'');
+
+// Traits
+document.getElementById('traits').innerHTML=o.traits.map(t=>`<span class="tr">${t}</span>`).join('');
+
+// Combo
+const combo=document.getElementById('combo');if(o._combo>1){combo.textContent='COMBO x'+o._combo;combo.classList.add('show');}else{combo.classList.remove('show');}
+
+// Messages
+const vis=st.msgs.filter(m=>now-m.t<5000);st.msgs=vis;
+document.getElementById('msgs').innerHTML=vis.map(m=>`<div class="m ${m.c}">${m.s}</div>`).join('');
+}
+};
+
+// ================================================================
+//  UI OVERLAYS
+// ================================================================
+function showSelect(){const el=document.getElementById('select');el.classList.add('on');document.getElementById('hud').style.display='none';
+const list=document.getElementById('blist');list.innerHTML='';
+for(const[id,b]of Object.entries(C.biomes)){const d=document.createElement('div');d.className='bc';
+const visc='●'.repeat(Math.round(clamp(b.visc,0,4)))+'○'.repeat(4-Math.round(clamp(b.visc,0,4)));
+const drn='●'.repeat(Math.round(clamp(b.drain*8,0,4)))+'○'.repeat(4-Math.round(clamp(b.drain*8,0,4)));
+const thr='●'.repeat(b.thrLv)+'○'.repeat(5-b.thrLv);
+d.innerHTML=`<div class="bn">${b.name}</div><div class="bd">${b.desc}</div><div class="bs">`+
+`<span><span class="d" style="background:#56b6c2"></span>Visc ${visc}</span>`+
+`<span><span class="d" style="background:#e8c547"></span>Dreno ${drn}</span>`+
+`<span><span class="d" style="background:#eb5757"></span>Ameaça ${thr}</span></div>`;
+d.onclick=()=>{el.classList.remove('on');startGame(id);};list.appendChild(d);}}
+
+function showEvo(st){const avail=C.evos.filter(e=>e.need(st.org)&&st.org.mass>=e.cost);
+const opts=shuffle(avail).slice(0,3);st.evoOpts=opts;
+const box=document.getElementById('eopts');box.innerHTML='';
+if(!opts.length){msg(st,'Sem evoluções disponíveis agora.','w');st.phase='EXPLORE';return;}
+for(let i=0;i<opts.length;i++){const e=opts[i];const can=st.org.mass>=e.cost;
+const d=document.createElement('div');d.className='eo'+(can?'':' na');
+d.innerHTML=`<div class="en">${e.name}<span class="ecost${e.cost<=1?' cheap':''}">-${e.cost} massa</span></div>`+
+`<div class="ed">${e.desc}</div><div class="ek">[${i+1}]</div>`;
+if(can)d.onclick=()=>pickEvo(st,i);box.appendChild(d);}
+document.getElementById('evo').classList.add('on');}
+
+function pickEvo(st,i){const e=st.evoOpts[i];if(!e||st.org.mass<e.cost)return;
+st.org.mass=+(st.org.mass-e.cost).toFixed(2);e.apply(st.org);st.org.evoH.push(e.id);
+msg(st,'✦ Evoluiu: '+e.name,'i');SFX.evo();st.phase='EXPLORE';
+document.getElementById('evo').classList.remove('on');}
+
+function skipEvo(st){st.phase='EXPLORE';document.getElementById('evo').classList.remove('on');msg(st,'Evolução pulada. Massa conservada.','i');}
+
+function showEnd(st,win){
+const o=st.org,sec=Math.round((performance.now()-st.t0)/1000),m=0|sec/60,s=sec%60;
+// Score final
+if(win){st.score+=Math.round(o.mass*30);st.score+=Math.round(o.energy*1.5);st.score+=o.evoH.length*100;st.score+=Math.max(0,500-sec*2);st.score-=o._hitN*10;st.score=Math.max(0,st.score);}
+const rank=st.score>=2000?'APEX MICROBE':st.score>=1200?'EUGLENA':st.score>=600?'PARAMECIO':'AMOEBA';
+const rankCol=st.score>=2000?'#e8c547':st.score>=1200?'#56b6c2':st.score>=600?'#6fcf97':'#4a5568';
+const box=document.getElementById('endBox');box.style.borderColor=win?'#2d8a5e':'#eb5757';
+const stats=[
+  win?['Resultado','✦ RUN COMPLETA']:['Resultado',st.death],
+  ['Score',''+st.score],['Rank',rank],
+  ['Stage',st.stage+' / '+st.maxStage],
+  ['Tempo',m+'m '+s+'s'],
+  ['Massa final',o.mass.toFixed(2)],
+  ['Evoluções',o.evoH.length?o.evoH.join(' → '):'nenhuma'],
+  ['Traits',o.traits.length?o.traits.join(', '):'nenhum'],
+  ['Hits recebidos',''+o._hitN],
+  ['Bioma',C.biomes[st.biome].name]
+];
+box.innerHTML=`<div class="end-t" style="color:${win?'#2d8a5e':'#eb5757'}">${win?'RUN COMPLETA':'LEGADO'}</div>`+
+`<div class="end-score" style="color:${rankCol}">${st.score}</div>`+
+`<div class="end-rank" style="color:${rankCol}">${rank}</div>`+
+stats.map(([l,v])=>`<div class="er"><span class="l">${l}</span><span class="r">${v}</span></div>`).join('')+
+`<div class="ef"><kbd>R</kbd> jogar de novo &nbsp; <kbd>Q</kbd> menu</div>`;
+document.getElementById('end').classList.add('on');}
+
+// ================================================================
+//  GAME LIFECYCLE
+// ================================================================
+let G=null;
+
+function startGame(biome){
+G=mkSt(biome);G.t0=performance.now();G.org=mkOrg();G.cam={x:0,y:0};
+Core.clr();parts.length=0;
+Core.reg(AmbientSys);Core.reg(SpawnSys);Core.reg(PlayerSys);Core.reg(FeedSys);Core.reg(ThreatSys);Core.reg(WaveSys);Core.reg(BeaconSys);Core.reg(RenderSys);
+document.getElementById('hud').style.display='block';
+msg(G,'Stage 1 — Alcance o beacon dourado','i');Core.boot(G);
+G._deathWatch=setInterval(()=>{if(G&&(G.phase==='DEAD'||G.phase==='COMPLETE')){clearInterval(G._deathWatch);showEnd(G,G.phase==='COMPLETE');G.phase='ENDED';}},100);
+}
+
+function nextStage(st){
+st.stage++;st.phase='EXPLORE';
+// Clear threats, respawn nutrients
+st.thrs=[];st.nuts=[];const sp=C.spawn[st.biome],R=C.biomes[st.biome].r;
+for(const e of sp.nut){const t=C.nutT[e.t];for(let i=0;i<e.n;i++){const p=rndC(0,0,R*.85);st.nuts.push({id:uid(),x:p.x,y:p.y,type:e.t,...t});}}
+// New beacon position
+const a=Math.random()*6.2832,d=R*.82;st.beacon={x:Math.cos(a)*d,y:Math.sin(a)*d,r:22};
+WaveSys._t=0;WaveSys._warn=false;SpawnSys._nt=0;
+msg(G,'Stage '+st.stage+' — Novo beacon!','i');}
+
+function restartGame(){if(!G)return;const biome=G.biome;const hadSpore=G.org.traits.includes('spore');
+document.getElementById('end').classList.remove('on');document.getElementById('evo').classList.remove('on');
+if(G._deathWatch)clearInterval(G._deathWatch);Core.halt(G);
+G=mkSt(biome);G.t0=performance.now();G.org=mkOrg();G.cam={x:0,y:0};
+if(hadSpore){G.org.energy+=25;msg(G,'Esporos nutrem o novo... +25','i');}else{msg(G,'Stage 1 — Alcance o beacon','i');}
+parts.length=0;Core.clr();Core.reg(AmbientSys);Core.reg(SpawnSys);Core.reg(PlayerSys);Core.reg(FeedSys);Core.reg(ThreatSys);Core.reg(WaveSys);Core.reg(BeaconSys);Core.reg(RenderSys);
+Core.boot(G);G._deathWatch=setInterval(()=>{if(G&&(G.phase==='DEAD'||G.phase==='COMPLETE')){clearInterval(G._deathWatch);showEnd(G,G.phase==='COMPLETE');G.phase='ENDED';}},100);}
+
+function exitToMenu(){if(G){if(G._deathWatch)clearInterval(G._deathWatch);Core.halt(G);}G=null;parts.length=0;
+document.getElementById('end').classList.remove('on');document.getElementById('evo').classList.remove('on');showSelect();}
+
+// ================================================================
+//  INPUT
+// ================================================================
+document.addEventListener('keydown',e=>{
+if(!G)return;const k=e.key.toLowerCase();G.keys[k]=true;
+if(k==='q'){exitToMenu();return;}
+if(k==='e'&&G.phase==='EXPLORE'){showEvo(G);return;}
+if(k==='escape'&&G.phase==='EVOLVE'){skipEvo(G);return;}
+if(G.phase==='EVOLVE'){const idx=parseInt(k)-1;if(idx>=0&&idx<G.evoOpts.length)pickEvo(G,idx);}
+if(k==='r'&&G.phase==='ENDED')restartGame();
+if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+});
+document.addEventListener('keyup',e=>{if(G)G.keys[e.key.toLowerCase()]=false;});
+
+// ================================================================
+//  BOOT
+// ================================================================
+showSelect();
+</script>
+</body>
+</html>
