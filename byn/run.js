@@ -34,7 +34,7 @@ var G={};
 
 function resetAll(){
   var sd={ dobroes:G.player?G.player.dobroes:20, fv:G.player?G.player.firstVictory:false, cc:G.player?G.player.carriedCard:null, cr:G.player?G.player.carriedRelic:null };
-  G={ state:'MENU', player:{hp:80,maxHp:80,dobroes:sd.dobroes,ouro:0,deck:[],relics:[],potions:[],firstVictory:sd.fv,carriedCard:sd.cc,carriedRelic:sd.cr}, map:{nodes:[],curId:0,totalH:0,scrollY:0,revealFloor:1}, nodeCount:0, autoWv:false, autoTm:0, spd:1, difficulty:'normal', cb:{} };
+  G={ state:'MENU', player:{hp:80,maxHp:80,dobroes:sd.dobroes+1000,ouro:0,deck:[],relics:[],potions:[],firstVictory:sd.fv,carriedCard:sd.cc,carriedRelic:sd.cr}, map:{nodes:[],curId:0,totalH:0,scrollY:0,revealFloor:1}, nodeCount:0, autoWv:false, autoTm:0, spd:1, difficulty:'normal', cb:{} };
   resetCombat();
 }
 
