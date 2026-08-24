@@ -564,19 +564,19 @@
     </section>
 
     <nav class="menu" aria-label="Menu principal">
-      <button class="menu__btn menu__btn--primary" type="button">
+      <button class="menu__btn menu__btn--primary" id="btnJogar" type="button">
         <span class="menu__btn-icon">&#9654;</span> Jogar
       </button>
-      <button class="menu__btn" type="button">
+      <button class="menu__btn" id="btnRupturas" type="button">
         <span class="menu__btn-icon">&#10070;</span> Rupturas
       </button>
-      <button class="menu__btn" type="button">
+      <button class="menu__btn" id="btnCartas" type="button">
         <span class="menu__btn-icon">&#9830;</span> Cartas
       </button>
-      <button class="menu__btn" type="button">
+      <button class="menu__btn" id="btnJogador" type="button">
         <span class="menu__btn-icon">&#9679;</span> Jogador
       </button>
-      <button class="menu__btn" type="button">
+      <button class="menu__btn" id="btnMercado" type="button">
         <span class="menu__btn-icon">&#9733;</span> Mercado
       </button>
     </nav>
@@ -792,13 +792,19 @@
     })();
 
     // ========================================
-    //  PLAYER DATA — fácil de reestruturar
+    //  PLAYER DATA — persiste entre telas
     // ========================================
-    const playerData = {
+    const playerData = JSON.parse(localStorage.getItem('voidDash_playerData')) || {
       xp: 0,
       xpMax: 100,
-      coins: 0
+      coins: 0,
+      selectedCharacter: 0,
+      characterLevels: [1, 1, 1]
     };
+
+    function savePlayerData() {
+      localStorage.setItem('voidDash_playerData', JSON.stringify(playerData));
+    }
 
     // ── Atualizar XP no DOM ──
     function updateXP(current, max) {
@@ -810,13 +816,42 @@
       document.getElementById('xpText').textContent =
         `${playerData.xp} / ${playerData.xpMax}`;
       document.getElementById('xpFill').style.width = `${pct}%`;
+      savePlayerData();
     }
 
     // ── Atualizar Moedas no DOM ──
     function updateCoins(amount) {
       playerData.coins = amount;
       document.getElementById('coinsValue').textContent = amount;
+      savePlayerData();
     }
+        // ========================================
+    //  NAVEGAÇÃO ENTRE TELAS
+    // ========================================
+    document.getElementById('btnJogador').addEventListener('click', () => {
+      window.location.href = 'personagens.html';
+    });
+
+    document.getElementById('btnCartas').addEventListener('click', () => {
+      window.location.href = 'cartas.html';
+    });
+
+    document.getElementById('btnRupturas').addEventListener('click', () => {
+      window.location.href = 'rupturas.html';
+    });
+
+    document.getElementById('btnMercado').addEventListener('click', () => {
+      window.location.href = 'mercado.html';
+    });
+
+    document.getElementById('btnJogar').addEventListener('click', () => {
+      // Por enquanto abre a tela de personagem para escolher
+      window.location.href = 'personagens.html';
+    });
+
+    // ── Carregar dados salvos na tela ──
+    updateXP(playerData.xp, playerData.xpMax);
+    updateCoins(playerData.coins);
   </script>
 
 </body>
