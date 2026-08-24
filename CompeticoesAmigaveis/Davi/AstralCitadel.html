@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astral Tide Citadel — The Awakening</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#080b11;--gold:#c8b894;--gold-b:#e8d4a8;--astral:#5ae8e5;--astral-d:#2a7875;--ui-bg:rgba(8,11,17,.88);--fd:'Cinzel',serif;--fb:'Crimson Pro',serif}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:var(--fb)}
+    #scene{position:fixed;inset:0}
+    canvas{display:block;width:100%;height:100%}
+    .vignette{position:fixed;inset:0;z-index:1;background:radial-gradient(circle at 50% 42%,transparent 48%,rgba(0,0,0,.45) 115%);pointer-events:none}
+
+    /* OVERLAYS */
+    .overlay{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ui-bg);color:var(--gold);font-family:var(--fd);transition:opacity .8s ease}
+    .overlay h1{font-size:clamp(1.8rem,5vw,3.2rem);font-weight:700;letter-spacing:.14em;text-shadow:0 0 50px rgba(90,232,229,.25);opacity:0;animation:fadeUp 1.8s ease .3s forwards}
+    .overlay .sub{font-family:var(--fb);font-size:clamp(.9rem,2.5vw,1.25rem);font-style:italic;font-weight:300;color:var(--astral);margin-top:.45rem;opacity:0;animation:fadeUp 1.8s ease .8s forwards}
+    .overlay .hint{font-family:var(--fb);font-size:.85rem;color:rgba(200,184,148,.45);margin-top:2.2rem;letter-spacing:.18em;opacity:0;animation:fadeUp 1.2s ease 1.4s forwards,pulse 2.4s ease-in-out 2.6s infinite}
+    .overlay .ctrls{font-family:var(--fb);font-size:.78rem;color:rgba(200,184,148,.35);margin-top:1rem;letter-spacing:.08em;opacity:0;animation:fadeUp 1s ease 1.8s forwards}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+    #start-screen{z-index:110}
+    #pause-screen{display:none;z-index:105}
+    #victory-screen{display:none;z-index:108;opacity:0;transition:opacity 1.5s ease}
+    #victory-screen.show{opacity:1}
+    #victory-screen h1{color:var(--astral);text-shadow:0 0 60px rgba(90,232,229,.5)}
+
+    /* HUD */
+    #hud{position:fixed;inset:0;z-index:10;pointer-events:none;font-family:var(--fd);color:var(--gold);display:none}
+    #crosshair{position:absolute;top:50%;left:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
+    #crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(200,184,148,.28)}
+    #crosshair::before{left:50%;top:0;width:1px;height:100%;transform:translateX(-50%)}
+    #crosshair::after{top:50%;left:0;height:1px;width:100%;transform:translateY(-50%)}
+    #shard-bar{position:absolute;top:18px;right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+    #shard-icons{display:flex;gap:5px}
+    .si{width:14px;height:14px;border:1.5px solid var(--astral-d);border-radius:50%;transition:all .6s ease;background:transparent}
+    .si.on{background:var(--astral);box-shadow:0 0 10px var(--astral),0 0 20px rgba(90,232,229,.3);border-color:var(--astral)}
+    #shard-txt{font-family:var(--fb);font-size:.78rem;color:rgba(200,184,148,.5);letter-spacing:.1em}
+    #area-name{position:absolute;top:18px;left:20px;font-size:.72rem;letter-spacing:.16em;color:rgba(200,184,148,.35);text-transform:uppercase;transition:opacity .6s ease}
+    #msg{position:absolute;bottom:75px;left:50%;transform:translateX(-50%);max-width:460px;text-align:center;font-family:var(--fb);font-style:italic;font-size:1rem;color:var(--gold-b);opacity:0;transition:opacity .9s ease;text-shadow:0 2px 12px rgba(0,0,0,.7);line-height:1.65;pointer-events:none}
+    #msg.show{opacity:1}
+    #objective{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;color:rgba(200,184,148,.22);white-space:nowrap}
+    #compass-wrap{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:26px;height:26px;display:none}
+    #compass{width:100%;height:100%;transition:transform .25s ease}
+    #compass::after{content:'';position:absolute;top:1px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:13px solid rgba(90,232,229,.45)}
+    #flash{position:fixed;inset:0;z-index:50;background:radial-gradient(circle,rgba(90,232,229,.25) 0%,transparent 70%);opacity:0;pointer-events:none;transition:opacity .5s ease}
+    #flash.on{opacity:1;transition:opacity .12s ease}
+    #ctrls-hint{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);font-family:var(--fb);font-size:.7rem;color:rgba(200,184,148,.3);letter-spacing:.06em;white-space:nowrap;opacity:0;transition:opacity 1s ease;pointer-events:none}
+    #ctrls-hint.show{opacity:1}
+  </style>
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <div id="start-screen" class="overlay">
+    <h1>ASTRAL TIDE CITADEL</h1>
+    <p class="sub">The Awakening</p>
+    <p class="hint">Click to Enter</p>
+    <p class="ctrls">WASD · Mouse · Space · Shift</p>
+  </div>
+  <div id="pause-screen" class="overlay">
+    <h1 style="font-size:1.4rem;letter-spacing:.12em">PAUSED</h1>
+    <p class="hint" style="animation-delay:0s">Click to Resume</p>
+    <p class="ctrls" style="animation-delay:.2s">WASD to move · Mouse to look · Space to jump · Shift to sprint</p>
+  </div>
+  <div id="victory-screen" class="overlay">
+    <h1>THE AWAKENING</h1>
+    <p class="sub">The Meridian Armillary turns once more, pulling the tide of forgotten light through every stone.</p>
+    <p class="hint" style="animation-delay:1s">All 7 Astral Shards restored</p>
+  </div>
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="compass-wrap"><div id="compass"></div></div>
+    <div id="shard-bar">
+      <div id="shard-icons"><span class="si"></span><span class="si"></span><span class="si"></span><span class="si"></span><span class="si"></span><span class="si"></span><span class="si"></span></div>
+      <span id="shard-txt">0 / 7</span>
+    </div>
+    <div id="area-name"></div>
+    <div id="msg"></div>
+    <div id="objective">Find the 7 Astral Shards to awaken the Armillary</div>
+    <div id="ctrls-hint">WASD move · Mouse look · Space jump · Shift sprint</div>
+  </div>
+  <div id="flash"></div>
+  <div id="scene"></div>
+  <div class="vignette"></div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+    import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+    import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+    import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+    import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+    /* ── Scene ── */
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x080b11);
+    scene.fog = new THREE.Fog(0x080b11, 25, 48);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.06;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById("scene").appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, .1, 100);
+    camera.position.set(-2.25, 1.6, 4.5);
+    scene.add(camera);
+    const controls = new PointerLockControls(camera, renderer.domElement);
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .38, .55, .86));
+    composer.addPass(new OutputPass());
+
+    /* ── Helpers ── */
+    let _s = 92741;
+    function rng() { _s = (_s * 1664525 + 1013904223) >>> 0; return _s / 4294967296; }
+    function rngR(a, b) { return a + (b - a) * rng(); }
+    function addM(p, g, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
+      const o = new THREE.Mesh(g, m); o.castShadow = true; o.receiveShadow = true;
+      o.position.set(x, y, z); o.rotation.set(rx, ry, rz); p.add(o); return o;
+    }
+    function cylBet(p, a, b, r, m, seg = 8) {
+      const mid = a.clone().add(b).multiplyScalar(.5), d = b.clone().sub(a);
+      const o = addM(p, new THREE.CylinderGeometry(r, r, d.length(), seg), m, mid.x, mid.y, mid.z);
+      o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); return o;
+    }
+
+    /* ── Textures ── */
+    function mkBrick(base, mort, acc) {
+      const c = document.createElement("canvas"); c.width = c.height = 512;
+      const x = c.getContext("2d"); x.fillStyle = mort; x.fillRect(0, 0, 512, 512);
+      const rows = 12, h = 512 / rows;
+      for (let r = 0; r < rows; r++) {
+        const off = r % 2 ? -30 : 0;
+        for (let px = off; px < 530; px += 63) {
+          const l = rngR(-12, 13);
+          x.fillStyle = `rgb(${Math.max(0, parseInt(base.slice(1, 3), 16) + l)},${Math.max(0, parseInt(base.slice(3, 5), 16) + l)},${Math.max(0, parseInt(base.slice(5, 7), 16) + l)})`;
+          x.fillRect(px + 2, r * h + 2, 59, h - 4);
+          x.fillStyle = acc; x.globalAlpha = .13; x.fillRect(px + 4, r * h + 4, 54, 3); x.globalAlpha = 1;
+        }
+      }
+      const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(3.4, 3.4); t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t;
+    }
+    function mkSlate() {
+      const c = document.createElement("canvas"); c.width = c.height = 512;
+      const x = c.getContext("2d"), g = x.createLinearGradient(0, 0, 512, 512);
+      g.addColorStop(0, "#26313d"); g.addColorStop(.55, "#121b27"); g.addColorStop(1, "#303b47");
+      x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+      x.strokeStyle = "rgba(154,174,191,.12)"; x.lineWidth = 2;
+      for (let y = 0; y < 512; y += 32) { x.beginPath(); x.moveTo(0, y); x.lineTo(512, y + 17); x.stroke(); }
+      const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(2.6, 2.6); t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t;
+    }
+    const brickTex = mkBrick("#596975", "#1b232c", "#bec8cd"), slateTex = mkSlate();
+    const M = {
+      basalt: new THREE.MeshStandardMaterial({ color: 0xf1f4f5, map: brickTex, roughness: .76, metalness: .04, emissive: 0x152433, emissiveIntensity: .34 }),
+      basaltD: new THREE.MeshStandardMaterial({ color: 0xc4cbd0, map: brickTex, roughness: .86, metalness: .02, emissive: 0x101c27, emissiveIntensity: .29 }),
+      granite: new THREE.MeshStandardMaterial({ color: 0x818989, roughness: .66, metalness: .03 }),
+      slate: new THREE.MeshStandardMaterial({ color: 0xb8c1c9, map: slateTex, roughness: .68, metalness: .08 }),
+      roofLead: new THREE.MeshStandardMaterial({ color: 0x34424d, roughness: .48, metalness: .42 }),
+      brass: new THREE.MeshStandardMaterial({ color: 0x806b48, roughness: .34, metalness: .78, emissive: 0x211609, emissiveIntensity: .12 }),
+      bronze: new THREE.MeshStandardMaterial({ color: 0x536c62, roughness: .38, metalness: .72 }),
+      iron: new THREE.MeshStandardMaterial({ color: 0x111921, roughness: .48, metalness: .72 }),
+      blackG: new THREE.MeshStandardMaterial({ color: 0x03040a, roughness: .1, metalness: .24 }),
+      oak: new THREE.MeshStandardMaterial({ color: 0x2a1b16, roughness: .78, metalness: .04, emissive: 0x100805, emissiveIntensity: .16 }),
+      win: new THREE.MeshStandardMaterial({ color: 0xf5bd72, emissive: 0xff8e3e, emissiveIntensity: 1.6, roughness: .18, metalness: .06 }),
+      astral: new THREE.MeshStandardMaterial({ color: 0xbdeeee, emissive: 0x59d5d2, emissiveIntensity: 1.9, roughness: .2, metalness: .18 })
+    };
+
+    /* ── Architecture helpers ── */
+    function gableRoof(w, d, rise, mat) {
+      const r = new THREE.Group(), sl = Math.hypot(w * .5, rise), pi = Math.atan2(rise, w * .5);
+      addM(r, new THREE.BoxGeometry(sl, .1, d), mat, -w * .25, rise * .5, 0, 0, 0, pi);
+      addM(r, new THREE.BoxGeometry(sl, .1, d), mat, w * .25, rise * .5, 0, 0, 0, -pi);
+      addM(r, new THREE.CylinderGeometry(.065, .065, d + .14, 8), M.roofLead, 0, rise, 0, Math.PI * .5);
+      addM(r, new THREE.BoxGeometry(.12, .14, d + .08), M.roofLead, -w * .5, .01, 0);
+      addM(r, new THREE.BoxGeometry(.12, .14, d + .08), M.roofLead, w * .5, .01, 0);
+      const rc = Math.max(3, Math.round(d / .72));
+      for (let i = 1; i < rc; i++) { const z = -d * .5 + i / rc * d; addM(r, new THREE.BoxGeometry(sl + .03, .024, .045), M.roofLead, -w * .25, rise * .51, z, 0, 0, pi); addM(r, new THREE.BoxGeometry(sl + .03, .024, .045), M.roofLead, w * .25, rise * .51, z, 0, 0, -pi); }
+      for (const z of [-d * .5, d * .5]) { addM(r, new THREE.CylinderGeometry(.035, .045, .26, 6), M.roofLead, 0, rise + .11, z); addM(r, new THREE.ConeGeometry(.07, .26, 6), M.slate, 0, rise + .36, z); }
+      return r;
+    }
+    function tracePoint(path, w, h, by = 0, rev = false) {
+      if (rev) { path.moveTo(-w * .5, by); path.lineTo(-w * .5, by + h * .53); path.quadraticCurveTo(-w * .48, by + h * .78, 0, by + h); path.quadraticCurveTo(w * .48, by + h * .78, w * .5, by + h * .53); path.lineTo(w * .5, by); path.closePath(); }
+      else { path.moveTo(-w * .5, by); path.lineTo(w * .5, by); path.lineTo(w * .5, by + h * .53); path.quadraticCurveTo(w * .48, by + h * .78, 0, by + h); path.quadraticCurveTo(-w * .48, by + h * .78, -w * .5, by + h * .53); path.closePath(); }
+    }
+    function ptWindow(p, x, y, z, w, h, ry = 0, gl = 1, pl = false) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry;
+      const gs = new THREE.Shape(); tracePoint(gs, w, h);
+      const rs = new THREE.Shape(); tracePoint(rs, w * 1.16, h * 1.07, -.035);
+      addM(g, new THREE.ShapeGeometry(rs), M.blackG, 0, 0, -.09);
+      if (pl) { const ps = new THREE.Shape(); tracePoint(ps, w + .38, h + .3, -.13); const ph = new THREE.Path(); tracePoint(ph, w + .18, h + .1, -.025, true); ps.holes.push(ph); const pg = new THREE.ExtrudeGeometry(ps, { depth: .12, bevelEnabled: true, bevelSegments: 1, bevelSize: .018, bevelThickness: .018 }); pg.translate(0, 0, -.11); addM(g, pg, M.granite); }
+      const gm = M.win.clone(); gm.emissiveIntensity = 1.25 + gl * .45;
+      const gls = addM(g, new THREE.ShapeGeometry(gs), gm, 0, 0, .105); gls.castShadow = false;
+      const fs = new THREE.Shape(); tracePoint(fs, w + .2, h + .18, -.07); const fh = new THREE.Path(); tracePoint(fh, w, h, .02, true); fs.holes.push(fh);
+      const fg = new THREE.ExtrudeGeometry(fs, { depth: .11, bevelEnabled: true, bevelSegments: 1, bevelSize: .018, bevelThickness: .018 }); fg.translate(0, 0, -.015); addM(g, fg, M.granite);
+      addM(g, new THREE.BoxGeometry(.035, h * .82, .06), M.brass, 0, h * .4, .14);
+      addM(g, new THREE.BoxGeometry(w * .72, .03, .06), M.brass, 0, h * .42, .14);
+      const hs = new THREE.Shape(); tracePoint(hs, w + .27, h + .24, -.09);
+      const hc = new THREE.CatmullRomCurve3(hs.getPoints(24).map(pt => new THREE.Vector3(pt.x, pt.y, .15)));
+      addM(g, new THREE.TubeGeometry(hc, 30, .025, 5, false), M.granite);
+      addM(g, new THREE.BoxGeometry(w + .3, .1, .19), M.granite, 0, -.095, .03);
+      p.add(g); return g;
+    }
+    function ptDoor(p, x, y, z, w, h, ry = 0) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+      const ds = new THREE.Shape(); tracePoint(ds, w, h);
+      const rs = new THREE.Shape(); tracePoint(rs, w * 1.16, h * 1.04, -.035);
+      addM(g, new THREE.ShapeGeometry(rs), M.blackG, 0, 0, -.08);
+      addM(g, new THREE.ShapeGeometry(ds), M.oak, 0, 0, .075);
+      const fs = new THREE.Shape(); tracePoint(fs, w + .22, h + .18, -.07); const fh = new THREE.Path(); tracePoint(fh, w, h, .02, true); fs.holes.push(fh);
+      const fg = new THREE.ExtrudeGeometry(fs, { depth: .13, bevelEnabled: true, bevelSegments: 1, bevelSize: .018, bevelThickness: .018 }); fg.translate(0, 0, -.025); addM(g, fg, M.granite);
+      addM(g, new THREE.BoxGeometry(.025, h * .8, .035), M.iron, 0, h * .39, .13);
+      for (const sy of [h * .3, h * .58]) addM(g, new THREE.BoxGeometry(w * .68, .035, .035), M.iron, 0, sy, .13);
+      addM(g, new THREE.SphereGeometry(.035, 10, 8), M.brass, w * .29, h * .46, .16);
+      addM(g, new THREE.BoxGeometry(w + .28, .08, .34), M.granite, 0, -.04, .09);
+      return g;
+    }
+    function roseWin(p, x, y, z, r, ry = 0, gl = .8) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+      addM(g, new THREE.CircleGeometry(r + .19, 56), M.granite, 0, 0, -.08);
+      addM(g, new THREE.CircleGeometry(r, 56), M.blackG, 0, 0, .005);
+      const gm = M.win.clone(); gm.emissiveIntensity = 1.18 + gl * .38;
+      addM(g, new THREE.CircleGeometry(r * .86, 56), gm, 0, 0, .025);
+      addM(g, new THREE.TorusGeometry(r + .08, .075, 8, 64), M.granite, 0, 0, .075);
+      addM(g, new THREE.TorusGeometry(r * .55, .025, 6, 48), M.brass, 0, 0, .1);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; cylBet(g, new THREE.Vector3(Math.cos(a) * .08, Math.sin(a) * .08, .115), new THREE.Vector3(Math.cos(a) * r * .83, Math.sin(a) * r * .83, .115), .014, M.brass, 5); }
+      addM(g, new THREE.CircleGeometry(.08, 20), M.blackG, 0, 0, .13); return g;
+    }
+    function gothicPin(p, x, y, z, h = .82) {
+      const g = new THREE.Group(); g.position.set(x, y, z); p.add(g);
+      addM(g, new THREE.BoxGeometry(.3, h * .48, .3), M.granite, 0, h * .24, 0);
+      addM(g, new THREE.BoxGeometry(.4, .09, .4), M.roofLead, 0, h * .51, 0);
+      addM(g, new THREE.ConeGeometry(.22, h * .58, 6), M.slate, 0, h * .82, 0, 0, Math.PI / 6);
+      addM(g, new THREE.SphereGeometry(.045, 8, 6), M.brass, 0, h * 1.14, 0); return g;
+    }
+    function dormer(p, x, y, z, ry = 0) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+      addM(g, new THREE.BoxGeometry(.72, .62, .46), M.basaltD, 0, .31, 0);
+      ptWindow(g, 0, .12, .245, .25, .4, 0, .56, true);
+      const rf = gableRoof(.88, .64, .4, M.slate); rf.position.y = .59; g.add(rf); return g;
+    }
+    function flyButt(p, s, e) {
+      const c = s.clone().lerp(e, .5).add(new THREE.Vector3(0, .72, 0)), cr = new THREE.QuadraticBezierCurve3(s, c, e);
+      addM(p, new THREE.BoxGeometry(.22, .32, .25), M.granite, s.x, s.y, s.z);
+      addM(p, new THREE.BoxGeometry(.2, .28, .22), M.granite, e.x, e.y, e.z);
+      return addM(p, new THREE.TubeGeometry(cr, 18, .11, 7, false), M.granite);
+    }
+    function blindLanc(p, x, y, z, w, h, ry = 0) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+      const rs = new THREE.Shape(); tracePoint(rs, w, h); addM(g, new THREE.ShapeGeometry(rs), M.blackG, 0, 0, -.018);
+      const fs = new THREE.Shape(); tracePoint(fs, w + .1, h + .09, -.04); const fh = new THREE.Path(); tracePoint(fh, w, h, .01, true); fs.holes.push(fh);
+      const fg = new THREE.ExtrudeGeometry(fs, { depth: .07, bevelEnabled: true, bevelSegments: 1, bevelSize: .012, bevelThickness: .012 }); fg.translate(0, 0, -.018); addM(g, fg, M.granite);
+      addM(g, new THREE.BoxGeometry(.022, h * .72, .035), M.granite, 0, h * .35, .06); return g;
+    }
+    function quatrefoil(p, x, y, z, r, ry = 0) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; p.add(g);
+      addM(g, new THREE.CircleGeometry(r * 1.28, 32), M.blackG, 0, 0, -.025);
+      addM(g, new THREE.TorusGeometry(r * 1.12, r * .12, 6, 36), M.granite, 0, 0, .015);
+      const lr = r * .45, lo = r * .34;
+      for (const [ox, oy] of [[-lo, 0], [lo, 0], [0, -lo], [0, lo]]) addM(g, new THREE.TorusGeometry(lr, r * .105, 6, 28), M.granite, ox, oy, .045);
+      addM(g, new THREE.CircleGeometry(r * .12, 16), M.brass, 0, 0, .07); return g;
+    }
+    function gargoyle(p, x, y, z, ry = 0, s = 1) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; g.scale.setScalar(s); p.add(g);
+      const b = addM(g, new THREE.DodecahedronGeometry(.16, 0), M.granite, 0, .02, .08); b.scale.set(.88, .7, 1.25);
+      addM(g, new THREE.CylinderGeometry(.045, .09, .42, 6), M.granite, 0, -.015, .34, Math.PI * .5);
+      addM(g, new THREE.ConeGeometry(.05, .17, 5), M.granite, -.09, .16, .02, 0, 0, -.22);
+      addM(g, new THREE.ConeGeometry(.05, .17, 5), M.granite, .09, .16, .02, 0, 0, .22);
+      addM(g, new THREE.SphereGeometry(.018, 8, 6), M.blackG, -.052, .07, .195);
+      addM(g, new THREE.SphereGeometry(.018, 8, 6), M.blackG, .052, .07, .195); return g;
+    }
+    function roofCrest(p, x, y, zs, ze) {
+      const g = new THREE.Group(); p.add(g);
+      cylBet(g, new THREE.Vector3(x, y, zs), new THREE.Vector3(x, y, ze), .018, M.iron, 6);
+      const cnt = Math.floor(Math.abs(ze - zs) / .54);
+      for (let i = 0; i <= cnt; i++) {
+        const z = THREE.MathUtils.lerp(zs, ze, i / cnt);
+        addM(g, new THREE.CylinderGeometry(.015, .02, .28, 5), M.iron, x, y + .14, z);
+        addM(g, new THREE.ConeGeometry(.06, .16, 5), M.brass, x, y + .36, z);
+        if (i % 2 === 0) addM(g, new THREE.TorusGeometry(.075, .012, 5, 18), M.iron, x, y + .18, z, 0, Math.PI * .5);
+      }
+      return g;
+    }
+    function spireCroc(p, x, by, z, br, h, s = 8) {
+      const g = new THREE.Group(); p.add(g);
+      for (const lv of [.24, .44, .64]) { const r = br * (1 - lv) * .94; for (let i = 0; i < s; i++) { const a = i / s * Math.PI * 2 + Math.PI / s; addM(g, new THREE.ConeGeometry(.065, .24, 5), M.granite, x + Math.cos(a) * r, by + lv * h + .09, z + Math.sin(a) * r); } }
+      return g;
+    }
+    function crenel(p, r, y, cnt = 12) { for (let i = 0; i < cnt; i++) { const a = i / cnt * Math.PI * 2; addM(p, new THREE.BoxGeometry(.25, .34, .2), M.granite, Math.cos(a) * r, y, Math.sin(a) * r, 0, Math.PI * .5 - a, 0); } }
+
+    /* ── Build Citadel ── */
+    const citadelRoot = new THREE.Group(); scene.add(citadelRoot);
+    const cPos = new THREE.Vector3(-2.25, 0, -.85), oPos = new THREE.Vector3(3.8, 0, -2.1);
+    let orreryRoot, outerRingP, innerRingP, eclPiv, pivA, pivB;
+
+    function buildCathedral() {
+      const c = new THREE.Group(); c.position.copy(cPos); citadelRoot.add(c);
+      addM(c, new THREE.BoxGeometry(5.78, .28, 5.46), M.granite, 0, .14, 0);
+      addM(c, new THREE.BoxGeometry(3.2, 4.25, 5.5), M.basalt, 0, 2.125, 0);
+      addM(c, new THREE.BoxGeometry(1.28, 2.75, 5.25), M.basaltD, -1.98, 1.375, 0);
+      addM(c, new THREE.BoxGeometry(1.28, 2.75, 5.25), M.basaltD, 1.98, 1.375, 0);
+      addM(c, new THREE.BoxGeometry(5.9, 3.65, 1.55), M.basalt, 0, 1.825, -1.05);
+      addM(c, new THREE.BoxGeometry(2.18, 4.24, .42), M.basaltD, 0, 2.12, 2.68);
+      addM(c, new THREE.BoxGeometry(3.36, .13, 5.62), M.granite, 0, 2.9, 0);
+      const nr = gableRoof(3.65, 5.85, 1.55, M.slate); nr.position.y = 4.22; c.add(nr);
+      const wr = gableRoof(1.58, 5.52, .7, M.slate); wr.position.set(-1.98, 2.72, 0); c.add(wr);
+      const er = gableRoof(1.58, 5.52, .7, M.slate); er.position.set(1.98, 2.72, 0); c.add(er);
+      const tr = gableRoof(1.75, 6.15, .86, M.slate); tr.position.set(0, 3.61, -1.05); tr.rotation.y = Math.PI * .5; c.add(tr);
+      dormer(c, 1.4, 4.55, .72, Math.PI * .5); dormer(c, 1.4, 4.55, -2, Math.PI * .5);
+      const gi = (p, w, r, x, y, z, ry = 0) => { const s = new THREE.Shape(); s.moveTo(-w * .5, 0); s.lineTo(w * .5, 0); s.lineTo(0, r); s.closePath(); const g2 = new THREE.Group(); g2.position.set(x, y, z); g2.rotation.y = ry; p.add(g2); addM(g2, new THREE.ShapeGeometry(s), M.basaltD); const ep = [new THREE.Vector3(-w * .5, 0, .055), new THREE.Vector3(0, r, .055), new THREE.Vector3(w * .5, 0, .055)]; addM(g2, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ep), 18, .045, 6, false), M.granite); };
+      gi(c, 3.2, 1.48, 0, 4.25, 2.76); gi(c, 2.18, 1.15, 0, 4.24, 2.91);
+      gi(c, 1.28, .62, -1.98, 2.75, 2.64); gi(c, 1.28, .62, 1.98, 2.75, 2.64);
+      const apse = addM(c, new THREE.CylinderGeometry(1.62, 1.7, 3.8, 7), M.basalt, 0, 1.9, -3.9); apse.rotation.y = Math.PI / 7;
+      const ar = addM(c, new THREE.ConeGeometry(1.82, 1.42, 7), M.slate, 0, 4.52, -3.9); ar.rotation.y = Math.PI / 7;
+      for (let i = 0; i < 7; i++) { const a = Math.PI * .5 - Math.PI / 7 - i / 7 * Math.PI * 2; cylBet(c, new THREE.Vector3(Math.cos(a) * 1.72, 3.85, Math.sin(a) * 1.72 - 3.9), new THREE.Vector3(0, 5.18, -3.9), .028, M.brass, 6); }
+      for (const a of [-Math.PI * 3 / 14, -Math.PI * .5, -Math.PI * 11 / 14]) {
+        const bx = Math.cos(a) * 1.74, bz = Math.sin(a) * 1.74 - 3.9;
+        const bt = addM(c, new THREE.BoxGeometry(.3, 3.34, .5), M.granite, bx, 1.67, bz, 0, Math.PI * .5 - a, 0);
+        addM(c, new THREE.BoxGeometry(.42, .1, .58), M.granite, bx, 2.22, bz, 0, Math.PI * .5 - a, 0);
+        gothicPin(c, bx, 3.28, bz, .66);
+      }
+      const cx = addM(c, new THREE.CylinderGeometry(1.14, 1.24, 3.35, 8), M.basalt, 0, 5.62, -.82); cx.rotation.y = Math.PI / 8;
+      addM(c, new THREE.CylinderGeometry(1.28, 1.28, .14, 8), M.granite, 0, 4.45, -.82, 0, Math.PI / 8);
+      addM(c, new THREE.CylinderGeometry(1.27, 1.27, .18, 8), M.granite, 0, 7.12, -.82, 0, Math.PI / 8);
+      addM(c, new THREE.ConeGeometry(1.25, 3.08, 8), M.slate, 0, 8.72, -.82, 0, Math.PI / 8);
+      spireCroc(c, 0, 7.18, -.82, 1.25, 3.08, 8);
+      addM(c, new THREE.CylinderGeometry(.035, .055, 1.18, 6), M.brass, 0, 10.82, -.82);
+      addM(c, new THREE.TorusGeometry(.18, .024, 5, 18, Math.PI * 1.38), M.brass, 0, 11.32, -.82, Math.PI * .5, 0, .35);
+      ptWindow(c, 0, 5.93, .36, .34, .82, 0, .45, true);
+      ptWindow(c, 1.2, 5.12, -.82, .32, .78, Math.PI * .5, .35, true);
+      ptWindow(c, -1.2, 5.12, -.82, .32, .78, -Math.PI * .5, .35, true);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI * .25; addM(c, new THREE.CylinderGeometry(.11, .14, .72, 6), M.granite, Math.cos(a) * 1.12, 7.42, Math.sin(a) * 1.12 - .82); addM(c, new THREE.ConeGeometry(.16, .72, 6), M.slate, Math.cos(a) * 1.12, 8.14, Math.sin(a) * 1.12 - .82); }
+      addM(c, new THREE.CylinderGeometry(.72, .84, 5.15, 8), M.basalt, -1.82, 2.58, 2.45, 0, Math.PI / 8);
+      addM(c, new THREE.CylinderGeometry(.88, .88, .2, 8), M.granite, -1.82, 5.14, 2.45, 0, Math.PI / 8);
+      addM(c, new THREE.ConeGeometry(.9, 2.45, 8), M.slate, -1.82, 6.46, 2.45, 0, Math.PI / 8);
+      addM(c, new THREE.CylinderGeometry(.025, .045, .72, 6), M.brass, -1.82, 8.05, 2.45);
+      addM(c, new THREE.CylinderGeometry(.7, .79, 4.78, 8), M.basalt, 1.68, 2.39, 2.42, 0, Math.PI / 8);
+      addM(c, new THREE.CylinderGeometry(.84, .84, .2, 8), M.granite, 1.68, 4.82, 2.42, 0, Math.PI / 8);
+      const ac = new THREE.Group(); ac.position.set(1.68, 0, 2.42); c.add(ac); crenel(ac, .82, 5.09, 8);
+      ptWindow(c, -1.82, 1.5, 3.27, .42, 1.08, 0, 1, true); ptWindow(c, -1.82, 3.18, 3.27, .34, .76, 0, .65, true);
+      ptWindow(c, 1.68, 1.5, 3.23, .42, 1.08, 0, 1, true); ptWindow(c, 1.68, 3.12, 3.23, .34, .76, 0, .65, true);
+      const cSideW = [{ z: 1.82, w: .4, h: 1.08, pl: true }, { z: .46, w: .26, h: .96, pl: false }, { z: -1.34, w: .4, h: 1.08, pl: true }];
+      const cBlindZ = [2.12, 1.58, .46, -.72, -1.34, -1.95], cClerZ = [1.93, .54, -1.26], cButtZ = [1.02, -.1, -2.58];
+      for (const s of [-1, 1]) {
+        for (const w of cSideW) ptWindow(c, s * 2.635, .95, w.z, w.w, w.h, s * Math.PI * .5, .72, w.pl);
+        for (const z of cBlindZ) blindLanc(c, s * 2.64, 2.17, z, .2, .38, s * Math.PI * .5);
+      }
+      for (const s of [-1, 1]) {
+        for (const z of cButtZ) {
+          const pi2 = addM(c, new THREE.BoxGeometry(.36, 3, .56), M.granite, s * 2.74, 1.48, z); pi2.rotation.z = s * .035;
+          flyButt(c, new THREE.Vector3(s * 2.65, 2.82, z), new THREE.Vector3(s * 1.58, 3.78, z + .08));
+          addM(c, new THREE.ConeGeometry(.18, .68, 6), M.slate, s * 2.72, 3.17, z);
+          addM(c, new THREE.BoxGeometry(.5, .1, .66), M.granite, s * 2.76, 2.28, z);
+          gargoyle(c, s * 2.98, 2.84, z, s * Math.PI * .5, .82);
+        }
+      }
+      for (const s of [-1, 1]) {
+        for (const z of cClerZ) ptWindow(c, s * 1.615, 3.28, z, .3, .7, s * Math.PI * .5, .52);
+        if (s === 1) ptDoor(c, 2.97, .24, -1.05, .58, 1.58, Math.PI * .5);
+        else ptWindow(c, s * 2.97, 1.02, -1.05, .44, 1.42, s * Math.PI * .5, .78, true);
+        roseWin(c, s * 2.985, 2.96, -1.05, .36, s * Math.PI * .5, .65);
+        for (const z of [-.25, -1.85]) addM(c, new THREE.BoxGeometry(.34, 3.55, .42), M.granite, s * 2.91, 1.78, z);
+        for (const z of [-.25, -1.85]) gothicPin(c, s * 2.91, 3.48, z, .72);
+      }
+      for (const a of [-Math.PI / 14, -Math.PI * 5 / 14, -Math.PI * 9 / 14, -Math.PI * 13 / 14]) ptWindow(c, Math.cos(a) * 1.64, 1.02, Math.sin(a) * 1.64 - 3.9, .34, 1.04, Math.PI * .5 - a, .5, true);
+      const ps = new THREE.Shape(); ps.moveTo(-.55, 0); ps.lineTo(.55, 0); ps.lineTo(.55, 1.35); ps.quadraticCurveTo(.5, 1.72, 0, 2.14); ps.quadraticCurveTo(-.5, 1.72, -.55, 1.35); ps.closePath();
+      addM(c, new THREE.ShapeGeometry(ps), M.blackG, 0, .03, 2.915);
+      const dfp = new THREE.CurvePath(); dfp.add(new THREE.LineCurve3(new THREE.Vector3(-.55, 0, .06), new THREE.Vector3(-.55, 1.35, .06)));
+      dfp.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.55, 1.35, .06), new THREE.Vector3(-.5, 1.72, .06), new THREE.Vector3(0, 2.14, .06)));
+      dfp.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 2.14, .06), new THREE.Vector3(.5, 1.72, .06), new THREE.Vector3(.55, 1.35, .06)));
+      dfp.add(new THREE.LineCurve3(new THREE.Vector3(.55, 1.35, .06), new THREE.Vector3(.55, 0, .06)));
+      addM(c, new THREE.TubeGeometry(dfp, 40, .075, 7, false), M.granite, 0, .03, 2.91);
+      for (const s of [-1, 1]) { addM(c, new THREE.BoxGeometry(.3, 2.1, .34), M.granite, s * .72, 1.05, 3.18); addM(c, new THREE.CylinderGeometry(.22, .26, .18, 8), M.granite, s * .72, 2.17, 3.18); }
+      const pr = gableRoof(1.76, 1.12, .72, M.slate); pr.position.set(0, 2.22, 3.18); c.add(pr);
+      for (let i = 0; i < 7; i++) { const st = addM(c, new THREE.BoxGeometry(2.05 + i * .08, .08, .34), i % 2 ? M.basaltD : M.granite, 0, .04 - i * .005, 3.02 + i * .29); st.rotation.y = Math.sin(i * .8) * .008; }
+      const oc = new THREE.Group(); oc.position.set(0, 3.62, 2.925); c.add(oc);
+      addM(oc, new THREE.TorusGeometry(.62, .12, 8, 56), M.granite);
+      addM(oc, new THREE.CircleGeometry(.51, 56), M.blackG, 0, 0, -.025);
+      addM(oc, new THREE.TorusGeometry(.43, .028, 6, 48), M.brass, 0, 0, .04);
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; cylBet(oc, new THREE.Vector3(Math.cos(a) * .1, Math.sin(a) * .1, .055), new THREE.Vector3(Math.cos(a) * .44, Math.sin(a) * .44, .055), .018, M.brass, 5); }
+      addM(oc, new THREE.CircleGeometry(.1, 24), M.win, 0, 0, .07);
+      quatrefoil(c, -.86, 3.62, 2.94, .15); quatrefoil(c, .86, 3.62, 2.94, .15);
+      gothicPin(c, 0, 5.18, 2.76, .76);
+      addM(c, new THREE.BoxGeometry(2.14, .1, .16), M.granite, 0, 2.54, 2.94);
+      addM(c, new THREE.BoxGeometry(3.12, .09, .14), M.granite, 0, 4.02, 2.79);
+      for (const [x2, z2, by2] of [[-1.32, .6, 4.46], [-.72, -2, 4.96], [.72, .6, 4.96], [1.32, -2, 4.46]]) { addM(c, new THREE.BoxGeometry(.28, 1.16, .34), M.basaltD, x2, by2 + .58, z2); addM(c, new THREE.BoxGeometry(.38, .12, .44), M.granite, x2, by2 + 1.19, z2); }
+      for (const [x2, z2] of [[-1.1, 1.3], [0, 1.25], [1.1, 1.3], [-2.1, -.8], [2.1, -.8]]) { const l = new THREE.PointLight(0xffa65d, 1.15, 4.5, 1.8); l.position.set(x2, 2.1, z2); c.add(l); }
+      roofCrest(c, 0, 5.82, -2.88, 2.7);
+    }
+
+    function buildObservatory() {
+      const ob = new THREE.Group(); ob.position.copy(oPos); citadelRoot.add(ob);
+      addM(ob, new THREE.CylinderGeometry(1.35, 1.52, 3.15, 8), M.basalt, 0, 1.575, 0, 0, Math.PI / 8);
+      addM(ob, new THREE.CylinderGeometry(1.48, 1.48, .2, 8), M.granite, 0, 3.12, 0, 0, Math.PI / 8);
+      addM(ob, new THREE.CylinderGeometry(1.535, 1.535, .09, 8), M.granite, 0, .78, 0, 0, Math.PI / 8);
+      addM(ob, new THREE.CylinderGeometry(1.49, 1.49, .09, 8), M.granite, 0, 2.42, 0, 0, Math.PI / 8);
+      crenel(ob, 1.38, 3.45, 12);
+      addM(ob, new THREE.CylinderGeometry(1.06, 1.18, .46, 12), M.basaltD, 0, 3.42, 0);
+      for (let i = 0; i < 8; i++) {
+        const wa = i / 8 * Math.PI * 2, ba = (i + .5) / 8 * Math.PI * 2;
+        if (i === 4) ptDoor(ob, -1.35, .24, 0, .58, 1.5, -Math.PI * .5);
+        else ptWindow(ob, Math.cos(wa) * 1.35, 1.36, Math.sin(wa) * 1.35, .32, .76, -wa + Math.PI * .5, i % 3 === 0 ? 1 : .25, true);
+        const bt = addM(ob, new THREE.BoxGeometry(.22, 2.62, .4), M.granite, Math.cos(ba) * 1.47, 1.28, Math.sin(ba) * 1.47, 0, Math.PI * .5 - ba, 0);
+        bt.rotation.z = Math.sin(ba) * .025;
+      }
+      orreryRoot = new THREE.Group(); orreryRoot.position.set(0, 4.65, 0); orreryRoot.rotation.y = .7; ob.add(orreryRoot);
+      outerRingP = new THREE.Group(); innerRingP = new THREE.Group(); eclPiv = new THREE.Group();
+      orreryRoot.add(outerRingP, innerRingP, eclPiv);
+      addM(outerRingP, new THREE.TorusGeometry(1.55, .075, 8, 96), M.brass);
+      addM(innerRingP, new THREE.TorusGeometry(1.25, .052, 7, 80), M.bronze);
+      addM(eclPiv, new THREE.TorusGeometry(.98, .04, 6, 72), M.brass);
+      innerRingP.rotation.x = .74; eclPiv.rotation.y = .92; eclPiv.rotation.x = .28;
+      const cm = new THREE.MeshStandardMaterial({ color: 0x4a7c83, emissive: 0x1d6d79, emissiveIntensity: .72, roughness: .24, metalness: .58, flatShading: true });
+      const pr = addM(orreryRoot, new THREE.OctahedronGeometry(.42, 1), cm, 0, 0, 0, .18, .38, .1); pr.scale.set(.78, 1.34, .78);
+      addM(orreryRoot, new THREE.TorusGeometry(.74, .042, 9, 96), M.astral, 0, 0, 0, .3, .11, -.24);
+      const ogm = new THREE.MeshBasicMaterial({ color: 0x9dfbff, transparent: true, opacity: .14, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      addM(orreryRoot, new THREE.TorusGeometry(.74, .092, 10, 96), ogm, 0, 0, 0, .3, .11, -.24);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + .42, e = new THREE.Vector3(Math.cos(a) * .78, Math.sin(a) * .78, Math.sin(a * .5) * .12); cylBet(orreryRoot, new THREE.Vector3(), e, .018, M.brass, 6); addM(orreryRoot, new THREE.IcosahedronGeometry(.065, 0), i % 2 ? M.bronze : M.astral, e.x, e.y, e.z); }
+      cylBet(orreryRoot, new THREE.Vector3(-1.72, 0, 0), new THREE.Vector3(1.72, 0, 0), .035, M.brass, 8);
+      cylBet(orreryRoot, new THREE.Vector3(0, -1.72, 0), new THREE.Vector3(0, 1.72, 0), .035, M.brass, 8);
+      for (const a of [-.72, .72, Math.PI - .72, Math.PI + .72]) cylBet(ob, new THREE.Vector3(Math.cos(a) * .92, 3.52, Math.sin(a) * .92), new THREE.Vector3(Math.cos(a) * 1.52, 4.55, Math.sin(a) * 1.52), .045, M.brass, 7);
+      for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; const tk = addM(outerRingP, new THREE.BoxGeometry(.045, .16, .055), M.granite, Math.cos(a) * 1.55, Math.sin(a) * 1.55, 0, 0, 0, a); tk.castShadow = false; }
+      pivA = new THREE.Group(); pivB = new THREE.Group(); orreryRoot.add(pivA, pivB);
+      cylBet(pivA, new THREE.Vector3(), new THREE.Vector3(1.12, .42, .06), .018, M.brass, 6);
+      addM(pivA, new THREE.SphereGeometry(.13, 16, 12), new THREE.MeshStandardMaterial({ color: 0xd4a76b, emissive: 0x4d2a0d, emissiveIntensity: .5, metalness: .6, roughness: .28 }), 1.12, .42, .06);
+      cylBet(pivB, new THREE.Vector3(), new THREE.Vector3(-1.36, -.33, .12), .016, M.bronze, 6);
+      addM(pivB, new THREE.SphereGeometry(.1, 14, 10), M.astral, -1.36, -.33, .12);
+      const cl = new THREE.PointLight(0xb7a5ff, 2.1, 6, 1.65); orreryRoot.add(cl);
+    }
+
+    function buildBridge() {
+      const br = new THREE.Group(); citadelRoot.add(br);
+      const s = new THREE.Vector3(0.72, .18, -1.9), e = new THREE.Vector3(2.45, .18, -2.1);
+      const dir = e.clone().sub(s), yaw = Math.atan2(dir.x, dir.z), lat = new THREE.Vector3(dir.z, 0, -dir.x).normalize();
+      const cnt = 12;
+      for (let i = 0; i < cnt; i++) {
+        const t = i / (cnt - 1), pt = s.clone().lerp(e, t); pt.y += Math.sin(t * Math.PI) * .025;
+        const dk = addM(br, new THREE.BoxGeometry(.72, .13, dir.length() / (cnt - 1) + .055), i % 2 ? M.basaltD : M.granite, pt.x, pt.y, pt.z); dk.rotation.y = yaw;
+        for (const sd of [-1, 1]) {
+          const off = lat.clone().multiplyScalar(sd * .38);
+          addM(br, new THREE.CylinderGeometry(.025, .035, .76, 6), M.iron, pt.x + off.x, pt.y + .38, pt.z + off.z);
+          if (i % 4 === 0) addM(br, new THREE.SphereGeometry(.07, 10, 8), M.win, pt.x + off.x, pt.y + .8, pt.z + off.z);
+        }
+      }
+      for (const sd of [-1, 1]) {
+        const off = lat.clone().multiplyScalar(sd * .38), pts = [];
+        for (let i = 0; i < cnt; i++) { const t = i / (cnt - 1), p2 = s.clone().lerp(e, t).add(off); p2.y += .72 + Math.sin(t * Math.PI) * .045; pts.push(p2); }
+        addM(br, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, .018, 5, false), M.iron);
+      }
+      const rc = new THREE.QuadraticBezierCurve3(s.clone().setY(.1), s.clone().lerp(e, .5).setY(.065), e.clone().setY(.1));
+      addM(br, new THREE.TubeGeometry(rc, 28, .075, 7, false), M.granite);
+    }
+
+    function buildPlane() {
+      const pm = new THREE.MeshStandardMaterial({ color: 0x242b32, roughness: .9, metalness: .035 });
+      const p = addM(scene, new THREE.PlaneGeometry(13.5, 13.5), pm, 0, -.045, -1.2, -Math.PI * .5); p.castShadow = false; p.receiveShadow = true;
+      addM(scene, new THREE.BoxGeometry(13.5, .12, 13.5), new THREE.MeshStandardMaterial({ color: 0x151a20, roughness: .82, metalness: .08 }), 0, -.11, -1.2);
+    }
+
+    buildPlane(); buildCathedral(); buildObservatory(); buildBridge();
+
+    /* ── Lights ── */
+    scene.add(new THREE.HemisphereLight(0x8faac5, 0x11151b, 1.35));
+    scene.add(new THREE.AmbientLight(0x8091a3, .44));
+    const key = new THREE.DirectionalLight(0xd9e9f8, 3.1); key.position.set(-9, 15, 11); key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = -13; key.shadow.camera.right = 13; key.shadow.camera.top = 13; key.shadow.camera.bottom = -13; key.shadow.camera.near = .5; key.shadow.camera.far = 45; key.shadow.normalBias = .02;
+    key.target.position.set(0, 3, -1.4); scene.add(key, key.target);
+    const fill = new THREE.DirectionalLight(0x536f91, 1.35); fill.position.set(12, 8, -10); fill.target.position.set(0, 2, -1.5); scene.add(fill, fill.target);
+    const rim = new THREE.SpotLight(0xc6a7ff, 3.4, 32, Math.PI * .22, .8, 1.2); rim.position.set(8, 12, -13); rim.target.position.set(0, 4, -2); scene.add(rim, rim.target);
+    const lantern = new THREE.PointLight(0xffe0b0, 0.7, 7, 2); camera.add(lantern);
+
+    /* ── Dust Particles ── */
+    const dustGeo = new THREE.BufferGeometry(), dustCount = 180, dPos = new Float32Array(dustCount * 3);
+    for (let i = 0; i < dustCount; i++) { dPos[i * 3] = (Math.random() - .5) * 13; dPos[i * 3 + 1] = Math.random() * 8; dPos[i * 3 + 2] = (Math.random() - .5) * 13 - 1.2; }
+    dustGeo.setAttribute("position", new THREE.BufferAttribute(dPos, 3));
+    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xc8b894, size: .035, transparent: true, opacity: .25, blending: THREE.AdditiveBlending, depthWrite: false }));
+    scene.add(dust);
+
+    /* ══════════════════ GAME SYSTEMS ══════════════════ */
+
+    /* ── Game State ── */
+    const G = { started: false, active: false, won: false, shards: 0, total: 7, area: "" };
+
+    /* ── Collision Walls ── */
+    const CW = [
+      [-3.8, 1.85, 1.1, .15], [-0.7, 1.85, 1.05, .15],
+      [-4.9, -.85, .15, 2.75], [0.4, -.85, .15, 2.75],
+      [-2.25, -5.5, 1.8, .15], [-3.9, -4.6, .15, 1], [-0.6, -4.6, .15, 1],
+      [-5.2, -1.9, .15, .85],
+      [0.7, -1.31, .15, .24], [0.7, -2.49, .15, .24],
+      [3.8, -3.65, 1.5, .15], [3.8, -.55, 1.5, .15], [5.35, -2.1, .15, 1.5],
+      [2.25, -3.1, .15, .65], [2.25, -1.1, .15, .65],
+      [-6.85, -1.2, .2, 6.85], [6.85, -1.2, .2, 6.85], [0, -8.05, 7, .2], [0, 5.65, 7, .2]
+    ];
+    const PR = .28;
+    function resolveCol(p) {
+      for (const w of CW) {
+        const cx = Math.max(w[0] - w[2], Math.min(p.x, w[0] + w[2]));
+        const cz = Math.max(w[1] - w[3], Math.min(p.z, w[1] + w[3]));
+        let dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
+        if (d2 < PR * PR) {
+          if (d2 > 0) { const d = Math.sqrt(d2), push = PR - d; p.x += (dx / d) * push; p.z += (dz / d) * push; }
+          else {
+            const l = p.x - (w[0] - w[2]), r = (w[0] + w[2]) - p.x, f = p.z - (w[1] - w[3]), b = (w[1] + w[3]) - p.z, m = Math.min(l, r, f, b);
+            if (m === l) p.x = w[0] - w[2] - PR; else if (m === r) p.x = w[0] + w[2] + PR; else if (m === f) p.z = w[1] - w[3] - PR; else p.z = w[1] + w[3] + PR;
+          }
+        }
+      }
+    }
+
+    /* ── Shards ── */
+    const shardData = [
+      { x: -2.25, y: 1.3, z: 1.5 }, { x: -4.2, y: 1.35, z: 0 }, { x: -4.0, y: 1.3, z: -1.9 },
+      { x: -2.25, y: 1.3, z: -4.0 }, { x: 1.58, y: 1.3, z: -2.0 },
+      { x: 3.0, y: 1.3, z: -2.1 }, { x: 3.8, y: 1.35, z: -2.1 }
+    ];
+    const shards = [];
+    function makeShard(d, idx) {
+      const g = new THREE.Group(); g.position.set(d.x, d.y, d.z); g.userData = { idx, collected: false, baseY: d.y };
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(.1, 0), new THREE.MeshStandardMaterial({ color: 0x5ae8e5, emissive: 0x3dc8c5, emissiveIntensity: 2.5, roughness: .15, metalness: .3 })); core.castShadow = false; g.add(core);
+      g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.18, 1), new THREE.MeshBasicMaterial({ color: 0x9dfbff, wireframe: true, transparent: true, opacity: .35 })));
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 8), new THREE.MeshBasicMaterial({ color: 0x5ae8e5, transparent: true, opacity: .12, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+      g.add(new THREE.PointLight(0x5ae8e5, 1.2, 3.5, 2));
+      scene.add(g); shards.push(g);
+    }
+    shardData.forEach((d, i) => makeShard(d, i));
+
+    /* ── Orrery Indicators ── */
+    const orrInd = [];
+    function addOrrIndicators() {
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 - Math.PI / 2, r = 2.1;
+        const ind = new THREE.Mesh(new THREE.SphereGeometry(.055, 10, 8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .3, metalness: .8, emissive: 0x000000, emissiveIntensity: 0 }));
+        ind.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); ind.castShadow = false; orreryRoot.add(ind); orrInd.push(ind);
+      }
+    }
+    addOrrIndicators();
+
+    /* ── Player Controller ── */
+    const moveKeys = {};
+    const vel = new THREE.Vector3();
+    let onGround = true, bobPhase = 0;
+    const EYE = 1.6, GRAV = -14, JUMP = 5.5, WALK = 4.2, SPRINT = 7;
+    document.addEventListener("keydown", e => { moveKeys[e.code] = true; });
+    document.addEventListener("keyup", e => { moveKeys[e.code] = false; });
+
+    function getFwd() { const v = new THREE.Vector3(); camera.getWorldDirection(v); v.y = 0; v.normalize(); return v; }
+    function getRight() { const v = new THREE.Vector3(); camera.getWorldDirection(v); v.y = 0; v.normalize(); return v.cross(new THREE.Vector3(0, 1, 0)); }
+
+    /* ── Area Detection ── */
+    const areas = [
+      { id: "approach", name: "The Approach", msg: "The Astral Tide Citadel rises before you. Seven shards of starlight were scattered within its ancient stones.", test: p => p.z > 2.5 },
+      { id: "narthex", name: "Cathedral Narthex", msg: "The great portal swallows you whole. The air tastes of dust and forgotten equations.", test: p => p.z < 2.5 && p.z > .5 && p.x > -5 && p.x < 1 },
+      { id: "nave", name: "Nave of Totality", msg: "Jeweled light falls through pointed arches. The nave stretches into hallowed darkness.", test: p => p.z < .5 && p.z > -2 && p.x > -5 && p.x < 1 },
+      { id: "apse", name: "The Apse", msg: "Seven empty altars ring the apse. This is where the shards were first consecrated.", test: p => p.z < -2.5 && p.x > -4.5 && p.x < .5 },
+      { id: "bridge", name: "Meridian Passage", msg: "The bridge sways gently between worlds. The wind carries whispers of proofs long lost.", test: p => p.x > .5 && p.x < 2.7 && p.z < -1.3 && p.z > -2.7 },
+      { id: "bastion", name: "Astronomer's Bastion", msg: "Brass and bronze gleam in starlight. The observatory hums with dormant celestial machinery.", test: p => { const dx = p.x - 3.8, dz = p.z + 2.1; return Math.sqrt(dx * dx + dz * dz) < 2.5; } },
+      { id: "armillary", name: "The Meridian Armillary", msg: "The great orrery stands silent. Feed it the shards to reawaken the celestial tide.", test: p => { const dx = p.x - 3.8, dz = p.z + 2.1; return Math.sqrt(dx * dx + dz * dz) < 1.3; } }
+    ];
+    const areaVisited = {};
+    function checkArea(pos) {
+      for (const a of areas) {
+        if (a.test(pos)) {
+          if (G.area !== a.id) { G.area = a.id; document.getElementById("area-name").textContent = a.name; if (!areaVisited[a.id]) { areaVisited[a.id] = true; showMsg(a.msg); } }
+          return;
+        }
+      }
+      if (G.area !== "") { G.area = ""; document.getElementById("area-name").textContent = ""; }
+    }
+
+    /* ── UI ── */
+    const msgEl = document.getElementById("msg"), shardTxt = document.getElementById("shard-txt");
+    const shardIcons = document.querySelectorAll(".si"), compassWrap = document.getElementById("compass-wrap");
+    const compassEl = document.getElementById("compass"), flashEl = document.getElementById("flash"), ctrlsEl = document.getElementById("ctrls-hint");
+    let msgTimer;
+    function showMsg(t) { msgEl.textContent = t; msgEl.classList.add("show"); clearTimeout(msgTimer); msgTimer = setTimeout(() => msgEl.classList.remove("show"), 5500); }
+    function updateHUD() {
+      shardTxt.textContent = `${G.shards} / ${G.total}`;
+      shardIcons.forEach((el, i) => el.classList.toggle("on", i < G.shards));
+    }
+    function flash() { flashEl.classList.add("on"); setTimeout(() => flashEl.classList.remove("on"), 120); }
+
+    /* ── Shard Pickup ── */
+    function checkPickups() {
+      const p = camera.position;
+      for (const s of shards) {
+        if (s.userData.collected) continue;
+        if (p.distanceTo(s.position) < 1.6) collectShard(s);
+      }
+    }
+    function collectShard(s) {
+      s.userData.collected = true; G.shards++; updateHUD(); flash();
+      const msgs = [
+        "First light returns to the Armillary...",
+        "Two shards pulse in resonance now...",
+        "Three fragments — the outer ring stirs...",
+        "Four shards. The inner ring awakens...",
+        "Five gathered. The ecliptic ring shudders to life...",
+        "Six of seven. The core prism begins to glow...",
+        "All seven shards restored. The Armillary awakens!"
+      ];
+      showMsg(msgs[G.shards - 1]);
+      activateRing(G.shards - 1);
+      const t0 = performance.now();
+      (function anim(n) {
+        const t = Math.min(1, (n - t0) / 700), e = 1 - Math.pow(1 - t, 3);
+        s.scale.setScalar(1 + e * 4);
+        s.children.forEach(c => { if (c.material && c.material.opacity !== undefined) c.material.opacity = Math.max(0, (c.material.userData?.baseOp ?? c.material.opacity) - e); });
+        if (t < 1) requestAnimationFrame(anim); else scene.remove(s);
+      })(t0);
+      // Store base opacities
+      s.children.forEach(c => { if (c.material && c.material.transparent) c.material.userData = { baseOp: c.material.opacity }; });
+      if (G.shards >= G.total) setTimeout(triggerVictory, 2000);
+    }
+    function activateRing(i) {
+      if (i >= orrInd.length) return;
+      const ind = orrInd[i], t0 = performance.now();
+      (function anim(n) {
+        const t = Math.min(1, (n - t0) / 1200);
+        ind.material.emissive.setHex(0x5ae8e5); ind.material.emissiveIntensity = t * 3; ind.material.color.setHex(0x5ae8e5);
+        if (t < 1) requestAnimationFrame(anim);
+      })(t0);
+    }
+
+    /* ── Victory ── */
+    let victoryBeam = null;
+    function triggerVictory() {
+      G.won = true;
+      orrInd.forEach(ind => { ind.material.emissiveIntensity = 5; });
+      const bm = new THREE.MeshBasicMaterial({ color: 0x5ae8e5, transparent: true, opacity: .18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+      victoryBeam = new THREE.Mesh(new THREE.CylinderGeometry(.2, .5, 35, 16, 1, true), bm);
+      victoryBeam.position.set(3.8, 17.5, -2.1); scene.add(victoryBeam);
+      const gm = bm.clone(); gm.opacity = .05;
+      const gBeam = new THREE.Mesh(new THREE.CylinderGeometry(.8, 1.5, 35, 16, 1, true), gm);
+      gBeam.position.copy(victoryBeam.position); scene.add(gBeam);
+      showMsg("The Meridian Armillary turns. Starlight floods through every stone of the citadel.");
+      setTimeout(() => {
+        const vs = document.getElementById("victory-screen"); vs.style.display = "flex";
+        requestAnimationFrame(() => vs.classList.add("show"));
+        controls.unlock();
+      }, 4500);
+    }
+
+    /* ── Compass ── */
+    function updateCompass() {
+      if (G.shards >= G.total || !G.started) { compassWrap.style.display = "none"; return; }
+      compassWrap.style.display = "block";
+      let nd = Infinity, ns = null;
+      for (const s of shards) { if (s.userData.collected) continue; const d = camera.position.distanceTo(s.position); if (d < nd) { nd = d; ns = s; } }
+      if (!ns) return;
+      const to = new THREE.Vector3().subVectors(ns.position, camera.position); to.y = 0;
+      const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0;
+            const ta = Math.atan2(to.x, to.z);
+      const fa = Math.atan2(fwd.x, fwd.z);
+      compassEl.style.transform = `rotate(${(fa - ta) * (180 / Math.PI)}deg)`;
+    }
+
+    /* ── Pointer Lock / Screens ── */
+    const startScreen = document.getElementById("start-screen");
+    const pauseScreen = document.getElementById("pause-screen");
+    const victoryScreen = document.getElementById("victory-screen");
+    const hudEl = document.getElementById("hud");
+
+    startScreen.addEventListener("click", () => {
+      controls.lock();
+    });
+
+    controls.addEventListener("lock", () => {
+      if (!G.started) {
+        G.started = true;
+        startScreen.style.display = "none";
+        hudEl.style.display = "block";
+        ctrlsEl.classList.add("show");
+        setTimeout(() => ctrlsEl.classList.remove("show"), 6000);
+        showMsg("The Astral Tide Citadel rises before you. Seven shards of starlight were scattered within.");
+      }
+      pauseScreen.style.display = "none";
+      G.active = true;
+    });
+
+    controls.addEventListener("unlock", () => {
+      if (G.won) return;
+      if (!G.started) { startScreen.style.display = "flex"; return; }
+      G.active = false;
+      pauseScreen.style.display = "flex";
+    });
+
+    pauseScreen.addEventListener("click", () => {
+      controls.lock();
+    });
+
+    victoryScreen.addEventListener("click", () => {
+      /* restart simply reloads */
+      location.reload();
+    });
+
+    document.addEventListener("keydown", e => {
+      if (e.code === "Escape" && G.active) {
+        controls.unlock();
+      }
+    });
+
+    /* ── Movement Update ── */
+    function updateMovement(dt) {
+      if (!G.active) return;
+
+      const speed = moveKeys["ShiftLeft"] || moveKeys["ShiftRight"] ? SPRINT : WALK;
+      const fwd = getFwd();
+      const right = getRight();
+      const wish = new THREE.Vector3();
+
+      if (moveKeys["KeyW"]) wish.add(fwd);
+      if (moveKeys["KeyS"]) wish.sub(fwd);
+      if (moveKeys["KeyA"]) wish.sub(right);
+      if (moveKeys["KeyD"]) wish.add(right);
+
+      if (wish.lengthSq() > 0) {
+        wish.normalize().multiplyScalar(speed);
+      }
+
+      vel.x = wish.x;
+      vel.z = wish.z;
+
+      /* Gravity & Jump */
+      vel.y += GRAV * dt;
+      if (moveKeys["Space"] && onGround) {
+        vel.y = JUMP;
+        onGround = false;
+      }
+
+      camera.position.x += vel.x * dt;
+      camera.position.z += vel.z * dt;
+
+      resolveCol(camera.position);
+
+      camera.position.y += vel.y * dt;
+
+      /* Ground */
+      if (camera.position.y <= EYE) {
+        camera.position.y = EYE;
+        vel.y = 0;
+        onGround = true;
+      }
+
+      /* Clamp to world bounds */
+      camera.position.x = THREE.MathUtils.clamp(camera.position.x, -6.6, 6.6);
+      camera.position.z = THREE.MathUtils.clamp(camera.position.z, -7.8, 5.4);
+
+      /* Head bob */
+      const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+      if (horizontalSpeed > .5 && onGround) {
+        bobPhase += dt * horizontalSpeed * 1.6;
+        const bobAmt = moveKeys["ShiftLeft"] || moveKeys["ShiftRight"] ? .04 : .025;
+        camera.position.y += Math.sin(bobPhase * 2) * bobAmt;
+      }
+    }
+
+    /* ── Animate Shards ── */
+    function updateShards(time) {
+      for (const s of shards) {
+        if (s.userData.collected) continue;
+        s.position.y = s.userData.baseY + Math.sin(time * 1.8 + s.userData.idx * 1.3) * .12;
+        s.rotation.y = time * 1.1 + s.userData.idx * .8;
+        s.rotation.x = Math.sin(time * .7 + s.userData.idx) * .15;
+      }
+    }
+
+    /* ── Dust Animate ── */
+    function updateDust(time) {
+      const pos = dust.geometry.attributes.position;
+      for (let i = 0; i < dustCount; i++) {
+        pos.array[i * 3 + 1] += Math.sin(time * .4 + i * .3) * .0015;
+        pos.array[i * 3] += Math.cos(time * .25 + i * .5) * .0008;
+        if (pos.array[i * 3 + 1] > 8) pos.array[i * 3 + 1] = 0;
+        if (pos.array[i * 3 + 1] < 0) pos.array[i * 3 + 1] = 8;
+      }
+      pos.needsUpdate = true;
+    }
+
+    /* ── Orrery Animate ── */
+    let elapsed = 0;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function updateOrrery(dt) {
+      const motion = reducedMotion ? .16 : 1;
+      elapsed += dt;
+      outerRingP.rotation.z = elapsed * .11 * motion;
+      innerRingP.rotation.y = -.2 + elapsed * -.17 * motion;
+      eclPiv.rotation.z = elapsed * .07 * motion;
+      pivA.rotation.z = elapsed * .23 * motion;
+      pivB.rotation.z = elapsed * -.18 * motion;
+      orreryRoot.rotation.z = Math.sin(elapsed * .22) * .018 * motion;
+    }
+
+    /* ── Victory Beam Pulse ── */
+    function updateVictory(time) {
+      if (!victoryBeam) return;
+      victoryBeam.material.opacity = .12 + Math.sin(time * 2) * .06;
+      victoryBeam.rotation.y = time * .15;
+    }
+
+    /* ── Resize ── */
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.fov = 65;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setSize(innerWidth, innerHeight);
+    });
+
+    /* ══════════════════ MAIN LOOP ══════════════════ */
+    let lastTime = performance.now();
+    let frames = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(.05, (now - lastTime) / 1000);
+      lastTime = now;
+      const time = now / 1000;
+
+      updateMovement(dt);
+      checkArea(camera.position);
+      checkPickups();
+      updateShards(time);
+      updateDust(time);
+      updateOrrery(dt);
+      updateCompass();
+      updateVictory(time);
+      updateHUD();
+
+      composer.render();
+      frames++;
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
