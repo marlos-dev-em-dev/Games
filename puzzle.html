@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>INKFLOW</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            background: #1a1a1a;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            image-rendering: auto;
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(function() {
+'use strict';
+
+// ============================================
+// CONFIGURATION
+// ============================================
+const DW = 400, DH = 720; // Design resolution
+const MAX_PARTICLES = 1200;
+const PARTICLES_PER_FRAME = 5;
+const FILL_WIN = 90; // % to win
+const DEFAULT_VISCOSITY = 0.965;
+const GRAVITY_STRENGTH = 600;
+const MAX_GRAVITY_DRAG = 180;
+
+// ============================================
+// COLORS
+// ============================================
+const COLORS = {
+    paper: '#F5F0E8',
+    paperDark: '#E8E0D0',
+    ink: '#1A1A2E',
+    inkRed: '#C44536',
+    inkGreen: '#2D6A4F',
+    inkBlue: '#1B4965',
+    text: '#2B2B2B',
+    textMuted: '#8A8580',
+    accent: '#C4956A',
+    star: '#D4A574',
+    starEmpty: '#D5D0C8',
+    success: '#4A7C59',
+    fail: '#9B2335',
+    white: '#FFFFFF',
+    overlay: 'rgba(0,0,0,0.4)'
+};
+
+// ============================================
+// CANVAS SETUP
+// ============================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let scale = 1;
+
+function resize() {
+    const ww = window.innerWidth, wh = window.innerHeight;
+    scale = Math.min(ww / DW, wh / DH);
+    canvas.width = DW;
+    canvas.height = DH;
+    canvas.style.width = (DW * scale) + 'px';
+    canvas.style.height = (DH * scale) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
+function rand(min, max) { return min + Math.random() * (max - min); }
+
+// Easing
+const Ease = {
+    out: t => t * (2 - t),
+    inOut: t => t < 0.5 ? 2*t*t : -1 + (4-2*t)*t,
+    outBounce: t => {
+        if (t < 1/2.75) return 7.5625*t*t;
+        if (t < 2/2.75) return 7.5625*(t-=1.5/2.75)*t+0.75;
+        if (t < 2.5/2.75) return 7.5625*(t-=2.25/2.75)*t+0.9375;
+        return 7.5625*(t-=2.625/2.75)*t+0.984375;
+    }
+};
+
+// Point in polygon (ray casting)
+function pointInPoly(px, py, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+            inside = !inside;
+    }
+    return inside;
+}
+
+// Closest point on segment
+function closestOnSeg(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx*dx + dy*dy;
+    if (len2 === 0) return { x: ax, y: ay };
+    const t = clamp(((px-ax)*dx + (py-ay)*dy) / len2, 0, 1);
+    return { x: ax + t*dx, y: ay + t*dy };
+}
+
+// Closest point on polygon edge
+function closestOnPoly(px, py, poly) {
+    let minD = Infinity, best = { x: 0, y: 0 };
+    for (let i = 0; i < poly.length; i++) {
+        const j = (i + 1) % poly.length;
+        const p = closestOnSeg(px, py, poly[i].x, poly[i].y, poly[j].x, poly[j].y);
+        const d = dist(px, py, p.x, p.y);
+        if (d < minD) { minD = d; best = p; }
+    }
+    return best;
+}
+
+// Closest point on circle edge
+function closestOnCircle(px, py, cx, cy, r) {
+    const dx = px - cx, dy = py - cy;
+    const d = Math.hypot(dx, dy);
+    if (d === 0) return { x: cx + r, y: cy };
+    return { x: cx + dx/d * r, y: cy + dy/d * r };
+}
+
+// Generate star polygon
+function genStar(points, outerR, innerR) {
+    const result = [];
+    for (let i = 0; i < points * 2; i++) {
+        const angle = (i * Math.PI) / points - Math.PI / 2;
+        const r = i % 2 === 0 ? outerR : innerR;
+        result.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+    }
+    return result;
+}
+
+// Generate regular polygon
+function genPolygon(sides, radius) {
+    const result = [];
+    for (let i = 0; i < sides; i++) {
+        const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+        result.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    }
+    return result;
+}
+
+// Heart shape
+function genHeart(size) {
+    const pts = [];
+    for (let a = 0; a < Math.PI * 2; a += 0.1) {
+        const x = size * 0.8 * Math.pow(Math.sin(a), 3);
+        const y = size * 0.7 * -(0.8125 * Math.cos(a) - 0.3125 * Math.cos(2*a) - 0.125 * Math.cos(3*a) - 0.0625 * Math.cos(4*a));
+        pts.push({ x, y });
+    }
+    return pts;
+}
+
+// ============================================
+// AUDIO ENGINE (Web Audio API)
+// ============================================
+let audioCtx = null;
+let soundEnabled = true;
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playTone(freq, duration, type, vol, freqEnd) {
+    if (!audioCtx || !soundEnabled) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(vol || 0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {}
+}
+
+const SFX = {
+    inkTouch: () => playTone(600, 0.08, 'sine', 0.08, 200),
+    inkDrip: () => playTone(900, 0.15, 'sine', 0.06, 300),
+    success: () => {
+        playTone(523, 0.3, 'triangle', 0.12);
+        setTimeout(() => playTone(659, 0.3, 'triangle', 0.12), 120);
+        setTimeout(() => playTone(784, 0.4, 'triangle', 0.15), 240);
+    },
+    star: () => playTone(1047, 0.25, 'sine', 0.1, 1319),
+    fail: () => playTone(300, 0.4, 'sine', 0.08, 150),
+    click: () => playTone(800, 0.05, 'sine', 0.06),
+};
+
+// ============================================
+// LEVEL DATA
+// ============================================
+// Shape coordinates are in local space (-1 to 1)
+// They get transformed to canvas space using shapePos and shapeScale
+
+const CX = DW / 2; // Center X
+const CY = DH / 2 + 20; // Center Y (slightly below center for UI space)
+
+const LEVELS = [
+    // === WORLD 1: LEARNING (1-5) ===
+    {
+        name: 'Quadrado',
+        shape: [{x:-.45,y:-.45},{x:.45,y:-.45},{x:.45,y:.45},{x:-.45,y:.45}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.65},
+        color: COLORS.ink, rate: 4, viscosity: 0.968,
+        maxInk: 350, stars: [2, 8, 18],
+        hint: 'Arraste para guiar a tinta'
+    },
+    {
+        name: 'Círculo',
+        shape: null,
+        circle: {cx:0, cy:0, r:0.45},
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.65},
+        color: COLORS.ink, rate: 4, viscosity: 0.968,
+        maxInk: 450, stars: [2, 8, 18],
+        hint: 'A tinta segue a gravidade'
+    },
+    {
+        name: 'Triângulo',
+        shape: [{x:0,y:-.5},{x:.5,y:.45},{x:-.5,y:.45}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 140,
+        source: {x:0, y:-0.7},
+        color: COLORS.ink, rate: 4, viscosity: 0.968,
+        maxInk: 350, stars: [3, 10, 20]
+    },
+    {
+        name: 'Diamante',
+        shape: [{x:0,y:-.55},{x:.5,y:0},{x:0,y:.55},{x:-.5,y:0}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 140,
+        source: {x:0, y:-0.75},
+        color: COLORS.ink, rate: 5, viscosity: 0.965,
+        maxInk: 400, stars: [3, 10, 20]
+    },
+    {
+        name: 'Retângulo',
+        shape: [{x:-.6,y:-.3},{x:.6,y:-.3},{x:.6,y:.3},{x:-.6,y:.3}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.5},
+        color: COLORS.ink, rate: 5, viscosity: 0.965,
+        maxInk: 450, stars: [3, 10, 20],
+        hint: 'Incline para os lados'
+    },
+
+    // === WORLD 2: INTERMEDIATE (6-10) ===
+    {
+        name: 'Formato L',
+        shape: [{x:-.35,y:-.45},{x:.1,y:-.45},{x:.1,y:0},{x:.45,y:0},{x:.45,y:.45},{x:-.35,y:.45}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:-0.1, y:-0.65},
+        color: COLORS.ink, rate: 5, viscosity: 0.963,
+        maxInk: 500, stars: [4, 12, 22]
+    },
+    {
+        name: 'Coração',
+        shape: genHeart(1),
+        circle: null,
+        pos: {x:CX, y:CY+10}, scale: 140,
+        source: {x:0, y:-0.85},
+        color: COLORS.inkRed, rate: 5, viscosity: 0.963,
+        maxInk: 600, stars: [4, 12, 22]
+    },
+    {
+        name: 'Estrela',
+        shape: genStar(5, 0.5, 0.22),
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 140,
+        source: {x:0, y:-0.7},
+        color: COLORS.ink, rate: 5, viscosity: 0.963,
+        maxInk: 500, stars: [5, 14, 24]
+    },
+    {
+        name: 'Hexágono',
+        shape: genPolygon(6, 0.45),
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 140,
+        source: {x:0, y:-0.65},
+        color: COLORS.inkGreen, rate: 5, viscosity: 0.963,
+        maxInk: 500, stars: [4, 12, 22]
+    },
+    {
+        name: 'Seta',
+        shape: [{x:0,y:-.55},{x:.35,y:-.15},{x:.15,y:-.15},{x:.15,y:.5},{x:-.15,y:.5},{x:-.15,y:-.15},{x:-.35,y:-.15}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.75},
+        color: COLORS.ink, rate: 5, viscosity: 0.96,
+        maxInk: 500, stars: [5, 14, 24]
+    },
+
+    // === WORLD 3: ADVANCED (11-15) ===
+    {
+        name: 'Cruz',
+        shape: [{x:-.12,y:-.5},{x:.12,y:-.5},{x:.12,y:-.12},{x:.5,y:-.12},{x:.5,y:.12},{x:.12,y:.12},{x:.12,y:.5},{x:-.12,y:.5},{x:-.12,y:.12},{x:-.5,y:.12},{x:-.5,y:-.12},{x:-.12,y:-.12}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.7},
+        color: COLORS.inkBlue, rate: 6, viscosity: 0.96,
+        maxInk: 600, stars: [5, 14, 24]
+    },
+    {
+        name: 'Círculo Dividido',
+        shape: null,
+        circle: {cx:0, cy:0, r:0.45},
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:-0.3, y:-0.65},
+        color: COLORS.ink, rate: 5, viscosity: 0.96,
+        maxInk: 600, stars: [5, 14, 24],
+        walls: [{x1:0, y1:-0.35, x2:0, y2:0.35}]
+    },
+    {
+        name: 'Flor',
+        shape: genStar(6, 0.48, 0.25),
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 140,
+        source: {x:0, y:-0.7},
+        color: COLORS.inkRed, rate: 6, viscosity: 0.958,
+        maxInk: 600, stars: [6, 15, 25]
+    },
+    {
+        name: 'Ventania',
+        shape: [{x:-.45,y:-.4},{x:.45,y:-.4},{x:.45,y:.4},{x:-.45,y:.4}],
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.6},
+        color: COLORS.ink, rate: 5, viscosity: 0.96,
+        maxInk: 500, stars: [6, 15, 25],
+        wind: {x:0, y:0, w:0.9, h:0.8, dx:1.5, dy:0}
+    },
+    {
+        name: 'Borboleta',
+        shape: (() => {
+            // Two mirrored curves forming butterfly wings
+            const pts = [];
+            // Left wing
+            for (let t = 0; t <= 1; t += 0.05) {
+                const angle = Math.PI * t;
+                const r = 0.45 * Math.sin(angle);
+                pts.push({x: -r * Math.cos(angle * 0.5), y: -0.5 + t});
+            }
+            // Bottom
+            pts.push({x:0, y:0.55});
+            // Right wing
+            for (let t = 1; t >= 0; t -= 0.05) {
+                const angle = Math.PI * t;
+                const r = 0.45 * Math.sin(angle);
+                pts.push({x: r * Math.cos(angle * 0.5), y: -0.5 + t});
+            }
+            return pts;
+        })(),
+        circle: null,
+        pos: {x:CX, y:CY}, scale: 130,
+        source: {x:0, y:-0.75},
+        color: COLORS.ink, rate: 6, viscosity: 0.958,
+        maxInk: 700, stars: [6, 15, 25]
+    }
+];
+
+// ============================================
+// GAME STATE
+// ============================================
+let state = 'MENU'; // MENU, LEVELS, PLAYING, COMPLETE, FAILED, PAUSED
+let currentLevelIdx = 0;
+let particles = [];
+let gravity = { x: 0, y: 0.3 }; // gentle default
+let fillPercent = 0;
+let spillCount = 0;
+let totalEmitted = 0;
+let gameTime = 0;
+let levelTime = 0;
+let earnedStars = 0;
+let animTimer = 0;
+let animPhase = 0;
+let hintText = '';
+let hintAlpha = 0;
+let shakeAmount = 0;
+
+// Ink buffer (offscreen canvas for accumulated ink)
+let inkCanvas, inkCtx;
+
+function createInkBuffer() {
+    inkCanvas = document.createElement('canvas');
+    inkCanvas.width = DW;
+    inkCanvas.height = DH;
+    inkCtx = inkCanvas.getContext('2d');
+}
+
+// Paper background (cached)
+let paperCanvas, paperCtx;
+
+function createPaperBg() {
+    paperCanvas = document.createElement('canvas');
+    paperCanvas.width = DW;
+    paperCanvas.height = DH;
+    paperCtx = paperCanvas.getContext('2d');
+
+    // Base color
+    paperCtx.fillStyle = COLORS.paper;
+    paperCtx.fillRect(0, 0, DW, DH);
+
+    // Grain noise
+    const imgData = paperCtx.getImageData(0, 0, DW, DH);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 12;
+        d[i] += n;
+        d[i+1] += n;
+        d[i+2] += n;
+    }
+    paperCtx.putImageData(imgData, 0, 0);
+
+    // Subtle fiber lines
+    paperCtx.strokeStyle = 'rgba(180,170,155,0.06)';
+    paperCtx.lineWidth = 0.5;
+    for (let i = 0; i < 40; i++) {
+        const y = Math.random() * DH;
+        paperCtx.beginPath();
+        paperCtx.moveTo(0, y);
+        paperCtx.bezierCurveTo(
+            DW*0.3, y + rand(-3, 3),
+            DW*0.7, y + rand(-3, 3),
+            DW, y + rand(-2, 2)
+        );
+        paperCtx.stroke();
+    }
+}
+
+// ============================================
+// SAVE SYSTEM
+// ============================================
+const SAVE_KEY = 'inkflow_v1';
+
+function defaultSave() {
+    return { levels: {}, settings: { sound: true } };
+}
+
+function loadSave() {
+    try {
+        const d = localStorage.getItem(SAVE_KEY);
+        return d ? JSON.parse(d) : defaultSave();
+    } catch { return defaultSave(); }
+}
+
+function saveProgress(idx, stars, pct) {
+    const save = loadSave();
+    const key = 'l' + idx;
+    const existing = save.levels[key];
+    if (!existing || stars > existing.stars || (stars === existing.stars && pct > existing.pct)) {
+        save.levels[key] = { stars: Math.max(stars, existing?.stars || 0), pct: Math.max(pct, existing?.pct || 0) };
+    }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch {}
+}
+
+function getLevelSave(idx) {
+    return loadSave().levels['l' + idx] || null;
+}
+
+function isLevelUnlocked(idx) {
+    if (idx === 0) return true;
+    return getLevelSave(idx - 1) !== null;
+}
+
+// ============================================
+// INPUT HANDLING
+// ============================================
+let input = {
+    down: false,
+    startX: 0, startY: 0,
+    curX: 0, curY: 0,
+    justDown: false,
+    justUp: false
+};
+
+function getCanvasPos(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: (clientX - rect.left) / scale,
+        y: (clientY - rect.top) / scale
+    };
+}
+
+function onPointerDown(cx, cy) {
+    const p = getCanvasPos(cx, cy);
+    input.down = true;
+    input.startX = p.x;
+    input.startY = p.y;
+    input.curX = p.x;
+    input.curY = p.y;
+    input.justDown = true;
+    initAudio();
+}
+
+function onPointerMove(cx, cy) {
+    if (!input.down) return;
+    const p = getCanvasPos(cx, cy);
+    input.curX = p.x;
+    input.curY = p.y;
+}
+
+function onPointerUp() {
+    input.down = false;
+    input.justUp = true;
+}
+
+canvas.addEventListener('mousedown', e => { e.preventDefault(); onPointerDown(e.clientX, e.clientY); });
+canvas.addEventListener('mousemove', e => { e.preventDefault(); onPointerMove(e.clientX, e.clientY); });
+canvas.addEventListener('mouseup', e => { e.preventDefault(); onPointerUp(); });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; onPointerDown(t.clientX, t.clientY); }, {passive:false});
+canvas.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; onPointerMove(t.clientX, t.clientY); }, {passive:false});
+canvas.addEventListener('touchend', e => { e.preventDefault(); onPointerUp(); }, {passive:false});
+
+// ============================================
+// PARTICLE SYSTEM
+// ============================================
+function spawnParticle(level) {
+    if (particles.length >= MAX_PARTICLES) return;
+    const sx = level.pos.x + level.source.x * level.scale;
+    const sy = level.pos.y + level.source.y * level.scale;
+
+    const angle = rand(-0.5, 0.5);
+    const speed = rand(10, 30);
+
+    particles.push({
+        x: sx + rand(-3, 3),
+        y: sy + rand(-3, 3),
+        vx: Math.sin(angle) * speed,
+        vy: Math.cos(angle) * speed + 20, // slight downward
+        r: rand(3, 5),
+        opacity: rand(0.6, 0.9),
+        stuck: false,
+        age: 0
+    });
+    totalEmitted++;
+}
+
+function updateParticles(dt, level) {
+    const gx = gravity.x * GRAVITY_STRENGTH;
+    const gy = gravity.y * GRAVITY_STRENGTH;
+
+    // Apply wind
+    let wx = 0, wy = 0;
+    if (level.wind) {
+        const w = level.wind;
+        wx = w.dx * 200;
+        wy = w.dy * 200;
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.age += dt;
+
+        if (p.stuck) continue;
+
+        // Apply forces
+        p.vx += (gx + wx) * dt;
+        p.vy += (gy + wy) * dt;
+
+        // Viscosity
+        p.vx *= level.viscosity;
+        p.vy *= level.viscosity;
+
+        // Move
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+
+        // Check collision with shape
+        let inside = false;
+        if (level.circle) {
+            const c = level.circle;
+            const cx = level.pos.x + c.cx * level.scale;
+            const cy = level.pos.y + c.cy * level.scale;
+            const r = c.r * level.scale;
+            inside = dist(p.x, p.y, cx, cy) <= r;
+
+            if (!inside) {
+                // Check walls first
+                let hitWall = false;
+                if (level.walls) {
+                    for (const w of level.walls) {
+                        const wx1 = level.pos.x + w.x1 * level.scale;
+                        const wy1 = level.pos.y + w.y1 * level.scale;
+                        const wx2 = level.pos.x + w.x2 * level.scale;
+                        const wy2 = level.pos.y + w.y2 * level.scale;
+                        const cp = closestOnSeg(p.x, p.y, wx1, wy1, wx2, wy2);
+                        if (dist(p.x, p.y, cp.x, cp.y) < p.r + 2) {
+                            p.x = cp.x;
+                            p.y = cp.y;
+                            p.vx *= -0.3;
+                            p.vy *= -0.3;
+                            hitWall = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hitWall) {
+                    // Stick to circle edge
+                    const cp = closestOnCircle(p.x, p.y, cx, cy, r);
+                    p.x = cp.x;
+                    p.y = cp.y;
+                    p.stuck = true;
+                    p.vx = 0;
+                    p.vy = 0;
+                    SFX.inkTouch();
+                }
+            } else {
+                // Check walls inside circle
+                if (level.walls) {
+                    for (const w of level.walls) {
+                        const wx1 = level.pos.x + w.x1 * level.scale;
+                        const wy1 = level.pos.y + w.y1 * level.scale;
+                        const wx2 = level.pos.x + w.x2 * level.scale;
+                        const wy2 = level.pos.y + w.y2 * level.scale;
+                        const cp = closestOnSeg(p.x, p.y, wx1, wy1, wx2, wy2);
+                        if (dist(p.x, p.y, cp.x, cp.y) < p.r + 2) {
+                            p.x = cp.x + (p.x - cp.x) * 0.1;
+                            p.y = cp.y + (p.y - cp.y) * 0.1;
+                            p.vx *= -0.3;
+                            p.vy *= -0.3;
+                        }
+                    }
+                }
+            }
+        } else if (level.shape) {
+            // Transform shape to world coordinates
+            const worldShape = level.shape.map(pt => ({
+                x: level.pos.x + pt.x * level.scale,
+                y: level.pos.y + pt.y * level.scale
+            }));
+
+            inside = pointInPoly(p.x, p.y, worldShape);
+
+            if (!inside) {
+                // Check walls first
+                let hitWall = false;
+                if (level.walls) {
+                    for (const w of level.walls) {
+                        const wx1 = level.pos.x + w.x1 * level.scale;
+                        const wy1 = level.pos.y + w.y1 * level.scale;
+                        const wx2 = level.pos.x + w.x2 * level.scale;
+                        const wy2 = level.pos.y + w.y2 * level.scale;
+                        const cp = closestOnSeg(p.x, p.y, wx1, wy1, wx2, wy2);
+                        if (dist(p.x, p.y, cp.x, cp.y) < p.r + 2) {
+                            p.x = cp.x;
+                            p.y = cp.y;
+                            p.vx *= -0.3;
+                            p.vy *= -0.3;
+                            hitWall = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hitWall) {
+                    const cp = closestOnPoly(p.x, p.y, worldShape);
+                    p.x = cp.x;
+                    p.y = cp.y;
+                    p.stuck = true;
+                    p.vx = 0;
+                    p.vy = 0;
+                    SFX.inkTouch();
+                }
+            } else {
+                // Check walls inside shape
+                if (level.walls) {
+                    for (const w of level.walls) {
+                        const wx1 = level.pos.x + w.x1 * level.scale;
+                        const wy1 = level.pos.y + w.y1 * level.scale;
+                        const wx2 = level.pos.x + w.x2 * level.scale;
+                        const wy2 = level.pos.y + w.y2 * level.scale;
+                        const cp = closestOnSeg(p.x, p.y, wx1, wy1, wx2, wy2);
+                        if (dist(p.x, p.y, cp.x, cp.y) < p.r + 2) {
+                            p.x = cp.x + (p.x - cp.x) * 0.1;
+                            p.y = cp.y + (p.y - cp.y) * 0.1;
+                            p.vx *= -0.3;
+                            p.vy *= -0.3;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Remove particles that are way outside
+        if (p.x < -50 || p.x > DW + 50 || p.y < -50 || p.y > DH + 50) {
+            if (!p.stuck) spillCount++;
+            particles.splice(i, 1);
+        }
+    }
+}
+
+// ============================================
+// FILL PERCENTAGE
+// ============================================
+function calcFillPercent(level) {
+    const gridSize = 30;
+    let inside = 0, filled = 0;
+
+    // Get bounding box
+    let minX, maxX, minY, maxY;
+    if (level.circle) {
+        const cx = level.pos.x + level.circle.cx * level.scale;
+        const cy = level.pos.y + level.circle.cy * level.scale;
+        const r = level.circle.r * level.scale;
+        minX = cx - r; maxX = cx + r;
+        minY = cy - r; maxY = cy + r;
+    } else {
+        minX = Infinity; maxX = -Infinity;
+        minY = Infinity; maxY = -Infinity;
+        for (const pt of level.shape) {
+            const wx = level.pos.x + pt.x * level.scale;
+            const wy = level.pos.y + pt.y * level.scale;
+            minX = Math.min(minX, wx); maxX = Math.max(maxX, wx);
+            minY = Math.min(minY, wy); maxY = Math.max(maxY, wy);
+        }
+    }
+
+    const stepX = (maxX - minX) / gridSize;
+    const stepY = (maxY - minY) / gridSize;
+    const checkRadius = stepX * 0.8;
+
+    for (let gx = 0; gx < gridSize; gx++) {
+        for (let gy = 0; gy < gridSize; gy++) {
+            const px = minX + (gx + 0.5) * stepX;
+            const py = minY + (gy + 0.5) * stepY;
+
+            let isInside = false;
+            if (level.circle) {
+                const cx = level.pos.x + level.circle.cx * level.scale;
+                const cy = level.pos.y + level.circle.cy * level.scale;
+                const r = level.circle.r * level.scale;
+                isInside = dist(px, py, cx, cy) <= r;
+            } else {
+                const worldShape = level.shape.map(pt => ({
+                    x: level.pos.x + pt.x * level.scale,
+                    y: level.pos.y + pt.y * level.scale
+                }));
+                isInside = pointInPoly(px, py, worldShape);
+            }
+
+            if (isInside) {
+                inside++;
+                // Check if any ink particle is nearby
+                for (const p of particles) {
+                    if (dist(px, py, p.x, p.y) < checkRadius) {
+                        filled++;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return inside > 0 ? (filled / inside) * 100 : 0;
+}
+
+// ============================================
+// RENDERING
+// ============================================
+function drawShape(level) {
+    ctx.save();
+
+    if (level.circle) {
+        const c = level.circle;
+        const cx = level.pos.x + c.cx * level.scale;
+        const cy = level.pos.y + c.cy * level.scale;
+        const r = c.r * level.scale;
+
+        // Light fill
+        ctx.fillStyle = 'rgba(200, 195, 185, 0.15)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dashed outline
+        ctx.strokeStyle = 'rgba(43, 43, 43, 0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    } else if (level.shape) {
+        const worldShape = level.shape.map(pt => ({
+            x: level.pos.x + pt.x * level.scale,
+            y: level.pos.y + pt.y * level.scale
+        }));
+
+        // Light fill
+        ctx.fillStyle = 'rgba(200, 195, 185, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(worldShape[0].x, worldShape[0].y);
+        for (let i = 1; i < worldShape.length; i++) {
+            ctx.lineTo(worldShape[i].x, worldShape[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Dashed outline
+        ctx.strokeStyle = 'rgba(43, 43, 43, 0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(worldShape[0].x, worldShape[0].y);
+        for (let i = 1; i < worldShape.length; i++) {
+            ctx.lineTo(worldShape[i].x, worldShape[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Draw walls
+    if (level.walls) {
+        for (const w of level.walls) {
+            const x1 = level.pos.x + w.x1 * level.scale;
+            const y1 = level.pos.y + w.y1 * level.scale;
+            const x2 = level.pos.x + w.x2 * level.scale;
+            const y2 = level.pos.y + w.y2 * level.scale;
+
+            ctx.strokeStyle = 'rgba(43, 43, 43, 0.4)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+    }
+
+    // Draw wind indicator
+    if (level.wind) {
+        const w = level.wind;
+        const wx = level.pos.x + w.x * level.scale;
+        const wy = level.pos.y + w.y * level.scale;
+        const ww = w.w * level.scale;
+        const wh = w.h * level.scale;
+
+        ctx.fillStyle = 'rgba(150, 180, 200, 0.08)';
+        ctx.fillRect(wx - ww/2, wy - wh/2, ww, wh);
+
+        // Wind arrows
+        ctx.strokeStyle = 'rgba(100, 140, 180, 0.3)';
+        ctx.lineWidth = 1.5;
+        const arrowCount = 5;
+        for (let i = 0; i < arrowCount; i++) {
+            const ax = wx - ww/2 + (i + 0.5) * ww/arrowCount;
+            const ay = wy;
+            const dir = w.dx > 0 ? 1 : -1;
+            ctx.beginPath();
+            ctx.moveTo(ax - 8*dir, ay);
+            ctx.lineTo(ax + 8*dir, ay);
+            ctx.lineTo(ax + 4*dir, ay - 4);
+            ctx.moveTo(ax + 8*dir, ay);
+            ctx.lineTo(ax + 4*dir, ay + 4);
+            ctx.stroke();
+        }
+    }
+
+    ctx.restore();
+}
+
+function drawInkSource(level, time) {
+    const sx = level.pos.x + level.source.x * level.scale;
+    const sy = level.pos.y + level.source.y * level.scale;
+    const pulse = 0.9 + Math.sin(time * 4) * 0.1;
+    const r = 6 * pulse;
+
+    // Glow
+    const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 3);
+    glow.addColorStop(0, level.color + '30');
+    glow.addColorStop(1, level.color + '00');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r * 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Drop
+    ctx.fillStyle = level.color;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.arc(sx - r*0.25, sy - r*0.25, r*0.3, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawParticles() {
+    for (const p of particles) {
+        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        gradient.addColorStop(0, `rgba(26, 26, 46, ${p.opacity})`);
+        gradient.addColorStop(0.6, `rgba(26, 26, 46, ${p.opacity * 0.6})`);
+        gradient.addColorStop(1, 'rgba(26, 26, 46, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawGravityIndicator() {
+    if (!input.down || state !== 'PLAYING') return;
+
+    const dx = input.curX - input.startX;
+    const dy = input.curY - input.startY;
+    const len = Math.hypot(dx, dy);
+    if (len < 10) return;
+
+    const strength = Math.min(len / MAX_GRAVITY_DRAG, 1);
+    const arrowLen = 30 + strength * 40;
+ const nx = dx / len, ny = dy / len;
+
+    // Draw arrow from center of screen
+    const ax = DW / 2;
+    const ay = DH - 80;
+
+    ctx.strokeStyle = `rgba(196, 149, 106, ${0.3 + strength * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + nx * arrowLen, ay + ny * arrowLen);
+    ctx.stroke();
+
+    // Arrowhead
+    const headLen = 8;
+    const angle = Math.atan2(ny, nx);
+    ctx.beginPath();
+    ctx.moveTo(ax + nx * arrowLen, ay + ny * arrowLen);
+    ctx.lineTo(ax + nx * arrowLen - Math.cos(angle - 0.4) * headLen, ay + ny * arrowLen - Math.sin(angle - 0.4) * headLen);
+    ctx.moveTo(ax + nx * arrowLen, ay + ny * arrowLen);
+    ctx.lineTo(ax + nx * arrowLen - Math.cos(angle + 0.4) * headLen, ay + ny * arrowLen - Math.sin(angle + 0.4) * headLen);
+    ctx.stroke();
+}
+
+// ============================================
+// UI RENDERING
+// ============================================
+function drawText(text, x, y, font, color, align) {
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = align || 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+}
+
+function drawButton(text, x, y, w, h, color, textColor) {
+    // Rounded rect
+    const r = 8;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+
+    drawText(text, x + w/2, y + h/2, '400 16px "DM Mono"', textColor || COLORS.white);
+}
+
+function isInButton(mx, my, x, y, w, h) {
+    return mx >= x && mx <= x + w && my >= y && my <= y + h;
+}
+
+function drawStarsDisplay(x, y, earned, size) {
+    for (let i = 0; i < 3; i++) {
+        const sx = x + i * (size + 8);
+        ctx.fillStyle = i < earned ? COLORS.star : COLORS.starEmpty;
+        drawStarShape(sx, y, size/2, size/4);
+    }
+}
+
+function drawStarShape(cx, cy, outerR, innerR) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+        const angle = (i * Math.PI) / 5 - Math.PI / 2;
+        const r = i % 2 === 0 ? outerR : innerR;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+// ============================================
+// SCREENS
+// ============================================
+
+// --- MENU SCREEN ---
+function drawMenu() {
+    ctx.drawImage(paperCanvas, 0, 0);
+
+    // Title
+    const titleY = DH * 0.3;
+    drawText('INKFLOW', DW/2, titleY, '700 48px "Playfair Display"', COLORS.text);
+    drawText('Guie a tinta. Preencha o mundo.', DW/2, titleY + 45, '300 14px "DM Mono"', COLORS.textMuted);
+
+    // Decorative ink drop
+    const dropY = titleY - 50;
+    const pulse = 0.9 + Math.sin(gameTime * 3) * 0.1;
+    const glow = ctx.createRadialGradient(DW/2, dropY, 0, DW/2, dropY, 20);
+    glow.addColorStop(0, 'rgba(26,26,46,0.2)');
+    glow.addColorStop(1, 'rgba(26,26,46,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(DW/2, dropY, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = COLORS.ink;
+    ctx.beginPath();
+    ctx.arc(DW/2, dropY, 8 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Play button
+    const btnW = 180, btnH = 50;
+    const btnX = DW/2 - btnW/2, btnY = DH * 0.55;
+    drawButton('JOGAR', btnX, btnY, btnW, btnH, COLORS.text, COLORS.paper);
+
+    // Sound toggle
+    const sndY = btnY + 80;
+    drawText(soundEnabled ? '♪ Som: ON' : '♪ Som: OFF', DW/2, sndY, '300 13px "DM Mono"', COLORS.textMuted);
+
+    // Handle click
+    if (input.justDown) {
+        if (isInButton(input.startX, input.startY, btnX, btnY, btnW, btnH)) {
+            state = 'LEVELS';
+            SFX.click();
+        }
+        if (Math.abs(input.startY - sndY) < 20 && Math.abs(input.startX - DW/2) < 60) {
+            soundEnabled = !soundEnabled;
+            SFX.click();
+        }
+    }
+}
+
+// --- LEVEL SELECT ---
+let levelScrollY = 0;
+
+function drawLevelSelect() {
+    ctx.drawImage(paperCanvas, 0, 0);
+
+    drawText('Fases', DW/2, 50, '700 28px "Playfair Display"', COLORS.text);
+
+    // Back button
+    drawText('← Voltar', 60, 50, '400 14px "DM Mono"', COLORS.textMuted);
+
+    // Level grid
+    const cols = 5;
+    const cellSize = 55;
+    const gap = 12;
+    const gridW = cols * cellSize + (cols - 1) * gap;
+    const startX = (DW - gridW) / 2;
+    const startY = 100;
+
+    const totalRows = Math.ceil(LEVELS.length / cols);
+
+    for (let i = 0; i < LEVELS.length; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = startX + col * (cellSize + gap);
+        const y = startY + row * (cellSize + gap + 20);
+
+        const unlocked = isLevelUnlocked(i);
+        const saved = getLevelSave(i);
+
+        // Circle background
+        ctx.fillStyle = unlocked ? (saved ? COLORS.text : 'rgba(43,43,43,0.15)') : 'rgba(200,195,185,0.3)';
+        ctx.beginPath();
+        ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Level number
+        const numColor = unlocked ? (saved ? COLORS.paper : COLORS.text) : COLORS.textMuted;
+        drawText('' + (i + 1), x + cellSize/2, y + cellSize/2 - 2, '400 18px "DM Mono"', numColor);
+
+        // Stars
+        if (saved) {
+            drawStarsDisplay(x + cellSize/2 - 18, y + cellSize - 8, saved.stars, 8);
+        }
+
+        // Level name below
+        drawText(LEVELS[i].name, x + cellSize/2, y + cellSize + 12, '300 9px "DM Mono"', COLORS.textMuted);
+    }
+
+    // Handle click
+    if (input.justDown) {
+        // Back button
+        if (input.startX < 120 && input.startY < 70) {
+            state = 'MENU';
+            SFX.click();
+            return;
+        }
+
+        // Level buttons
+        for (let i = 0; i < LEVELS.length; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = startX + col * (cellSize + gap);
+            const y = startY + row * (cellSize + gap + 20);
+
+            if (isLevelUnlocked(i) && dist(input.startX, input.startY, x + cellSize/2, y + cellSize/2) < cellSize/2) {
+                startLevel(i);
+                SFX.click();
+                return;
+            }
+        }
+    }
+}
+
+// --- GAMEPLAY HUD ---
+function drawHUD(level) {
+    // Top bar
+    ctx.fillStyle = 'rgba(245, 240, 232, 0.85)';
+    ctx.fillRect(0, 0, DW, 70);
+
+    // Level name
+    drawText(level.name, DW/2, 25, '700 18px "Playfair Display"', COLORS.text);
+
+    // Level number
+    drawText(`Fase ${currentLevelIdx + 1}`, DW/2, 48, '300 12px "DM Mono"', COLORS.textMuted);
+
+    // Fill percentage (top right)
+    const pctText = Math.floor(fillPercent) + '%';
+    drawText(pctText, DW - 40, 30, '400 20px "DM Mono"', fillPercent >= FILL_WIN ? COLORS.success : COLORS.text);
+
+    // Spillage indicator
+    const spillPct = totalEmitted > 0 ? Math.floor((spillCount / totalEmitted) * 100) : 0;
+    drawText(`Vazamento: ${spillPct}%`, DW - 70, 52, '300 11px "DM Mono"', COLORS.textMuted);
+
+    // Pause button (top left)
+    drawText('⏸', 30, 30, '400 20px sans-serif', COLORS.text);
+
+    // Hint text
+    if (hintAlpha > 0) {
+        ctx.globalAlpha = hintAlpha;
+        drawText(hintText, DW/2, DH - 60, '300 13px "DM Mono"', COLORS.textMuted);
+        ctx.globalAlpha = 1;
+    }
+}
+
+// --- LEVEL COMPLETE ---
+function drawComplete(level) {
+    // Overlay
+    ctx.fillStyle = 'rgba(245, 240, 232, 0.92)';
+    ctx.fillRect(0, 0, DW, DH);
+
+    const centerY = DH * 0.35;
+
+    // Stars
+    const starSize = 28;
+    for (let i = 0; i < 3; i++) {
+        const delay = i * 0.3;
+        const t = clamp((animTimer - delay) / 0.5, 0, 1);
+        const et = Ease.outBounce(t);
+        const sx = DW/2 + (i - 1) * (starSize + 16);
+        const sy = centerY - 20;
+
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.scale(et, et);
+        ctx.fillStyle = i < earnedStars ? COLORS.star : COLORS.starEmpty;
+        drawStarShape(0, 0, starSize/2, starSize/4);
+        ctx.restore();
+    }
+
+    // Title
+    const titleT = clamp((animTimer - 0.8) / 0.4, 0, 1);
+    if (titleT > 0) {
+        ctx.globalAlpha = titleT;
+        const titles = ['', 'Sujo...', 'Quase Lá!', 'Tinta Perfeita!'];
+        const title = titles[earnedStars] || 'Completo!';
+        drawText(title, DW/2, centerY + 30, '700 24px "Playfair Display"', COLORS.text);
+        ctx.globalAlpha = 1;
+    }
+
+    // Stats
+    const statsT = clamp((animTimer - 1.2) / 0.4, 0, 1);
+    if (statsT > 0) {
+        ctx.globalAlpha = statsT;
+        const spillPct = totalEmitted > 0 ? Math.floor((spillCount / totalEmitted) * 100) : 0;
+        drawText(`Preenchimento: ${Math.floor(fillPercent)}%`, DW/2, centerY + 70, '300 14px "DM Mono"', COLORS.text);
+        drawText(`Vazamento: ${spillPct}%`, DW/2, centerY + 95, '300 14px "DM Mono"', COLORS.text);
+        drawText(`Tempo: ${formatTime(levelTime)}`, DW/2, centerY + 120, '300 14px "DM Mono"', COLORS.text);
+        ctx.globalAlpha = 1;
+    }
+
+    // Buttons
+    const btnT = clamp((animTimer - 1.6) / 0.3, 0, 1);
+    if (btnT > 0) {
+        ctx.globalAlpha = btnT;
+        const btnW = 140, btnH = 45;
+        const btnY = centerY + 160;
+
+        // Retry
+        drawButton('⟳ Tentar', DW/2 - btnW - 10, btnY, btnW, btnH, 'rgba(43,43,43,0.1)', COLORS.text);
+        // Next
+        if (currentLevelIdx < LEVELS.length - 1) {
+            drawButton('→ Próxima', DW/2 + 10, btnY, btnW, btnH, COLORS.text, COLORS.paper);
+        }
+
+        // Level select
+        drawText('Voltar às fases', DW/2, btnY + 70, '300 13px "DM Mono"', COLORS.textMuted);
+
+        ctx.globalAlpha = 1;
+    }
+
+    // Handle clicks
+    if (input.justDown && animTimer > 2) {
+        const btnW = 140, btnH = 45;
+        const btnY = centerY + 160;
+
+        if (isInButton(input.startX, input.startY, DW/2 - btnW - 10, btnY, btnW, btnH)) {
+            startLevel(currentLevelIdx);
+            SFX.click();
+        }
+        if (currentLevelIdx < LEVELS.length - 1 && isInButton(input.startX, input.startY, DW/2 + 10, btnY, btnW, btnH)) {
+            startLevel(currentLevelIdx + 1);
+            SFX.click();
+        }
+        if (Math.abs(input.startY - (btnY + 70)) < 15 && Math.abs(input.startX - DW/2) < 60) {
+            state = 'LEVELS';
+            SFX.click();
+        }
+    }
+}
+
+// --- LEVEL FAILED ---
+function drawFailed() {
+    ctx.fillStyle = 'rgba(245, 240, 232, 0.92)';
+    ctx.fillRect(0, 0, DW, DH);
+
+    const centerY = DH * 0.4;
+
+    const titleT = clamp(animTimer / 0.5, 0, 1);
+    ctx.globalAlpha = titleT;
+    drawText('Derramou...', DW/2, centerY, '700 28px "Playfair Display"', COLORS.fail);
+    drawText('A tinta escapou da forma', DW/2, centerY + 35, '300 14px "DM Mono"', COLORS.textMuted);
+    ctx.globalAlpha = 1;
+
+    const btnT = clamp((animTimer - 0.5) / 0.3, 0, 1);
+    if (btnT > 0) {
+        ctx.globalAlpha = btnT;
+        const btnW = 180, btnH = 50;
+        const btnY = centerY + 80;
+        drawButton('⟳ Tentar de Novo', DW/2 - btnW/2, btnY, btnW, btnH, COLORS.text, COLORS.paper);
+
+        drawText('Voltar às fases', DW/2, btnY + 70, '300 13px "DM Mono"', COLORS.textMuted);
+        ctx.globalAlpha = 1;
+    }
+
+    if (input.justDown && animTimer > 0.8) {
+        const btnW = 180, btnH = 50;
+        const btnY = centerY + 80;
+        if (isInButton(input.startX, input.startY, DW/2 - btnW/2, btnY, btnW, btnH)) {
+            startLevel(currentLevelIdx);
+            SFX.click();
+        }
+        if (Math.abs(input.startY - (btnY + 70)) < 15 && Math.abs(input.startX - DW/2) < 60) {
+            state = 'LEVELS';
+            SFX.click();
+        }
+    }
+}
+
+// --- PAUSED ---
+function drawPaused() {
+    ctx.fillStyle = 'rgba(245, 240, 232, 0.92)';
+    ctx.fillRect(0, 0, DW, DH);
+
+    drawText('Pausado', DW/2, DH * 0.35, '700 28px "Playfair Display"', COLORS.text);
+
+    const btnW = 180, btnH = 45;
+    const btnY = DH * 0.48;
+
+    drawButton('▶ Continuar', DW/2 - btnW/2, btnY, btnW, btnH, COLORS.text, COLORS.paper);
+    drawButton('⟳ Reiniciar', DW/2 - btnW/2, btnY + 60, btnW, btnH, 'rgba(43,43,43,0.1)', COLORS.text);
+    drawText('Voltar às fases', DW/2, btnY + 130, '300 13px "DM Mono"', COLORS.textMuted);
+
+    if (input.justDown) {
+        if (isInButton(input.startX, input.startY, DW/2 - btnW/2, btnY, btnW, btnH)) {
+            state = 'PLAYING';
+            SFX.click();
+        }
+        if (isInButton(input.startX, input.startY, DW/2 - btnW/2, btnY + 60, btnW, btnH)) {
+            startLevel(currentLevelIdx);
+            SFX.click();
+        }
+        if (Math.abs(input.startY - (btnY + 130)) < 15 && Math.abs(input.startX - DW/2) < 60) {
+            state = 'LEVELS';
+            SFX.click();
+        }
+    }
+}
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// ============================================
+// GAME LOGIC
+// ============================================
+let emitAccum = 0;
+let fillCheckTimer = 0;
+let failCheckTimer = 0;
+
+function startLevel(idx) {
+    currentLevelIdx = idx;
+    state = 'PLAYING';
+    particles = [];
+    gravity = { x: 0, y: 0.3 };
+    fillPercent = 0;
+    spillCount = 0;
+    totalEmitted = 0;
+    levelTime = 0;
+    emitAccum = 0;
+    fillCheckTimer = 0;
+    failCheckTimer = 0;
+    earnedStars = 0;
+    animTimer = 0;
+    shakeAmount = 0;
+
+    // Show hint for first few levels
+    const level = LEVELS[idx];
+    if (level.hint && idx < 5) {
+        hintText = level.hint;
+        hintAlpha = 1;
+    } else {
+        hintText = '';
+        hintAlpha = 0;
+    }
+
+    // Clear ink buffer
+    createInkBuffer();
+}
+
+function updatePlaying(dt) {
+    const level = LEVELS[currentLevelIdx];
+    levelTime += dt;
+
+    // Update gravity from input
+    if (input.down) {
+        const dx = input.curX - input.startX;
+        const dy = input.curY - input.startY;
+        const len = Math.hypot(dx, dy);
+        if (len > 5) {
+            const strength = Math.min(len / MAX_GRAVITY_DRAG, 1);
+            gravity.x = (dx / len) * strength;
+            gravity.y = (dy / len) * strength;
+        }
+    } else {
+        // Gentle default gravity
+        gravity.x = lerp(gravity.x, 0, dt * 3);
+        gravity.y = lerp(gravity.y, 0.3, dt * 3);
+    }
+
+    // Emit particles
+    emitAccum += level.rate;
+    while (emitAccum >= 1) {
+        spawnParticle(level);
+        emitAccum -= 1;
+    }
+
+    // Update particles
+    updateParticles(dt, level);
+
+    // Check fill percentage (every 0.3s for performance)
+    fillCheckTimer += dt;
+    if (fillCheckTimer >= 0.3) {
+        fillCheckTimer = 0;
+        fillPercent = calcFillPercent(level);
+    }
+
+    // Check win condition
+    if (fillPercent >= FILL_WIN) {
+        const spillPct = totalEmitted > 0 ? (spillCount / totalEmitted) * 100 : 0;
+        if (spillPct <= level.stars[0]) earnedStars = 3;
+        else if (spillPct <= level.stars[1]) earnedStars = 2;
+        else earnedStars = 1;
+
+        saveProgress(currentLevelIdx, earnedStars, fillPercent);
+        state = 'COMPLETE';
+        animTimer = 0;
+        SFX.success();
+        return;
+    }
+
+    // Check fail condition
+    failCheckTimer += dt;
+    if (failCheckTimer >= 1) {
+        failCheckTimer = 0;
+        const spillPct = totalEmitted > 0 ? (spillCount / totalEmitted) * 100 : 0;
+        if (spillPct > 30 && totalEmitted > 100) {
+            state = 'FAILED';
+            animTimer = 0;
+            shakeAmount = 5;
+            SFX.fail();
+            return;
+        }
+    }
+
+    // Fade hint
+    if (hintAlpha > 0 && levelTime > 4) {
+        hintAlpha = Math.max(0, hintAlpha - dt * 0.5);
+    }
+
+    // Shake decay
+    if (shakeAmount > 0) {
+        shakeAmount *= 0.9;
+        if (shakeAmount < 0.1) shakeAmount = 0;
+    }
+
+    // Pause button check
+    if (input.justDown && input.startX < 50 && input.startY < 50) {
+        state = 'PAUSED';
+        SFX.click();
+    }
+}
+
+// ============================================
+// MAIN LOOP
+// ============================================
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+    lastTime = timestamp;
+    gameTime += dt;
+    animTimer += dt;
+
+    // Update
+    switch (state) {
+        case 'PLAYING':
+            updatePlaying(dt);
+            break;
+    }
+
+    // Render
+    ctx.save();
+
+    // Apply shake
+    if (shakeAmount > 0) {
+        ctx.translate(rand(-shakeAmount, shakeAmount), rand(-shakeAmount, shakeAmount));
+    }
+
+    switch (state) {
+        case 'MENU':
+            drawMenu();
+            break;
+        case 'LEVELS':
+            drawLevelSelect();
+            break;
+        case 'PLAYING':
+            ctx.drawImage(paperCanvas, 0, 0);
+            drawShape(LEVELS[currentLevelIdx]);
+            drawParticles();
+            drawInkSource(LEVELS[currentLevelIdx], gameTime);
+            drawGravityIndicator();
+            drawHUD(LEVELS[currentLevelIdx]);
+            break;
+        case 'COMPLETE':
+            ctx.drawImage(paperCanvas, 0, 0);
+            drawShape(LEVELS[currentLevelIdx]);
+            drawParticles();
+            drawComplete(LEVELS[currentLevelIdx]);
+            break;
+        case 'FAILED':
+            ctx.drawImage(paperCanvas, 0, 0);
+            drawShape(LEVELS[currentLevelIdx]);
+            drawParticles();
+            drawFailed();
+            break;
+        case 'PAUSED':
+            ctx.drawImage(paperCanvas, 0, 0);
+            drawShape(LEVELS[currentLevelIdx]);
+            drawParticles();
+            drawInkSource(LEVELS[currentLevelIdx], gameTime);
+            drawHUD(LEVELS[currentLevelIdx]);
+            drawPaused();
+            break;
+    }
+
+    ctx.restore();
+
+    // Reset input flags
+    input.justDown = false;
+    input.justUp = false;
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+createPaperBg();
+createInkBuffer();
+requestAnimationFrame(gameLoop);
+
+})();
+</script>
+</body>
+</html>
