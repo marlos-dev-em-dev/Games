@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlatAway</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0d0d1a;
+    overflow: hidden;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    touch-action: none;
+  }
+  #gameContainer {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    background: linear-gradient(#1a1a3a, #0d0d1a);
+    image-rendering: pixelated;
+  }
+  #hud {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 #000;
+    pointer-events: none;
+    z-index: 5;
+  }
+  #comboText {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: #ffd700;
+    font-size: 18px;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 #000;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 26, 0.92);
+    z-index: 10;
+    text-align: center;
+  }
+  #titleScreen h1 {
+    font-size: 64px;
+    color: #fff;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px #ff5fa2, 0 0 40px #5fd0ff;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+  #titleScreen p {
+    color: #aaa;
+    margin-top: 16px;
+    font-size: 16px;
+  }
+  .btn {
+    margin-top: 32px;
+    padding: 14px 40px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #0d0d1a;
+    background: linear-gradient(90deg, #5fd0ff, #ff5fa2);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #7a2e5a;
+    transition: transform 0.1s;
+  }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #7a2e5a;
+  }
+  #gameOverScreen { display: none; }
+  #gameOverScreen h1 {
+    font-size: 48px;
+    color: #ff5f5f;
+    text-shadow: 0 0 20px #ff5f5f;
+  }
+  #gameOverScreen .score {
+    font-size: 28px;
+    color: #fff;
+    margin-top: 20px;
+  }
+  #gameOverScreen .best {
+    font-size: 18px;
+    color: #ffd700;
+    margin-top: 8px;
+  }
+  #controls-hint {
+    position: absolute;
+    bottom: 14px;
+    width: 100%;
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .flash {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 8;
+  }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="game" width="480" height="720"></canvas>
+  <div id="hud">Pontos: <span id="scoreVal">0</span></div>
+  <div id="comboText">COMBO!</div>
+  <div class="flash" id="flash"></div>
+
+  <div class="overlay" id="titleScreen">
+    <h1>PlatAway</h1>
+    <p>Suba o mais alto que puder. Pule nas plataformas, desvie dos buracos.</p>
+    <button class="btn" id="startBtn">JOGAR</button>
+  </div>
+
+  <div class="overlay" id="gameOverScreen">
+    <h1>FIM DE JOGO</h1>
+    <div class="score">Pontuação: <span id="finalScore">0</span></div>
+    <div class="best">Recorde: <span id="bestScore">0</span></div>
+    <button class="btn" id="retryBtn">JOGAR NOVAMENTE</button>
+  </div>
+
+  <div id="controls-hint">← → ou A/D para mover · Toque na tela em dispositivos móveis</div>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const titleScreen = document.getElementById('titleScreen');
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const scoreVal = document.getElementById('scoreVal');
+  const finalScoreEl = document.getElementById('finalScore');
+  const bestScoreEl = document.getElementById('bestScore');
+  const comboText = document.getElementById('comboText');
+  const flashEl = document.getElementById('flash');
+
+  let bestScore = parseInt(localStorage.getItem('platway_best') || '0', 10);
+
+  // ---- Game state ----
+  let state = 'title'; // title | playing | gameover
+  let score = 0;
+  let stageLevel = 0; // increases every 500 points, drives visual theme
+  let particles = [];
+  let platforms = [];
+  let keys = { left: false, right: false };
+  let lastMilestone = 0;
+
+  const player = {
+    x: W / 2 - 16,
+    y: H - 100,
+    w: 32,
+    h: 32,
+    vx: 0,
+    vy: 0,
+    speed: 4.5,
+    gravity: 0.35,
+    jumpForce: -10.5,
+    facing: 1
+  };
+
+  const PLATFORM_W = 70;
+  const PLATFORM_H = 14;
+  let cameraY = 0;
+  let maxHeightReached = 0;
+
+  // Color themes that shift with stageLevel for visual escalation
+  const themes = [
+    { bg1: '#1a1a3a', bg2: '#0d0d1a', plat: '#5fd0ff', player: '#ff5fa2', accent: '#ffffff' },
+    { bg1: '#2a123f', bg2: '#0d0d1a', plat: '#ffb85f', player: '#5fffb0', accent: '#ffd700' },
+    { bg1: '#3f1212', bg2: '#150505', plat: '#ff5f5f', player: '#5fd0ff', accent: '#ff5fa2' },
+    { bg1: '#0f2f1f', bg2: '#04140a', plat: '#5fffb0', player: '#ffd700', accent: '#ffffff' },
+    { bg1: '#2a0a3a', bg2: '#0a0215', plat: '#d95fff', player: '#5fffea', accent: '#ffee5f' }
+  ];
+
+  function currentTheme() {
+    return themes[stageLevel % themes.length];
+  }
+
+  function resetGame() {
+    score = 0;
+    stageLevel = 0;
+    lastMilestone = 0;
+    cameraY = 0;
+    maxHeightReached = 0;
+    particles = [];
+    player.x = W / 2 - 16;
+    player.y = H - 100;
+    player.vx = 0;
+    player.vy = player.jumpForce;
+
+    platforms = [];
+    // Starting platform under the player
+    platforms.push({ x: W / 2 - PLATFORM_W / 2, y: H - 40, w: PLATFORM_W, moving: false, dir: 1, broken: false });
+    let y = H - 120;
+    while (y > -H) {
+      spawnPlatformAt(y);
+      y -= randRange(60, 100);
+    }
+  }
+
+  function randRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  function spawnPlatformAt(y) {
+    const x = randRange(10, W - PLATFORM_W - 10);
+    const difficulty = Math.min(score / 1000, 1); // 0 to 1 over first 1000 pts
+    const moving = Math.random() < 0.15 + difficulty * 0.25;
+    const breakable = Math.random() < 0.1 + difficulty * 0.15;
+    platforms.push({
+      x, y, w: PLATFORM_W,
+      moving, dir: Math.random() < 0.5 ? 1 : -1,
+      broken: false,
+      breakable,
+      speed: randRange(1, 2.2)
+    });
+  }
+
+  function spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x, y,
+        vx: randRange(-3, 3),
+        vy: randRange(-5, -1),
+        life: 30,
+        color
+      });
+    }
+  }
+
+  function triggerFlash() {
+    flashEl.style.transition = 'none';
+    flashEl.style.opacity = '0.5';
+    requestAnimationFrame(() => {
+      flashEl.style.transition = 'opacity 0.4s';
+      flashEl.style.opacity = '0';
+    });
+  }
+
+  function showCombo() {
+    comboText.style.opacity = '1';
+    setTimeout(() => { comboText.style.opacity = '0'; }, 800);
+  }
+
+  // ---- Input ----
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+  });
+
+  canvas.addEventListener('touchstart', handleTouch, { passive: true });
+  canvas.addEventListener('touchmove', handleTouch, { passive: true });
+  canvas.addEventListener('touchend', () => { keys.left = false; keys.right = false; }, { passive: true });
+
+  function handleTouch(e) {
+    const rect = canvas.getBoundingClientRect();
+    const touchX = e.touches[0].clientX - rect.left;
+    if (touchX < rect.width / 2) {
+      keys.left = true; keys.right = false;
+    } else {
+      keys.right = true; keys.left = false;
+    }
+  }
+
+  startBtn.addEventListener('click', () => {
+    titleScreen.style.display = 'none';
+    resetGame();
+    state = 'playing';
+  });
+
+  retryBtn.addEventListener('click', () => {
+    gameOverScreen.style.display = 'none';
+    resetGame();
+    state = 'playing';
+  });
+
+  // ---- Update ----
+  function update() {
+    if (state !== 'playing') return;
+
+    // horizontal movement
+    if (keys.left) { player.vx = -player.speed; player.facing = -1; }
+    else if (keys.right) { player.vx = player.speed; player.facing = 1; }
+    else { player.vx *= 0.8; }
+
+    player.x += player.vx;
+    if (player.x < -player.w) player.x = W;
+    if (player.x > W) player.x = -player.w;
+
+    // gravity
+    player.vy += player.gravity;
+    player.y += player.vy;
+
+    // move platforms
+    for (const p of platforms) {
+      if (p.moving && !p.broken) {
+        p.x += p.speed * p.dir;
+        if (p.x <= 0 || p.x + p.w >= W) p.dir *= -1;
+      }
+    }
+
+    // collision (only when falling)
+    if (player.vy > 0) {
+      for (const p of platforms) {
+        if (p.broken) continue;
+        const withinX = player.x + player.w * 0.3 < p.x + p.w && player.x + player.w * 0.7 > p.x;
+        const withinY = player.y + player.h >= p.y && player.y + player.h <= p.y + PLATFORM_H + player.vy;
+        if (withinX && withinY) {
+          if (p.breakable) {
+            p.broken = true;
+            spawnParticles(p.x + p.w / 2, p.y, currentTheme().plat, 10);
+          }
+          player.vy = player.jumpForce;
+          spawnParticles(player.x + player.w / 2, player.y + player.h, currentTheme().accent, 4);
+        }
+      }
+    }
+
+    // camera follows player upward only
+    const scrollThreshold = H * 0.4;
+    if (player.y < scrollThreshold) {
+      const diff = scrollThreshold - player.y;
+      player.y = scrollThreshold;
+      cameraY += diff;
+      for (const p of platforms) p.y += diff;
+
+      maxHeightReached += diff;
+      const newScore = Math.floor(maxHeightReached / 10);
+      if (newScore > score) {
+        score = newScore;
+        scoreVal.textContent = score;
+
+        // milestone check every 500 points -> visual escalation
+        const milestone = Math.floor(score / 500);
+        if (milestone > lastMilestone) {
+          lastMilestone = milestone;
+          stageLevel = milestone;
+          triggerFlash();
+          showCombo();
+          spawnParticles(player.x + player.w / 2, player.y, currentTheme().accent, 25);
+        }
+      }
+    }
+
+    // remove off-screen platforms, spawn new ones above
+    platforms = platforms.filter(p => p.y < H + 40);
+    let highestY = Math.min(...platforms.map(p => p.y), H);
+    while (highestY > -60) {
+      const newY = highestY - randRange(60, 100);
+      spawnPlatformAt(newY);
+      highestY = newY;
+    }
+
+    // particles
+    particles.forEach(pt => {
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      pt.vy += 0.15;
+      pt.life--;
+    });
+    particles = particles.filter(pt => pt.life > 0);
+
+    // game over: fell below screen
+    if (player.y > H + 40) {
+      endGame();
+    }
+  }
+
+  function endGame() {
+    state = 'gameover';
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('platway_best', String(bestScore));
+    }
+    finalScoreEl.textContent = score;
+    bestScoreEl.textContent = bestScore;
+    gameOverScreen.style.display = 'flex';
+  }
+
+  // ---- Draw ----
+  function draw() {
+    const theme = currentTheme();
+
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, theme.bg1);
+    grad.addColorStop(1, theme.bg2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    if (state === 'playing' || state === 'gameover') {
+      // platforms
+      for (const p of platforms) {
+        if (p.broken) continue;
+        ctx.fillStyle = p.breakable ? '#ff9f5f' : theme.plat;
+        ctx.fillRect(p.x, p.y, p.w, PLATFORM_H);
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillRect(p.x, p.y, p.w, 3);
+      }
+
+      // player
+      ctx.save();
+      ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+      ctx.scale(player.facing, 1);
+      ctx.fillStyle = theme.player;
+      ctx.fillRect(-player.w / 2, -player.h / 2, player.w, player.h);
+      // simple eyes
+      ctx.fillStyle = '#0d0d1a';
+      ctx.fillRect(4, -6, 6, 6);
+      ctx.restore();
+
+      // particles
+      for (const pt of particles) {
+        ctx.globalAlpha = Math.max(pt.life / 30, 0);
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(pt.x, pt.y, 4, 4);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+})();
+</script>
+</body>
+</html>

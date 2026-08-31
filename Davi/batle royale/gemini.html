@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Royale: Element Clash</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            background: #111;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 255, 200, 0.15);
+            border: 1px solid #222;
+        }
+        canvas {
+            background-color: #000;
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+        #ui-panel {
+            width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .card {
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        h2 {
+            font-size: 16px;
+            color: #00ffcc;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .stat {
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #fff;
+        }
+        #element-timer {
+            font-size: 20px;
+            text-align: center;
+            color: #ffcc00;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        #minimap-container {
+            width: 100%;
+            height: 216px;
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid #00ffcc44;
+            overflow: hidden;
+            position: relative;
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        #game-over-screen.hidden {
+            display: none;
+        }
+        #game-over-title {
+            font-size: 36px;
+            margin-bottom: 15px;
+        }
+        button {
+            background: #00ffcc;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #00cca3;
+            transform: scale(1.05);
+        }
+        .rule-item {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="ui-panel">
+        <div class="card">
+            <h2>Status</h2>
+            <div class="stat">Vida: <span id="hp-val" class="stat-value" style="color:#ff4444;">100</span></div>
+            <div class="stat">Arma: <span id="weapon-val" class="stat-value">Desarmado</span></div>
+            <div class="stat">Munição: <span id="ammo-val" class="stat-value" style="color:#ffcc00;">--</span></div>
+            <div class="stat">Vivos: <span id="alive-val" class="stat-value" style="color:#00ffcc;">0</span></div>
+        </div>
+
+        <div class="card">
+            <h2>Próxima Troca</h2>
+            <div id="element-timer">30s</div>
+        </div>
+
+        <div class="card">
+            <h2>Mini-Mapa</h2>
+            <div id="minimap-container">
+                <canvas id="minimap" width="216" height="216"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Controles & Alertas</h2>
+            <div class="rule-item"><b>[SHIFT]</b>: Correr para escapar dos Bots!</div>
+            <div class="rule-item" style="color: #ff4444;">* A tela treme se um Bot predador entrar na sua luz!</div>
+            <div class="rule-item" style="color: #00ffcc;">* Inimigos e o jogador colidem e se empurram fisicamente!</div>
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h1 id="game-over-title">VITÓRIA!</h1>
+        <button onclick="resetGame()">Jogar Novamente</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const miniCanvas = document.getElementById('minimap');
+const miniCtx = miniCanvas.getContext('2d');
+
+const MAP_SIZE = 31;
+const TILE_SIZE = 64;
+const WORLD_SIZE = MAP_SIZE * TILE_SIZE;
+const LIGHT_RADIUS = 220;
+
+const ELEMENTS = ['🪨', '📄', '✂️'];
+const WEAPONS = {
+    FIST: { name: 'Punho', damage: 10, range: 40, cd: 400, color: '#aaa', ammo: Infinity },
+    KNIFE: { name: 'Faca', damage: 25, range: 50, cd: 300, color: '#00ffff', ammo: Infinity },
+    BAT: { name: 'Bastão', damage: 45, range: 65, cd: 600, color: '#ffcc00', ammo: Infinity },
+    PISTOL: { name: 'Pistola', damage: 30, range: 400, cd: 450, isRanged: true, color: '#ff00ff', maxAmmo: 8 }
+};
+
+let grid = [];
+let player;
+let bots = [];
+let items = [];
+let bullets = [];
+let keys = {};
+let mousePos = { x: 0, y: 0 };
+let elementTimer = 30;
+let lastTimerUpdate = Date.now();
+let gameOver = false;
+let screenShake = 0;
+
+function generateMaze() {
+    grid = Array(MAP_SIZE).fill(0).map(() => Array(MAP_SIZE).fill(1));
+    function walk(x, y) {
+        grid[y][x] = 0;
+        const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]].sort(() => Math.random() - 0.5);
+        for (let [dx, dy] of dirs) {
+            const nx = x + dx, ny = y + dy;
+            if (nx > 0 && nx < MAP_SIZE - 1 && ny > 0 && ny < MAP_SIZE - 1 && grid[ny][nx] === 1) {
+                grid[y + dy / 2][x + dx / 2] = 0;
+                walk(nx, ny);
+            }
+        }
+    }
+    walk(1, 1);
+    for (let i = 0; i < MAP_SIZE * 2; i++) {
+        let rx = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+        let ry = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+        grid[ry][rx] = 0;
+    }
+}
+
+function getRandomOpenPos() {
+    let x, y;
+    do {
+        x = Math.floor(Math.random() * MAP_SIZE);
+        y = Math.floor(Math.random() * MAP_SIZE);
+    } while (grid[y][x] !== 0);
+    return { x: (x + 0.5) * TILE_SIZE, y: (y + 0.5) * TILE_SIZE };
+}
+
+function beats(a, b) {
+    if (a === '🪨' && b === '✂️') return true;
+    if (a === '📄' && b === '🪨') return true;
+    if (a === '✂️' && b === '📄') return true;
+    return false;
+}
+
+function canDamage(attackerElem, defenderElem) {
+    if (attackerElem === defenderElem) return true;
+    return beats(attackerElem, defenderElem);
+}
+
+class Entity {
+    constructor(x, y, isBot = false) {
+        this.x = x;
+        this.y = y;
+        this.radius = 16;
+        this.baseSpeed = isBot ? 3.6 : 2.8;
+        this.sprintSpeed = 4.8;
+        this.hp = 100;
+        this.element = ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
+        this.weapon = { ...WEAPONS.FIST };
+        this.ammo = Infinity;
+        this.lastAttack = 0;
+        this.isBot = isBot;
+        this.angle = 0;
+        this.isMoving = false;
+        this.walkCycle = 0;
+    }
+
+    draw(camX, camY) {
+        const screenX = this.x - camX;
+        const screenY = this.y - camY;
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(this.angle);
+
+        if (this.isMoving) {
+            this.walkCycle += 0.2;
+        } else {
+            this.walkCycle = 0;
+        }
+        let armSwing = Math.sin(this.walkCycle) * 4;
+
+        // Braço Esquerdo
+        ctx.fillStyle = this.isBot ? '#cc3333' : '#00b399';
+        ctx.beginPath();
+        ctx.arc(3 + armSwing, -14, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Braço Direito
+        ctx.beginPath();
+        ctx.arc(10 - armSwing * 0.5, 10, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Corpo Top-Down
+        ctx.fillStyle = this.isBot ? '#ff4444' : '#00ffcc';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12, 16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Cabeça
+        ctx.fillStyle = '#ffccaa';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#333';
+        ctx.stroke();
+
+        // Arma na Mão
+        if (this.weapon) {
+            ctx.save();
+            ctx.translate(12 - armSwing * 0.5, 10);
+            let isAttacking = (Date.now() - this.lastAttack < 150);
+            let attackAnim = isAttacking ? 0.8 : 0;
+            ctx.rotate(attackAnim);
+
+            ctx.fillStyle = this.weapon.color;
+            if (this.weapon.name === 'Faca') {
+                ctx.fillRect(0, -2, 14, 4);
+            } else if (this.weapon.name === 'Bastão') {
+                ctx.fillRect(0, -3, 22, 6);
+            } else if (this.weapon.name === 'Pistola') {
+                ctx.fillRect(0, -2, 12, 5);
+                ctx.fillStyle = '#333';
+                ctx.fillRect(4, -5, 4, 3);
+            } else {
+                ctx.beginPath();
+                ctx.arc(3, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        ctx.restore();
+
+        // Elemento
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.element, screenX, screenY - this.radius - 14);
+
+        // Barra de Vida
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(screenX - 16, screenY + this.radius + 8, 32, 5);
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(screenX - 16, screenY + this.radius + 8, (Math.max(0, this.hp) / 100) * 32, 5);
+    }
+}
+
+function init() {
+    generateMaze();
+    const pPos = getRandomOpenPos();
+    player = new Entity(pPos.x, pPos.y, false);
+
+    bots = [];
+    for (let i = 0; i < 15; i++) {
+        const bPos = getRandomOpenPos();
+        bots.push(new Entity(bPos.x, bPos.y, true));
+    }
+
+    items = [];
+    const itemTypes = [WEAPONS.KNIFE, WEAPONS.BAT, WEAPONS.PISTOL];
+    for (let i = 0; i < 40; i++) {
+        const iPos = getRandomOpenPos();
+        items.push({
+            x: iPos.x,
+            y: iPos.y,
+            type: itemTypes[Math.floor(Math.random() * itemTypes.length)]
+        });
+    }
+
+    bullets = [];
+    elementTimer = 30;
+    gameOver = false;
+    screenShake = 0;
+    document.getElementById('game-over-screen').classList.add('hidden');
+}
+
+// Colisão com Paredes
+function moveEntity(ent, vx, vy) {
+    let newX = ent.x + vx;
+    let newY = ent.y + vy;
+
+    let tileX = Math.floor((newX + (vx > 0 ? ent.radius : -ent.radius)) / TILE_SIZE);
+    let currentTileY = Math.floor(ent.y / TILE_SIZE);
+    if (grid[currentTileY] && grid[currentTileY][tileX] === 0) {
+        ent.x = newX;
+    }
+
+    let tileY = Math.floor((newY + (vy > 0 ? ent.radius : -ent.radius)) / TILE_SIZE);
+    let currentTileX = Math.floor(ent.x / TILE_SIZE);
+    if (grid[tileY] && grid[tileY][currentTileX] === 0) {
+        ent.y = newY;
+    }
+    
+    ent.isMoving = (vx !== 0 || vy !== 0);
+}
+
+// SISTEMA DE COLISÃO ENTRE PERSONAGENS (NÃO ENTRAR UM DENTRO DO OUTRO)
+function resolveEntityCollisions() {
+    const allEntities = [player, ...bots];
+
+    for (let i = 0; i < allEntities.length; i++) {
+        for (let j = i + 1; j < allEntities.length; j++) {
+            const e1 = allEntities[i];
+            const e2 = allEntities[j];
+
+            const dx = e2.x - e1.x;
+            const dy = e2.y - e1.y;
+            const dist = Math.hypot(dx, dy);
+            const minDist = e1.radius + e2.radius;
+
+            if (dist < minDist && dist > 0) {
+                const overlap = minDist - dist;
+                const nx = dx / dist;
+                const ny = dy / dist;
+
+                // Empurra metade da sobreposição para cada lado
+                const pushX = (nx * overlap) * 0.5;
+                const pushY = (ny * overlap) * 0.5;
+
+                // Aplica deslocamento respeitando paredes para e1
+                moveEntity(e1, -pushX, -pushY);
+                // Aplica deslocamento respeitando paredes para e2
+                moveEntity(e2, pushX, pushY);
+            }
+        }
+    }
+}
+
+function performAttack(attacker, targetX, targetY) {
+    const now = Date.now();
+    if (now - attacker.lastAttack < attacker.weapon.cd) return;
+
+    if (attacker.weapon.isRanged) {
+        if (attacker.ammo <= 0) {
+            attacker.weapon = { ...WEAPONS.FIST };
+            attacker.ammo = Infinity;
+            return;
+        }
+        attacker.ammo--;
+    }
+
+    attacker.lastAttack = now;
+
+    if (attacker.weapon.isRanged) {
+        const angle = Math.atan2(targetY - attacker.y, targetX - attacker.x);
+        bullets.push({
+            x: attacker.x,
+            y: attacker.y,
+            vx: Math.cos(angle) * 10,
+            vy: Math.sin(angle) * 10,
+            owner: attacker,
+            damage: attacker.weapon.damage
+        });
+    } else {
+        const targets = [player, ...bots].filter(e => e !== attacker);
+        for (let target of targets) {
+            const dist = Math.hypot(target.x - attacker.x, target.y - attacker.y);
+            if (dist <= attacker.weapon.range + target.radius) {
+                if (canDamage(attacker.element, target.element)) {
+                    target.hp -= attacker.weapon.damage;
+                }
+            }
+        }
+    }
+}
+
+function update() {
+    if (gameOver) return;
+
+    // Timer dos Elementos
+    if (Date.now() - lastTimerUpdate >= 1000) {
+        elementTimer--;
+        lastTimerUpdate = Date.now();
+        if (elementTimer <= 0) {
+            elementTimer = 30;
+            [player, ...bots].forEach(e => {
+                e.element = ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
+            });
+        }
+    }
+
+    // Input & Corrida do Jogador (Shift)
+    let currentSpeed = (keys['Shift'] || keys['ShiftLeft']) ? player.sprintSpeed : player.baseSpeed;
+    let vx = 0, vy = 0;
+    if (keys['w'] || keys['W'] || keys['ArrowUp']) vy -= currentSpeed;
+    if (keys['s'] || keys['S'] || keys['ArrowDown']) vy += currentSpeed;
+    if (keys['a'] || keys['A'] || keys['ArrowLeft']) vx -= currentSpeed;
+    if (keys['d'] || keys['D'] || keys['ArrowRight']) vx += currentSpeed;
+
+    if (vx !== 0 && vy !== 0) {
+        vx *= 0.7071;
+        vy *= 0.7071;
+    }
+    moveEntity(player, vx, vy);
+
+    const camX = player.x - canvas.width / 2;
+    const camY = player.y - canvas.height / 2;
+    player.angle = Math.atan2((mousePos.y + camY) - player.y, (mousePos.x + camX) - player.x);
+
+    // Pegar Itens
+    items = items.filter(item => {
+        if (Math.hypot(player.x - item.x, player.y - item.y) < player.radius + 15) {
+            player.weapon = { ...item.type };
+            player.ammo = item.type.isRanged ? item.type.maxAmmo : Infinity;
+            return false;
+        }
+        return true;
+    });
+
+    // Lógica dos Bots
+    let predatorNear = false;
+
+    bots.forEach(bot => {
+        const distToPlayer = Math.hypot(player.x - bot.x, player.y - bot.y);
+
+        if (distToPlayer < LIGHT_RADIUS) {
+            const playerBeatsBot = beats(player.element, bot.element);
+            const botBeatsPlayer = beats(bot.element, player.element);
+
+            if (botBeatsPlayer) {
+                predatorNear = true;
+            }
+
+            if (playerBeatsBot) {
+                // Fuga dos Bots Inferiores
+                const angle = Math.atan2(bot.y - player.y, bot.x - player.x);
+                moveEntity(bot, Math.cos(angle) * bot.baseSpeed, Math.sin(angle) * bot.baseSpeed);
+                bot.angle = angle;
+            } else {
+                // Perseguição / Ataque
+                const angle = Math.atan2(player.y - bot.y, player.x - bot.x);
+                moveEntity(bot, Math.cos(angle) * bot.baseSpeed, Math.sin(angle) * bot.baseSpeed);
+                bot.angle = angle;
+
+                if (distToPlayer <= bot.weapon.range) {
+                    performAttack(bot, player.x, player.y);
+                }
+            }
+        } else {
+            // Patrulha
+            if (Math.random() < 0.02) {
+                bot.wanderAngle = Math.random() * Math.PI * 2;
+            }
+            if (bot.wanderAngle !== undefined) {
+                moveEntity(bot, Math.cos(bot.wanderAngle) * (bot.baseSpeed * 0.5), Math.sin(bot.wanderAngle) * (bot.baseSpeed * 0.5));
+                bot.angle = bot.wanderAngle;
+            }
+        }
+    });
+
+    // RESOLVER COLISÃO ENTRE PERSONAGENS (Impede um entrar dentro do outro)
+    resolveEntityCollisions();
+
+    // Tremor de tela (Screen Shake)
+    if (predatorNear) {
+        screenShake = Math.min(screenShake + 1.5, 8);
+    } else {
+        screenShake = Math.max(0, screenShake - 0.5);
+    }
+
+    // Projéteis
+    bullets = bullets.filter(b => {
+        b.x += b.vx;
+        b.y += b.vy;
+
+        let tX = Math.floor(b.x / TILE_SIZE);
+        let tY = Math.floor(b.y / TILE_SIZE);
+        if (grid[tY] && grid[tY][tX] === 1) return false;
+
+        const targets = [player, ...bots].filter(e => e !== b.owner);
+        for (let target of targets) {
+            if (Math.hypot(target.x - b.x, target.y - b.y) < target.radius) {
+                if (canDamage(b.owner.element, target.element)) {
+                    target.hp -= b.damage;
+                }
+                return false;
+            }
+        }
+        return true;
+    });
+
+    bots = bots.filter(b => b.hp > 0);
+
+    if (player.hp <= 0) {
+        endGame(false);
+    } else if (bots.length === 0) {
+        endGame(true);
+    }
+
+    // HUD Textual
+    document.getElementById('hp-val').innerText = Math.max(0, player.hp);
+    document.getElementById('weapon-val').innerText = player.weapon.name;
+    document.getElementById('ammo-val').innerText = (player.ammo === Infinity) ? 'Infinito' : `${player.ammo}/8`;
+    document.getElementById('alive-val').innerText = bots.length + 1;
+    document.getElementById('element-timer').innerText = `${elementTimer}s`;
+}
+
+function endGame(victory) {
+    gameOver = true;
+    const screen = document.getElementById('game-over-screen');
+    const title = document.getElementById('game-over-title');
+    screen.classList.remove('hidden');
+    title.innerText = victory ? 'VOCÊ VENCEU!' : 'VOCÊ MORREU!';
+    title.style.color = victory ? '#00ffcc' : '#ff4444';
+}
+
+function render() {
+    let shakeX = (Math.random() - 0.5) * screenShake;
+    let shakeY = (Math.random() - 0.5) * screenShake;
+
+    const camX = player.x - canvas.width / 2 + shakeX;
+    const camY = player.y - canvas.height / 2 + shakeY;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const startCol = Math.max(0, Math.floor(camX / TILE_SIZE));
+    const endCol = Math.min(MAP_SIZE, Math.ceil((camX + canvas.width) / TILE_SIZE));
+    const startRow = Math.max(0, Math.floor(camY / TILE_SIZE));
+    const endRow = Math.min(MAP_SIZE, Math.ceil((camY + canvas.height) / TILE_SIZE));
+
+    for (let r = startRow; r < endRow; r++) {
+        for (let c = startCol; c < endCol; c++) {
+            const x = c * TILE_SIZE - camX;
+            const y = r * TILE_SIZE - camY;
+
+            if (grid[r][c] === 1) {
+                ctx.fillStyle = '#1c1c24';
+                ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                ctx.strokeStyle = '#2a2a35';
+                ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+            } else {
+                ctx.fillStyle = '#0a0a0f';
+                ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+            }
+        }
+    }
+
+    items.forEach(item => {
+        const ix = item.x - camX;
+        const iy = item.y - camY;
+        ctx.beginPath();
+        ctx.arc(ix, iy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = item.type.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+    });
+
+    bullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x - camX, b.y - camY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffff00';
+        ctx.fill();
+    });
+
+    bots.forEach(bot => bot.draw(camX, camY));
+    player.draw(camX, camY);
+
+    // Névoa de Guerra
+    const playerScreenX = player.x - camX;
+    const playerScreenY = player.y - camY;
+
+    const fogCanvas = document.createElement('canvas');
+    fogCanvas.width = canvas.width;
+    fogCanvas.height = canvas.height;
+    const fogCtx = fogCanvas.getContext('2d');
+
+    fogCtx.fillStyle = '#000000';
+    fogCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    fogCtx.globalCompositeOperation = 'destination-out';
+    const grad = fogCtx.createRadialGradient(
+        playerScreenX, playerScreenY, LIGHT_RADIUS * 0.4,
+        playerScreenX, playerScreenY, LIGHT_RADIUS
+    );
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    fogCtx.beginPath();
+    fogCtx.arc(playerScreenX, playerScreenY, LIGHT_RADIUS, 0, Math.PI * 2);
+    fogCtx.fillStyle = grad;
+    fogCtx.fill();
+
+    ctx.drawImage(fogCanvas, 0, 0);
+
+    renderMinimap();
+}
+
+function renderMinimap() {
+    miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+    const scale = miniCanvas.width / WORLD_SIZE;
+
+    miniCtx.fillStyle = '#333';
+    for (let r = 0; r < MAP_SIZE; r++) {
+        for (let c = 0; c < MAP_SIZE; c++) {
+            if (grid[r][c] === 1) {
+                miniCtx.fillRect(c * TILE_SIZE * scale, r * TILE_SIZE * scale, TILE_SIZE * scale, TILE_SIZE * scale);
+            }
+        }
+    }
+
+    miniCtx.fillStyle = '#ff4444';
+    bots.forEach(b => {
+        if (Math.hypot(player.x - b.x, player.y - b.y) < LIGHT_RADIUS) {
+            miniCtx.fillRect(b.x * scale - 2, b.y * scale - 2, 4, 4);
+        }
+    });
+
+    miniCtx.fillStyle = '#00ffcc';
+    miniCtx.fillRect(player.x * scale - 3, player.y * scale - 3, 6, 6);
+}
+
+function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
+}
+
+function resetGame() {
+    init();
+}
+
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mousePos.x = e.clientX - rect.left;
+    mousePos.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button === 0 && !gameOver) {
+        const camX = player.x - canvas.width / 2;
+        const camY = player.y - canvas.height / 2;
+        performAttack(player, mousePos.x + camX, mousePos.y + camY);
+    }
+});
+
+init();
+loop();
+</script>
+</body>
+</html>

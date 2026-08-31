@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether Ascent - Roguelite em Pixel</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    background: #0f1015;
+    color: #e0e6ed;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  #game-container {
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    border: 3px solid #2d3748;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    background: #5c94fc;
+  }
+  /* UI Overlay */
+  #ui-layer {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 14px;
+    text-shadow: 2px 2px 0px #000;
+  }
+  .hud-box {
+    background: rgba(15, 20, 30, 0.75);
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #4a5568;
+  }
+  /* Shop & Death Modal */
+  .modal-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10, 12, 18, 0.88);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .modal-card {
+    background: #1a202c;
+    border: 2px solid #718096;
+    border-radius: 8px;
+    padding: 20px;
+    width: 360px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  }
+  .modal-card h2 {
+    color: #ecc94b;
+    margin-bottom: 12px;
+    font-size: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .shop-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 15px 0;
+  }
+  .shop-btn {
+    background: #2d3748;
+    color: #fff;
+    border: 1px solid #4a5568;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    transition: 0.1s;
+    text-align: left;
+  }
+  .shop-btn:hover:not(:disabled) {
+    background: #4a5568;
+    border-color: #ecc94b;
+  }
+  .shop-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .primary-btn {
+    background: #38a169;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-family: inherit;
+  }
+  .primary-btn:hover { background: #2f855a; }
+  .weapon-select-btn {
+    background: #4a5568;
+    border: 1px solid #718096;
+    color: #f7fafc;
+    padding: 4px 6px;
+    font-size: 10px;
+    margin: 2px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .weapon-select-btn.active {
+    background: #ecc94b;
+    color: #1a202c;
+    font-weight: bold;
+  }
+  #controls-info {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #a0aec0;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
+
+  <div id="ui-layer">
+    <div class="hud-box">
+      <div id="hud-hp">❤️ HP: 100/100</div>
+      <div id="hud-weapon">⚔️ Arma: Espada</div>
+      <div id="hud-ammo" style="font-size:11px; color:#cbd5e0;"></div>
+    </div>
+    <div class="hud-box" style="text-align: right;">
+      <div id="hud-coins" style="color: #ecc94b;">🪙 Moedas: 0</div>
+      <div id="hud-alt" style="color: #63b3ed;">📍 Altura: 0m</div>
+      <div id="hud-biome" style="font-size: 11px; color: #68d391;">🌿 Jardim</div>
+    </div>
+  </div>
+
+  <!-- Menu / Loja / Morte -->
+  <div id="shopModal" class="modal-overlay">
+    <div class="modal-card">
+      <h2 id="modal-title">Acampamento Base</h2>
+      <p id="modal-desc" style="font-size: 12px; color: #a0aec0; margin-bottom: 8px;">Gaste suas moedas para evoluir seus atributos.</p>
+
+      <div style="font-size: 13px; color: #ecc94b; font-weight: bold; margin-bottom: 6px;">
+        Moedas Disponíveis: <span id="shop-coin-count">0</span>
+      </div>
+
+      <div class="shop-grid">
+        <button class="shop-btn" id="btn-up-hp" onclick="buyUpgrade('hp')">
+          ❤️ +Vida Max (+25)<br>
+          <span style="color:#ecc94b" id="cost-hp">Custo: 15</span>
+        </button>
+        <button class="shop-btn" id="btn-up-spd" onclick="buyUpgrade('spd')">
+          ⚡ +Velocidade<br>
+          <span style="color:#ecc94b" id="cost-spd">Custo: 20</span>
+        </button>
+        <button class="shop-btn" id="btn-up-str" onclick="buyUpgrade('str')">
+          💥 +Força (+5 Dano)<br>
+          <span style="color:#ecc94b" id="cost-str">Custo: 25</span>
+        </button>
+        <button class="shop-btn" id="btn-up-weapon" onclick="buyNextWeapon()">
+          🗡️ Nova Arma<br>
+          <span style="color:#ecc94b" id="cost-weapon">Custo: 35</span>
+        </button>
+      </div>
+
+      <div style="margin: 8px 0; font-size: 11px;">
+        <div>Armas Desbloqueadas:</div>
+        <div id="weapon-inventory" style="display:flex; justify-content:center; gap:4px; margin-top:4px;"></div>
+      </div>
+
+      <button class="primary-btn" onclick="startRun()">Subir nas Ilhas ➔</button>
+    </div>
+  </div>
+</div>
+
+<div id="controls-info">
+  Controles: <b>A / D</b> ou <b>Setas</b> = Mover | <b>W / Espaço / Seta Cima</b> = Pular (Pulo Duplo) | <b>J / Z / Clique</b> = Atacar / Arremessar | <b>R</b> = Recarregar Arco
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- ESTADO GLOBAL & PERSISTÊNCIA ROGUELITE ---
+let playerCoins = 0;
+let upgrades = {
+  hpLevel: 0,
+  spdLevel: 0,
+  strLevel: 0,
+  unlockedWeapons: ['sword'], // sword, axe, spear, bow
+};
+
+let currentRun = {
+  active: false,
+  altitudeMeters: 0,
+  highestY: 0,
+  biome: 'Jardim'
+};
+
+// --- JOGADOR ---
+const player = {
+  x: 240,
+  y: 550,
+  vx: 0,
+  vy: 0,
+  width: 16,
+  height: 24,
+  hp: 100,
+  maxHp: 100,
+  baseSpeed: 3.2,
+  jumpPower: -8.8,
+  doubleJumpPower: -7.8,
+  grounded: false,
+  canDoubleJump: true,
+  facing: 1, // 1 dir, -1 esq
+  selectedWeapon: 'sword',
+
+  // Estados de armas
+  axeThrown: false,
+  arrows: 12,
+  isReloadingBow: false,
+  reloadTimer: 0,
+  spearCharging: false,
+  spearTimer: 0,
+  attackCooldown: 0
+};
+
+// Entidades do jogo
+let platforms = [];
+let monsters = [];
+let chests = [];
+let particles = [];
+let projectiles = [];
+let droppedAxes = [];
+let floatingTexts = [];
+
+// Teclado & Input
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+    e.preventDefault();
+  }
+  if (e.key.toLowerCase() === 'w' || e.key === ' ' || e.key === 'ArrowUp') {
+    handleJump();
+  }
+  if (e.key.toLowerCase() === 'j' || e.key.toLowerCase() === 'z') {
+    handleAttack();
+  }
+  if (e.key.toLowerCase() === 'r') {
+    reloadBow();
+  }
+});
+window.addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false;
+});
+canvas.addEventListener('mousedown', () => {
+  if (currentRun.active) handleAttack();
+});
+
+// --- SISTEMA PROCEDURAL DE ILHAS E GERAÇÃO ---
+let highestPlatformGeneratedY = 580;
+
+function createPlatform(x, y, w, type = 'normal') {
+  platforms.push({ x, y, width: w, height: 14, type });
+
+  // Chance de gerar baú ou monstro em cima
+  if (y < 500) {
+    const rnd = Math.random();
+    if (rnd < 0.35) {
+      monsters.push(createMonster(x + w / 2 - 8, y - 20));
+    } else if (rnd < 0.6) {
+      chests.push({ x: x + w / 2 - 8, y: y - 14, width: 16, height: 14, opened: false });
+    }
+  }
+}
+
+function createMonster(x, y) {
+  const alt = currentRun.altitudeMeters;
+  let type = 'slime';
+  let hp = 20 + Math.floor(alt / 100) * 5;
+  let color = '#48bb78';
+
+  if (alt >= 1500) {
+    type = 'frost_golem';
+    hp = 50 + Math.floor((alt - 1500) / 100) * 10;
+    color = '#90cdf4';
+  } else if (alt >= 500) {
+    type = 'autumn_wasp';
+    hp = 35 + Math.floor((alt - 500) / 100) * 8;
+    color = '#ed8936';
+  }
+
+  return {
+    x, y,
+    width: 18,
+    height: 18,
+    vx: (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random() * 0.8),
+    hp,
+    maxHp: hp,
+    type,
+    color,
+    facing: 1
+  };
+}
+
+function generateWorldChunk(upToY) {
+  while (highestPlatformGeneratedY > upToY) {
+    const gapY = 55 + Math.random() * 30;
+    const nextY = highestPlatformGeneratedY - gapY;
+    const width = 60 + Math.random() * 70;
+    const nextX = 20 + Math.random() * (canvas.width - width - 40);
+
+    const meters = Math.max(0, Math.floor((550 - nextY) / 4));
+    let pType = 'grass';
+    if (meters >= 1500) pType = 'ice';
+    else if (meters >= 500) pType = 'autumn';
+
+    createPlatform(nextX, nextY, width, pType);
+    highestPlatformGeneratedY = nextY;
+  }
+}
+
+// --- CONTROLE DE RUN & MORTE ---
+function startRun() {
+  document.getElementById('shopModal').style.display = 'none';
+
+  // Reset do Jogador
+  player.maxHp = 100 + upgrades.hpLevel * 25;
+  player.hp = player.maxHp;
+  player.x = 230;
+  player.y = 550;
+  player.vx = 0;
+  player.vy = 0;
+  player.arrows = 12;
+  player.axeThrown = false;
+  player.isReloadingBow = false;
+  player.spearCharging = false;
+
+  // Limpa entidades
+  platforms = [];
+  monsters = [];
+  chests = [];
+  particles = [];
+  projectiles = [];
+  droppedAxes = [];
+  floatingTexts = [];
+
+  // Plataforma inicial no chão
+  highestPlatformGeneratedY = 580;
+  createPlatform(100, 580, 280, 'grass');
+  generateWorldChunk(-1000);
+
+  currentRun.active = true;
+  currentRun.highestY = player.y;
+  currentRun.altitudeMeters = 0;
+}
+
+function gameOver() {
+  currentRun.active = false;
+  document.getElementById('modal-title').innerText = "Você Caiu!";
+  document.getElementById('modal-desc').innerText = `Você alcançou ${currentRun.altitudeMeters} metros! Melhore seus equipamentos e tente subir mais alto.`;
+  updateShopUI();
+  document.getElementById('shopModal').style.display = 'flex';
+}
+
+// --- SISTEMA DE PULO & MOVIMENTO ---
+function handleJump() {
+  if (!currentRun.active) return;
+  if (player.grounded) {
+    player.vy = player.jumpPower;
+    player.grounded = false;
+    player.canDoubleJump = true;
+    spawnParticles(player.x + 8, player.y + 24, '#e2e8f0', 4);
+  } else if (player.canDoubleJump) {
+    player.vy = player.doubleJumpPower;
+    player.canDoubleJump = false;
+    spawnParticles(player.x + 8, player.y + 24, '#63b3ed', 8);
+  }
+}
+
+// --- SISTEMA DE COMBATE & ARMAS ÚNICAS ---
+function getAttackDamage() {
+  return 15 + upgrades.strLevel * 6;
+}
+
+function handleAttack() {
+  if (!currentRun.active || player.attackCooldown > 0) return;
+
+  const dmg = getAttackDamage();
+
+  // 1. ESPADA PADRÃO
+  if (player.selectedWeapon === 'sword') {
+    player.attackCooldown = 15;
+    const slashRange = 36;
+    const hitX = player.facing === 1 ? player.x + player.width : player.x - slashRange;
+
+    spawnSlashEffect(hitX, player.y + 6, player.facing);
+
+    monsters.forEach(m => {
+      if (checkOverlap({ x: hitX, y: player.y, width: slashRange, height: player.height }, m)) {
+        damageMonster(m, dmg);
+      }
+    });
+  }
+
+  // 2. MACHADO ARREMESSÁVEL
+  else if (player.selectedWeapon === 'axe') {
+    if (!player.axeThrown) {
+      player.axeThrown = true;
+      player.attackCooldown = 18;
+      projectiles.push({
+        x: player.x + (player.facing === 1 ? 16 : -8),
+        y: player.y + 4,
+        vx: player.facing * 7.5,
+        vy: -3.5,
+        gravity: 0.25,
+        damage: dmg * 1.8,
+        type: 'axe'
+      });
+    } else {
+      showFloatingText(player.x, player.y - 10, "Sem Machado!", "#f56565");
+    }
+  }
+
+  // 3. LANÇA (ATAQUE LONGO COM WIND-UP)
+  else if (player.selectedWeapon === 'spear') {
+    if (!player.spearCharging) {
+      player.spearCharging = true;
+      player.spearTimer = 14;
+      player.attackCooldown = 28;
+      showFloatingText(player.x, player.y - 12, "...", "#cbd5e0");
+    }
+  }
+
+  // 4. ARCO E FLECHA (12 FLECHAS + RECARGA)
+  else if (player.selectedWeapon === 'bow') {
+    if (player.isReloadingBow) {
+      showFloatingText(player.x, player.y - 10, "Recarregando...", "#ed8936");
+      return;
+    }
+    if (player.arrows > 0) {
+      player.arrows--;
+      player.attackCooldown = 12;
+      projectiles.push({
+        x: player.x + (player.facing === 1 ? 16 : -8),
+        y: player.y + 8,
+        vx: player.facing * 9.5,
+        vy: -0.4,
+        gravity: 0.05,
+        damage: dmg * 1.1,
+        type: 'arrow'
+      });
+    } else {
+      reloadBow();
+    }
+  }
+}
+
+function reloadBow() {
+  if (player.selectedWeapon === 'bow' && !player.isReloadingBow && player.arrows < 12) {
+    player.isReloadingBow = true;
+    player.reloadTimer = 90;
+    showFloatingText(player.x, player.y - 12, "Recarregando Arco!", "#ecc94b");
+  }
+}
+
+function damageMonster(m, dmg) {
+  m.hp -= dmg;
+  m.vx = player.facing * 3;
+  showFloatingText(m.x + m.width / 2, m.y - 6, `-${Math.round(dmg)}`, "#fc8181");
+  spawnParticles(m.x + m.width / 2, m.y + m.height / 2, '#e53e3e', 6);
+
+  if (m.hp <= 0) {
+    const coinDrop = 3 + Math.floor(Math.random() * 4);
+    playerCoins += coinDrop;
+    showFloatingText(m.x, m.y - 16, `+${coinDrop} 🪙`, "#ecc94b");
+  }
+}
+
+// --- LOOP PRINCIPAL & FÍSICA ---
+function update() {
+  if (!currentRun.active) return;
+
+  if (player.attackCooldown > 0) player.attackCooldown--;
+  if (player.isReloadingBow) {
+    player.reloadTimer--;
+    if (player.reloadTimer <= 0) {
+      player.isReloadingBow = false;
+      player.arrows = 12;
+      showFloatingText(player.x, player.y - 12, "12 Flechas Prontas!", "#68d391");
+    }
+  }
+
+  if (player.spearCharging) {
+    player.spearTimer--;
+    if (player.spearTimer <= 0) {
+      player.spearCharging = false;
+      const spearRange = 64;
+      const hitX = player.facing === 1 ? player.x + player.width : player.x - spearRange;
+      spawnSpearEffect(hitX, player.y + 8, player.facing, spearRange);
+
+      monsters.forEach(m => {
+        if (checkOverlap({ x: hitX, y: player.y - 4, width: spearRange, height: player.height + 8 }, m)) {
+          damageMonster(m, getAttackDamage() * 1.6);
+        }
+      });
+    }
+  }
+
+  const moveSpeed = player.baseSpeed + upgrades.spdLevel * 0.4;
+  if (!player.isReloadingBow) {
+    if (keys['a'] || keys['arrowleft']) {
+      player.vx = -moveSpeed;
+      player.facing = -1;
+    } else if (keys['d'] || keys['arrowright']) {
+      player.vx = moveSpeed;
+      player.facing = 1;
+    } else {
+      player.vx *= 0.75;
+    }
+  } else {
+    player.vx *= 0.5;
+  }
+
+  player.vy += 0.38;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+  player.grounded = false;
+  platforms.forEach(p => {
+    if (player.vy > 0 &&
+        player.x + player.width > p.x &&
+        player.x < p.x + p.width &&
+        player.y + player.height >= p.y &&
+        player.y + player.height <= p.y + 12 + player.vy) {
+      player.y = p.y - player.height;
+      player.vy = 0;
+      player.grounded = true;
+    }
+  });
+
+  if (player.y < currentRun.highestY) {
+    currentRun.highestY = player.y;
+    currentRun.altitudeMeters = Math.max(0, Math.floor((550 - player.y) / 4));
+    generateWorldChunk(player.y - 500);
+  }
+
+  if (currentRun.altitudeMeters >= 1500) {
+    currentRun.biome = 'Inverno Congelado';
+  } else if (currentRun.altitudeMeters >= 500) {
+    currentRun.biome = 'Primavera / Outono';
+  } else {
+    currentRun.biome = 'Jardim Verdejante';
+  }
+
+  for (let i = monsters.length - 1; i >= 0; i--) {
+    const m = monsters[i];
+    m.x += m.vx;
+
+    if (m.x < 10 || m.x > canvas.width - 30) m.vx *= -1;
+
+    if (checkOverlap(player, m)) {
+      player.hp -= 0.6;
+      if (player.hp <= 0) {
+        gameOver();
+        return;
+      }
+    }
+
+    if (m.hp <= 0) {
+      monsters.splice(i, 1);
+    }
+  }
+
+  chests.forEach(ch => {
+    if (!ch.opened && checkOverlap(player, ch)) {
+      ch.opened = true;
+      const chestReward = 15 + Math.floor(Math.random() * 15);
+      playerCoins += chestReward;
+      showFloatingText(ch.x, ch.y - 16, `+${chestReward} 🪙 (Baú!)`, "#ecc94b");
+      spawnParticles(ch.x + 8, ch.y + 7, '#ecc94b', 12);
+    }
+  });
+
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.gravity) p.vy += p.gravity;
+
+    let hit = false;
+    monsters.forEach(m => {
+      if (checkOverlap({ x: p.x - 4, y: p.y - 4, width: 8, height: 8 }, m)) {
+        damageMonster(m, p.damage);
+        hit = true;
+      }
+    });
+
+    if (p.type === 'axe') {
+      platforms.forEach(plat => {
+        if (p.x >= plat.x && p.x <= plat.x + plat.width && p.y >= plat.y && p.y <= plat.y + plat.height) {
+          droppedAxes.push({ x: p.x, y: plat.y - 12, width: 12, height: 12 });
+          hit = true;
+        }
+      });
+    }
+
+    if (hit || p.x < -50 || p.x > canvas.width + 50 || p.y > canvas.height + 1000) {
+      projectiles.splice(i, 1);
+    }
+  }
+
+  for (let i = droppedAxes.length - 1; i >= 0; i--) {
+    const d = droppedAxes[i];
+    if (checkOverlap(player, d)) {
+      player.axeThrown = false;
+      showFloatingText(player.x, player.y - 12, "Machado Recuperado!", "#48bb78");
+      droppedAxes.splice(i, 1);
+    }
+  }
+
+  // Remove entidades muito abaixo do jogador (evita crescimento infinito dos arrays)
+  const cullY = player.y + 700;
+  platforms = platforms.filter(p => p.y < cullY);
+  chests = chests.filter(c => c.y < cullY);
+  droppedAxes = droppedAxes.filter(d => d.y < cullY);
+
+  // Morte por queda, calculada em relação à borda inferior real da tela (câmera)
+  const cameraY = Math.max(0, 250 - (player.y - 300));
+  const screenBottomWorldY = canvas.height - cameraY;
+  if (player.y > screenBottomWorldY + 150) {
+    gameOver();
+    return;
+  }
+
+  updateHUD();
+}
+
+// --- RENDERIZAÇÃO GRÁFICA & PIXEL ART ---
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const cameraY = Math.max(0, 250 - (player.y - 300));
+  ctx.save();
+  ctx.translate(0, cameraY);
+
+  renderBackground(cameraY);
+
+  platforms.forEach(p => {
+    let topColor = '#48bb78';
+    let bodyColor = '#2f855a';
+    if (p.type === 'autumn') {
+      topColor = '#ed8936';
+      bodyColor = '#9c4221';
+    } else if (p.type === 'ice') {
+      topColor = '#bee3f8';
+      bodyColor = '#3182ce';
+    }
+
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(p.x, p.y + 4, p.width, p.height - 4);
+    ctx.fillStyle = topColor;
+    ctx.fillRect(p.x, p.y, p.width, 5);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for (let bx = p.x + 4; bx < p.x + p.width - 4; bx += 12) {
+      ctx.fillRect(bx, p.y + 6, 6, 4);
+    }
+  });
+
+  chests.forEach(ch => {
+    ctx.fillStyle = ch.opened ? '#718096' : '#ecc94b';
+    ctx.fillRect(ch.x, ch.y, ch.width, ch.height);
+    ctx.fillStyle = '#2d3748';
+    ctx.fillRect(ch.x + 6, ch.y + 4, 4, 4);
+  });
+
+  droppedAxes.forEach(d => {
+    ctx.fillStyle = '#cbd5e0';
+    ctx.fillRect(d.x, d.y, 8, 8);
+    ctx.fillStyle = '#975a16';
+    ctx.fillRect(d.x + 3, d.y + 8, 3, 5);
+  });
+
+  monsters.forEach(m => {
+    ctx.fillStyle = m.color;
+    ctx.fillRect(m.x, m.y, m.width, m.height);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(m.x + (m.vx > 0 ? 10 : 2), m.y + 4, 3, 3);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(m.x, m.y - 6, m.width, 3);
+    ctx.fillStyle = '#e53e3e';
+    ctx.fillRect(m.x, m.y - 6, (m.hp / m.maxHp) * m.width, 3);
+  });
+
+  projectiles.forEach(p => {
+    if (p.type === 'arrow') {
+      ctx.fillStyle = '#cbd5e0';
+      ctx.fillRect(p.x, p.y, 8, 2);
+    } else if (p.type === 'axe') {
+      ctx.fillStyle = '#a0aec0';
+      ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
+    }
+  });
+
+  renderPlayer();
+  renderParticles();
+  renderFloatingTexts();
+
+  ctx.restore();
+}
+
+function renderBackground(camY) {
+  let skyGradient;
+  if (currentRun.altitudeMeters >= 1500) {
+    skyGradient = ctx.createLinearGradient(0, -camY, 0, -camY + canvas.height);
+    skyGradient.addColorStop(0, '#1a365d');
+    skyGradient.addColorStop(1, '#63b3ed');
+  } else if (currentRun.altitudeMeters >= 500) {
+    skyGradient = ctx.createLinearGradient(0, -camY, 0, -camY + canvas.height);
+    skyGradient.addColorStop(0, '#742a2a');
+    skyGradient.addColorStop(1, '#dd6b20');
+  } else {
+    skyGradient = ctx.createLinearGradient(0, -camY, 0, -camY + canvas.height);
+    skyGradient.addColorStop(0, '#2c5282');
+    skyGradient.addColorStop(1, '#68d391');
+  }
+  ctx.fillStyle = skyGradient;
+  ctx.fillRect(0, -camY, canvas.width, canvas.height);
+}
+
+function renderPlayer() {
+  ctx.fillStyle = '#3182ce';
+  ctx.fillRect(player.x, player.y + 8, player.width, player.height - 8);
+
+  ctx.fillStyle = '#fbd38d';
+  ctx.fillRect(player.x + 2, player.y, 12, 8);
+
+  ctx.fillStyle = '#1a202c';
+  ctx.fillRect(player.x + (player.facing === 1 ? 9 : 3), player.y + 2, 2, 2);
+
+  ctx.fillStyle = '#e2e8f0';
+  if (player.selectedWeapon === 'sword') {
+    ctx.fillRect(player.x + (player.facing === 1 ? 14 : -4), player.y + 10, 4, 8);
+  } else if (player.selectedWeapon === 'spear') {
+    ctx.fillRect(player.x + (player.facing === 1 ? 14 : -10), player.y + 6, 12, 3);
+  } else if (player.selectedWeapon === 'bow') {
+    ctx.fillStyle = '#975a16';
+    ctx.fillRect(player.x + (player.facing === 1 ? 14 : -4), player.y + 6, 3, 12);
+  } else if (player.selectedWeapon === 'axe' && !player.axeThrown) {
+    ctx.fillStyle = '#cbd5e0';
+    ctx.fillRect(player.x + (player.facing === 1 ? 14 : -6), player.y + 6, 6, 6);
+  }
+}
+
+function spawnSlashEffect(x, y, dir) {
+  particles.push({
+    x, y,
+    vx: dir * 1.5, vy: 0,
+    life: 8,
+    maxLife: 8,
+    color: '#e2e8f0',
+    w: 24, h: 10
+  });
+}
+
+function spawnSpearEffect(x, y, dir, len) {
+  particles.push({
+    x, y,
+    vx: dir * 3, vy: 0,
+    life: 10,
+    maxLife: 10,
+    color: '#ecc94b',
+    w: len, h: 4
+  });
+}
+
+function spawnParticles(x, y, color, count = 5) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 4,
+      vy: (Math.random() - 0.5) * 4,
+      life: 15 + Math.random() * 10,
+      maxLife: 25,
+      color,
+      size: 2 + Math.random() * 2
+    });
+  }
+}
+
+function renderParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+
+    if (p.w) {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function showFloatingText(x, y, text, color) {
+  floatingTexts.push({ x, y, text, color, life: 40 });
+}
+
+function renderFloatingTexts() {
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.y -= 0.6;
+    ft.life--;
+    ctx.font = '11px Courier New';
+    ctx.fillStyle = ft.color;
+    ctx.fillText(ft.text, ft.x - 10, ft.y);
+    if (ft.life <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+function checkOverlap(r1, r2) {
+  return !(r2.x > r1.x + r1.width ||
+           r2.x + r2.width < r1.x ||
+           r2.y > r1.y + r1.height ||
+           r2.y + r2.height < r1.y);
+}
+
+function updateHUD() {
+  document.getElementById('hud-hp').innerText = `❤️ HP: ${Math.max(0, Math.ceil(player.hp))}/${player.maxHp}`;
+  document.getElementById('hud-coins').innerText = `🪙 Moedas: ${playerCoins}`;
+  document.getElementById('hud-alt').innerText = `📍 Altura: ${currentRun.altitudeMeters}m`;
+  document.getElementById('hud-biome').innerText = `Bioma: ${currentRun.biome}`;
+
+  let wName = "Espada";
+  let ammoText = "";
+  if (player.selectedWeapon === 'axe') {
+    wName = "Machado";
+    ammoText = player.axeThrown ? "Machado no chão! Busque-o" : "Pronto para arremesso";
+  } else if (player.selectedWeapon === 'spear') {
+    wName = "Lança";
+    ammoText = "Ataque Longo";
+  } else if (player.selectedWeapon === 'bow') {
+    wName = "Arco";
+    ammoText = `Flechas: ${player.arrows}/12 ${player.isReloadingBow ? '(Recarregando...)' : '(R recarrega)'}`;
+  }
+  document.getElementById('hud-weapon').innerText = `⚔️ Arma: ${wName}`;
+  document.getElementById('hud-ammo').innerText = ammoText;
+}
+
+function updateShopUI() {
+  document.getElementById('shop-coin-count').innerText = playerCoins;
+
+  const hpCost = 15 + upgrades.hpLevel * 15;
+  const spdCost = 20 + upgrades.spdLevel * 20;
+  const strCost = 25 + upgrades.strLevel * 25;
+
+  document.getElementById('cost-hp').innerText = `Custo: ${hpCost}`;
+  document.getElementById('cost-spd').innerText = `Custo: ${spdCost}`;
+  document.getElementById('cost-str').innerText = `Custo: ${strCost}`;
+
+  document.getElementById('btn-up-hp').disabled = playerCoins < hpCost;
+  document.getElementById('btn-up-spd').disabled = playerCoins < spdCost;
+  document.getElementById('btn-up-str').disabled = playerCoins < strCost;
+
+  const weaponOrder = ['axe', 'spear', 'bow'];
+  const nextWeapon = weaponOrder.find(w => !upgrades.unlockedWeapons.includes(w));
+  const weaponBtn = document.getElementById('btn-up-weapon');
+
+  if (nextWeapon) {
+    const wCosts = { axe: 35, spear: 60, bow: 90 };
+    const cost = wCosts[nextWeapon];
+    const names = { axe: 'Machado', spear: 'Lança', bow: 'Arco' };
+    weaponBtn.innerHTML = `🗡️ Comprar ${names[nextWeapon]}<br><span style="color:#ecc94b">Custo: ${cost}</span>`;
+    weaponBtn.disabled = playerCoins < cost;
+  } else {
+    weaponBtn.innerHTML = `Todas Armas<br><span style="color:#68d391">Desbloqueadas!</span>`;
+    weaponBtn.disabled = true;
+  }
+
+  const inv = document.getElementById('weapon-inventory');
+  inv.innerHTML = '';
+  const weaponLabels = { sword: 'Espada', axe: 'Machado', spear: 'Lança', bow: 'Arco' };
+  upgrades.unlockedWeapons.forEach(w => {
+    const b = document.createElement('button');
+    b.className = `weapon-select-btn ${player.selectedWeapon === w ? 'active' : ''}`;
+    b.innerText = weaponLabels[w];
+    b.onclick = () => {
+      player.selectedWeapon = w;
+      updateShopUI();
+    };
+    inv.appendChild(b);
+  });
+}
+
+function buyUpgrade(type) {
+  if (type === 'hp') {
+    const cost = 15 + upgrades.hpLevel * 15;
+    if (playerCoins >= cost) {
+      playerCoins -= cost;
+      upgrades.hpLevel++;
+    }
+  } else if (type === 'spd') {
+    const cost = 20 + upgrades.spdLevel * 20;
+    if (playerCoins >= cost) {
+      playerCoins -= cost;
+      upgrades.spdLevel++;
+    }
+  } else if (type === 'str') {
+    const cost = 25 + upgrades.strLevel * 25;
+    if (playerCoins >= cost) {
+      playerCoins -= cost;
+      upgrades.strLevel++;
+    }
+  }
+  updateShopUI();
+}
+
+function buyNextWeapon() {
+  const weaponOrder = ['axe', 'spear', 'bow'];
+  const nextWeapon = weaponOrder.find(w => !upgrades.unlockedWeapons.includes(w));
+  const wCosts = { axe: 35, spear: 60, bow: 90 };
+  if (nextWeapon && playerCoins >= wCosts[nextWeapon]) {
+    playerCoins -= wCosts[nextWeapon];
+    upgrades.unlockedWeapons.push(nextWeapon);
+    player.selectedWeapon = nextWeapon;
+    updateShopUI();
+  }
+}
+
+// Inicialização
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Inicia com modal da loja aberto
+updateShopUI();
+document.getElementById('shopModal').style.display = 'flex';
+gameLoop();
+</script>
+</body>
+</html>
