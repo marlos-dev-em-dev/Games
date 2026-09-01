@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARTOON DASH // BLACK & WHITE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background-color: #121212;
+            color: #000;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 6px solid #000;
+            background-color: #fff;
+        }
+
+        canvas {
+            display: block;
+            background-color: #fff;
+        }
+
+        /* Displays de Texto Estilo Cartoon */
+        .ui-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.94);
+            z-index: 10;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 4.2rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-align: center;
+            color: #000;
+            text-shadow: 4px 4px 0px #fff, 7px 7px 0px #000;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            transform: rotate(-2deg);
+        }
+
+        p.subtitle {
+            font-size: 1.2rem;
+            color: #000;
+            font-weight: bold;
+            margin-bottom: 35px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-bottom: 3px solid #000;
+            padding-bottom: 5px;
+        }
+
+        .press-key {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #000;
+            letter-spacing: 1px;
+            animation: bounce 1s infinite alternate;
+            margin-top: 15px;
+            background: #fff;
+            padding: 10px 20px;
+            border: 4px solid #000;
+            border-radius: 30px;
+            box-shadow: 5px 5px 0px #000;
+        }
+
+        @keyframes bounce {
+            0% { transform: translateY(0) scale(0.98); }
+            100% { transform: translateY(-5px) scale(1.02); }
+        }
+
+        .instructions {
+            margin-top: 25px;
+            font-size: 0.95rem;
+            color: #000;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.8;
+            background: #fff;
+            padding: 15px 25px;
+            border-radius: 12px;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0px #000;
+        }
+
+        .score-display {
+            font-size: 2.2rem;
+            color: #000;
+            margin-bottom: 20px;
+            font-weight: 900;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- Tela Inicial -->
+        <div id="start-screen" class="ui-screen">
+            <h1>CARTOON DASH</h1>
+            <p class="subtitle">A CORRIDA EM PRETO & BRANCO</p>
+            <div class="press-key">PRESSIONE [ ESPAÇO ] PARA CORRER!</div>
+            <div class="instructions">
+                CONTROLES CARTOON:<br>
+                <b>[ SETAS ]</b> ou <b>[ A / D ]</b> — Virar o Volante<br>
+                <b>[ W ]</b> ou <b>[ SETA P/ CIMA ]</b> — Dar o Super Turbo!
+            </div>
+        </div>
+
+        <!-- Tela de Game Over -->
+        <div id="game-over-screen" class="ui-screen hidden">
+            <h1 style="transform: rotate(3deg);">KABOOM!</h1>
+            <div class="score-display">DISTÂNCIA: <span id="final-score">0</span>m</div>
+            <div class="press-key">PRESSIONE [ ESPAÇO ] PARA TENTAR DE NOVO</div>
+        </div>
+
+        <!-- Tela de Vitória -->
+        <div id="victory-screen" class="ui-screen hidden" style="background: rgba(255, 255, 255, 0.95);">
+            <h1 style="font-size: 6.5rem; margin-bottom: 0; transform: rotate(-3deg);">BOA!</h1>
+            <p class="subtitle" style="font-size: 1.5rem;">VOCÊ CHEGOU AOS 4.000m!</p>
+            <div class="press-key">PRESSIONE [ ESPAÇO ] PARA JOGAR NOVAMENTE</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const victoryScreen = document.getElementById('victory-screen');
+        const finalScoreEl = document.getElementById('final-score');
+
+        const GOAL_DISTANCE = 4000;
+
+        // Estados do Jogo
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, VICTORY
+        let score = 0;
+        let speed = 7;
+        let baseSpeed = 7;
+        let isBoosting = false;
+        let energy = 100;
+        let finishLineY = -100;
+        let finishLineSpawned = false;
+
+        // Temas Cartoon
+        let currentThemeIndex = 0;
+        const themes = [
+            { name: "Metrópole Cartoon", type: "city" },
+            { name: "Floresta Rabiscada", type: "forest" },
+            { name: "Tempestade de Nanquim", type: "rain" },
+            { name: "Templo em Hachura", type: "temple" }
+        ];
+
+        // Jogador (Carro Cartoon)
+        let player = {
+            x: 400,
+            y: 500,
+            width: 32,
+            height: 48,
+            speed: 8.5
+        };
+
+        // Entidades
+        let obstacles = [];
+        let collectibles = [];
+        let particles = [];
+        let roadLines = [];
+        let scenery = [];
+        let rainDrops = [];
+        let confetti = [];
+        let popEffects = []; // Efeitos visuais tipo "ZOOM!" "BOOM!"
+
+        // Teclas
+        const keys = { left: false, right: false, boost: false };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
+            if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') keys.boost = true;
+
+            if (e.key === ' ' || e.key === 'Enter') {
+                if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'VICTORY') {
+                    startGame();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
+            if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') keys.boost = false;
+        });
+
+        function initGame() {
+            player.x = canvas.width / 2;
+            obstacles = [];
+            collectibles = [];
+            particles = [];
+            scenery = [];
+            confetti = [];
+            popEffects = [];
+            score = 0;
+            baseSpeed = 7;
+            speed = baseSpeed;
+            energy = 100;
+            finishLineY = -100;
+            finishLineSpawned = false;
+            currentThemeIndex = 0;
+
+            // Linhas tracejadas da pista
+            roadLines = [];
+            for (let i = 0; i < 10; i++) {
+                roadLines.push({ y: i * 70 });
+            }
+
+            // Chuva estilo Nanquim
+            rainDrops = [];
+            for (let i = 0; i < 40; i++) {
+                rainDrops.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    length: Math.random() * 25 + 15,
+                    speed: Math.random() * 12 + 18
+                });
+            }
+        }
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            victoryScreen.classList.add('hidden');
+            initGame();
+            gameState = 'PLAYING';
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            finalScoreEl.textContent = Math.floor(score);
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function triggerVictory() {
+            gameState = 'VICTORY';
+            victoryScreen.classList.remove('hidden');
+            
+            // Confetes P&B (Bolinhas e Quadrados pretos e cinzas)
+            for (let i = 0; i < 100; i++) {
+                confetti.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 10 + 6,
+                    fill: Math.random() < 0.5 ? '#000' : '#888',
+                    vy: Math.random() * 4 + 3,
+                    vx: (Math.random() - 0.5) * 3,
+                    angle: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function addPopText(text, x, y) {
+            popEffects.push({
+                text: text,
+                x: x,
+                y: y,
+                life: 1.0,
+                scale: 0.5
+            });
+        }
+
+        function spawnEntities() {
+            if (finishLineSpawned) return;
+
+            // Obstáculos Cartoon (Caixas com X)
+            if (Math.random() < 0.045) {
+                const width = Math.random() * 50 + 40;
+                obstacles.push({
+                    x: Math.random() * (canvas.width - width - 180) + 90,
+                    y: -60,
+                    width: width,
+                    height: 28
+                });
+            }
+
+            // Coletáveis (Latas de Óleo/Combustível Cartoon)
+            if (Math.random() < 0.025) {
+                collectibles.push({
+                    x: Math.random() * (canvas.width - 220) + 110,
+                    y: -40,
+                    radius: 14
+                });
+            }
+
+            // Cenário Lateral (Prédios, Árvores)
+            if (Math.random() < 0.08) {
+                const isLeft = Math.random() < 0.5;
+                scenery.push({
+                    x: isLeft ? Math.random() * 25 + 10 : canvas.width - 60 + Math.random() * 25,
+                    y: -70,
+                    width: Math.random() * 25 + 25,
+                    height: Math.random() * 50 + 40,
+                    type: themes[currentThemeIndex].type
+                });
+            }
+        }
+
+        function createPuffParticles(x, y, count = 4) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4 + 2,
+                    radius: Math.random() * 8 + 4,
+                    life: 1.0
+                });
+            }
+        }
+
+        function update() {
+            if (gameState === 'VICTORY') {
+                confetti.forEach(c => {
+                    c.y += c.vy;
+                    c.x += c.vx;
+                    c.angle += 0.05;
+                    if (c.y > canvas.height) c.y = -10;
+                });
+                return;
+            }
+
+            if (gameState !== 'PLAYING') return;
+
+            // Transição de Temas
+            currentThemeIndex = Math.min(3, Math.floor(score / 1000));
+
+            // Turbo com fumaça cartoon
+            if (keys.boost && energy > 0) {
+                if (!isBoosting) addPopText("ZOOM!", player.x + 20, player.y);
+                isBoosting = true;
+                speed = baseSpeed * 1.8;
+                energy = Math.max(0, energy - 0.7);
+                createPuffParticles(player.x, player.y + 20, 2);
+            } else {
+                isBoosting = false;
+                speed = baseSpeed;
+                if (energy < 100) energy += 0.15;
+            }
+
+            // Movimentação
+            if (keys.left && player.x > 85) player.x -= player.speed;
+            if (keys.right && player.x < canvas.width - 85) player.x += player.speed;
+
+            // Progresso
+            if (score < GOAL_DISTANCE) {
+                score += speed * 0.06;
+                baseSpeed += 0.0008;
+            } else if (!finishLineSpawned) {
+                finishLineSpawned = true;
+                finishLineY = -120;
+            }
+
+            // Linha de Chegada
+            if (finishLineSpawned) {
+                finishLineY += speed;
+                if (finishLineY >= player.y - 10) {
+                    triggerVictory();
+                }
+            }
+
+            // Pista
+            roadLines.forEach(line => {
+                line.y += speed;
+                if (line.y > canvas.height) line.y = -30;
+            });
+
+            // Cenário
+            for (let i = scenery.length - 1; i >= 0; i--) {
+                scenery[i].y += speed;
+                if (scenery[i].y > canvas.height) scenery.splice(i, 1);
+            }
+
+            // Chuva
+            if (currentThemeIndex === 2) {
+                rainDrops.forEach(drop => {
+                    drop.y += drop.speed + speed * 0.5;
+                    if (drop.y > canvas.height) {
+                        drop.y = -20;
+                        drop.x = Math.random() * canvas.width;
+                    }
+                });
+            }
+
+            // Obstáculos
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.y += speed;
+
+                if (player.x + player.width/2 > obs.x &&
+                    player.x - player.width/2 < obs.x + obs.width &&
+                    player.y + player.height/2 > obs.y &&
+                    player.y - player.height/2 < obs.y + obs.height) {
+                    createPuffParticles(player.x, player.y, 10);
+                    triggerGameOver();
+                }
+
+                if (obs.y > canvas.height) obstacles.splice(i, 1);
+            }
+
+            // Coletáveis
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                let c = collectibles[i];
+                c.y += speed;
+
+                let dist = Math.hypot(player.x - c.x, player.y - c.y);
+                if (dist < player.width/2 + c.radius) {
+                    energy = Math.min(100, energy + 30);
+                    addPopText("POP!", c.x, c.y);
+                    createPuffParticles(c.x, c.y, 6);
+                    collectibles.splice(i, 1);
+                    continue;
+                }
+
+                if (c.y > canvas.height) collectibles.splice(i, 1);
+            }
+
+            // Partículas de fumaça
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.radius += 0.2;
+                p.life -= 0.04;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Efeitos de Texto Pop
+            for (let i = popEffects.length - 1; i >= 0; i--) {
+                let pop = popEffects[i];
+                pop.y -= 1.5;
+                pop.scale = Math.min(1.2, pop.scale + 0.1);
+                pop.life -= 0.04;
+                if (pop.life <= 0) popEffects.splice(i, 1);
+            }
+
+            spawnEntities();
+        }
+
+        // FUNÇÃO DE DESENHO DE HACHURA (Estilo Desenho a Mão)
+        function drawHatchPattern(x, y, width, height, step = 8) {
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let i = -height; i < width; i += step) {
+                ctx.moveTo(Math.max(x, x + i), Math.min(y + height, y + height - i));
+                ctx.lineTo(Math.min(x + width, x + i + height), Math.max(y, y - i));
+            }
+            ctx.stroke();
+        }
+
+        function draw() {
+            // Fundo Branco do Papel
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // PISTA CARTOON (Linhas Pretas Grossas)
+            const roadLeft = 70;
+            const roadRight = canvas.width - 70;
+
+            // Hachura fora da pista para dar contraste de fundo
+            if (currentThemeIndex === 2) {
+                drawHatchPattern(0, 0, roadLeft, canvas.height, 10);
+                drawHatchPattern(roadRight, 0, roadLeft, canvas.height, 10);
+            }
+
+            // Bordas da Pista com Traço Duplo Cartoon
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(roadLeft, 0); ctx.lineTo(roadLeft, canvas.height);
+            ctx.moveTo(roadRight, 0); ctx.lineTo(roadRight, canvas.height);
+            ctx.stroke();
+
+            // Marcações Centrais (Tracejado Cartoon)
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            roadLines.forEach(line => {
+                ctx.moveTo(canvas.width / 2, line.y);
+                ctx.lineTo(canvas.width / 2, line.y + 40);
+            });
+            ctx.stroke();
+
+            // CENÁRIO CARTOON
+            scenery.forEach(s => {
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4;
+
+                if (s.type === 'city') {
+                    // Prédio Cartoon
+                    ctx.fillRect(s.x, s.y, s.width, s.height);
+                    ctx.strokeRect(s.x, s.y, s.width, s.height);
+                    // Janelinhas
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(s.x + 5, s.y + 8, 6, 6);
+                    ctx.fillRect(s.x + s.width - 11, s.y + 8, 6, 6);
+                } else if (s.type === 'forest') {
+                    // Árvore Cartoon (Nuvem de copas)
+                    ctx.beginPath();
+                    ctx.arc(s.x + s.width/2, s.y + s.height/2, s.width/1.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (s.type === 'temple') {
+                    // Colunas em Hachura
+                    ctx.fillRect(s.x, s.y, s.width, s.height);
+                    ctx.strokeRect(s.x, s.y, s.width, s.height);
+                    drawHatchPattern(s.x, s.y, s.width, s.height, 6);
+                } else {
+                    ctx.strokeRect(s.x, s.y, s.width, s.height);
+                }
+            });
+
+            // CHUVA DE NANQUIM
+            if (currentThemeIndex === 2) {
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                rainDrops.forEach(drop => {
+                    ctx.moveTo(drop.x, drop.y);
+                    ctx.lineTo(drop.x - 3, drop.y + drop.length);
+                });
+                ctx.stroke();
+            }
+
+            // LINHA DE CHEGADA CARTOON (Xadrez Feito a Mão)
+            if (finishLineSpawned) {
+                const sq = 24;
+                for (let x = roadLeft; x < roadRight; x += sq) {
+                    const isBlack = (Math.floor(x / sq) + Math.floor(finishLineY / sq)) % 2 === 0;
+                    ctx.fillStyle = isBlack ? '#000' : '#fff';
+                    ctx.fillRect(x, finishLineY, sq, sq);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, finishLineY, sq, sq);
+                }
+            }
+
+            // OBSTÁCULOS (Caixa de Madeira Cartoon com 'X')
+            obstacles.forEach(obs => {
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4;
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+
+                // 'X' no meio da caixa
+                ctx.beginPath();
+                ctx.moveTo(obs.x + 4, obs.y + 4);
+                ctx.lineTo(obs.x + obs.width - 4, obs.y + obs.height - 4);
+                ctx.moveTo(obs.x + obs.width - 4, obs.y + 4);
+                ctx.lineTo(obs.x + 4, obs.y + obs.height - 4);
+                ctx.stroke();
+            });
+
+            // COLETÁVEIS (Lata de Óleo / Pneu Cartoon)
+            collectibles.forEach(c => {
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Detalhe interno
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // PARTÍCULAS DE FUMAÇA CARTOON
+            particles.forEach(p => {
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, Math.max(1, p.radius), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            // JOGADOR (Carro / Carrinho Cartoon)
+            if (gameState !== 'VICTORY') {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+
+                // Corpo do Carro (Desenho em Bloco com Bordas Grossas)
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 5;
+
+                // Rodas
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-player.width/2 - 4, -player.height/2 + 6, 6, 12);
+                ctx.fillRect(player.width/2 - 2, -player.height/2 + 6, 6, 12);
+                ctx.fillRect(-player.width/2 - 4, player.height/2 - 18, 6, 12);
+                ctx.fillRect(player.width/2 - 2, player.height/2 - 18, 6, 12);
+
+                // Chassi
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+                ctx.strokeRect(-player.width/2, -player.height/2, player.width, player.height);
+
+                // Parabrisa
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-player.width/2 + 5, -player.height/4, player.width - 10, 8);
+
+                // Teto em Hachura se for Turbo
+                if (isBoosting) {
+                    drawHatchPattern(-player.width/2 + 4, 0, player.width - 8, 12, 4);
+                }
+
+                ctx.restore();
+            }
+
+            // EFEITOS POP (Texto Cartoon na Tela)
+            popEffects.forEach(pop => {
+                ctx.save();
+                ctx.translate(pop.x, pop.y);
+                ctx.scale(pop.scale, pop.scale);
+                ctx.font = '900 20px "Comic Sans MS", sans-serif';
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 5;
+                ctx.strokeText(pop.text, 0, 0);
+                ctx.fillText(pop.text, 0, 0);
+                ctx.restore();
+            });
+
+            // CONFETES DE VICTORY
+            if (gameState === 'VICTORY') {
+                confetti.forEach(c => {
+                    ctx.save();
+                    ctx.translate(c.x, c.y);
+                    ctx.rotate(c.angle);
+                    ctx.fillStyle = c.fill;
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
+                    ctx.strokeRect(-c.size/2, -c.size/2, c.size, c.size);
+                    ctx.restore();
+                });
+            }
+
+            // --- INTERFACE HUD CARTOON ---
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 4;
+            ctx.fillRect(0, 0, canvas.width, 70);
+            ctx.strokeRect(-10, -10, canvas.width + 20, 80);
+
+            // 1. BARRA DE PROGRESSO CARTOON
+            const barX = 200;
+            const barY = 25;
+            const barWidth = 400;
+            const barHeight = 20;
+            const progressRatio = Math.min(1, score / GOAL_DISTANCE);
+
+            // Fundo da Barra
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+            // Preenchimento em Preto
+            ctx.fillStyle = '#000';
+            ctx.fillRect(barX, barY, barWidth * progressRatio, barHeight);
+
+            // Ícone do Carrinho na Barra
+            const iconX = barX + (barWidth * progressRatio);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(iconX, barY + barHeight/2, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Texto da Porcentagem
+            ctx.fillStyle = '#000';
+            ctx.font = '900 13px "Comic Sans MS", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Math.floor(progressRatio * 100)}% (${Math.floor(score)}m / 4000m)`, canvas.width / 2, barY - 7);
+
+            // 2. INDICADOR DE TEMA
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 11px "Comic Sans MS", sans-serif';
+            ctx.fillText(`MUNDO CARTOON:`, 20, 28);
+            ctx.font = '900 14px "Comic Sans MS", sans-serif';
+            ctx.fillText(themes[currentThemeIndex].name.toUpperCase(), 20, 48);
+
+            // 3. BARRA DE TURBO CARTOON
+            const energyX = canvas.width - 150;
+            const energyY = 25;
+            const energyW = 120;
+
+            ctx.font = 'bold 11px "Comic Sans MS", sans-serif';
+            ctx.fillText('TURBO:', energyX, energyY - 7);
+
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(energyX, energyY, energyW, 18);
+            ctx.strokeRect(energyX, energyY, energyW, 18);
+
+            // Preenchimento de Hachura para o Turbo
+            ctx.fillStyle = '#000';
+            ctx.fillRect(energyX, energyY, (energy / 100) * energyW, 18);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Iniciar
+        initGame();
+        draw();
+    </script>
+</body>
+</html>
