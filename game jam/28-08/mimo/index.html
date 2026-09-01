@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro Royale: Evolução</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+        canvas { display: block; cursor: none; }
+        #ui {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.88);
+            font-family: 'Courier New', Courier, monospace;
+            transition: opacity 0.4s;
+        }
+        #ui.hidden { opacity: 0; pointer-events: none; }
+        #ui h1 { font-size: 54px; letter-spacing: 6px; color: #00ff88; margin-bottom: 4px; }
+        #ui h2 { font-size: 22px; letter-spacing: 10px; color: #555; margin-bottom: 36px; }
+        #ui p { font-size: 13px; color: #888; margin-bottom: 5px; letter-spacing: 1px; }
+        #ui .keys { color: #555; font-size: 11px; margin-top: 12px; }
+        #ui button {
+            margin-top: 32px; padding: 15px 48px; font-size: 18px;
+            font-family: 'Courier New', Courier, monospace; font-weight: bold;
+            letter-spacing: 4px; border: 2px solid #00ff88; background: transparent;
+            color: #00ff88; cursor: pointer;
+            transition: all 0.2s;
+        }
+        #ui button:hover {
+            background: #00ff88; color: #000;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gc"></canvas>
+    <div id="ui"></div>
+    <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gnomo no Barril</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #0f0f13; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    
+    .hud { background: #1f1f28; width: 100%; max-width: 800px; padding: 12px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; border: 2px solid #333; border-bottom: none; }
+    .hud-title { font-size: 18px; font-weight: bold; color: #f1c40f; }
+    .hud-item { background: #2a2a38; padding: 6px 14px; border-radius: 20px; border: 1px solid #555; font-size: 14px; }
+    .hud-item strong { color: #e74c3c; }
+
+    .canvas-container { border: 2px solid #333; background: #000; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
+    canvas { display: block; }
+
+    .controls-footer { background: #1f1f28; width: 100%; max-width: 800px; padding: 12px 20px; border-radius: 0 0 8px 8px; border: 2px solid #333; border-top: none; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px; color: #aaa; }
+    .key-badge { background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid #555; font-family: monospace; }
+    
+    .btn-manual { background: #34495e; color: #fff; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .btn-manual:hover { background: #415b76; }
+  </style>
+</head>
+<body>
+
+  <div class="hud">
+    <div class="hud-title" id="levelName">Nível 1</div>
+    <div class="hud-item">Item Ativo: <strong id="activeItemName">Nenhum</strong> - <span id="activeItemDesc">Fase Plataforma Padrão</span></div>
+  </div>
+
+  <div class="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <div class="controls-footer">
+    <div>
+      <span class="key-badge">A</span>/<span class="key-badge">D</span> ou <span class="key-badge">←</span><span class="key-badge">→</span> Mover | 
+      <span class="key-badge">W</span>/<span class="key-badge">Espaço</span>/<span class="key-badge">↑</span> Pular | 
+      <span class="key-badge">Z</span> Usar Item | 
+      <span class="key-badge">R</span> Reiniciar
+    </div>
+    <div>
+      <button class="btn-manual" onclick="document.getElementById('manualJsonInput').click()">Carregar Fase Manual (.json)</button>
+      <input type="file" id="manualJsonInput" accept=".json" style="display: none;">
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

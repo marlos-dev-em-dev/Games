@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gnomo no Barril - Editor & Testador de Fases</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #0f0f13; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+    h1 { margin-bottom: 15px; color: #f1c40f; }
+    
+    .panel { background: #1f1f28; border-radius: 8px; padding: 15px; width: 100%; max-width: 900px; margin-bottom: 15px; border: 1px solid #333; }
+    .controls-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    .input-group { display: flex; align-items: center; gap: 8px; }
+    input, select, button { background: #2a2a38; border: 1px solid #555; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 14px; }
+    button { cursor: pointer; background: #27ae60; border: none; font-weight: bold; transition: 0.2s; }
+    button:hover { background: #2ecc71; }
+    button.btn-test { background: #e67e22; }
+    button.btn-test:hover { background: #f39c12; }
+    button.btn-danger { background: #c0392b; }
+    button.btn-danger:hover { background: #e74c3c; }
+    
+    .palette { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px; padding-top: 15px; border-top: 1px solid #333; }
+    .tool-btn { display: flex; align-items: center; gap: 8px; background: #2a2a38; border: 2px solid transparent; padding: 6px 12px; border-radius: 4px; cursor: pointer; user-select: none; }
+    .tool-btn.active { border-color: #f1c40f; background: #3a3a4c; }
+    .swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.3); }
+
+    .canvas-container { border: 2px solid #333; background: #000; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
+    canvas { display: block; }
+    
+    .mode-indicator { font-weight: bold; padding: 4px 10px; border-radius: 4px; }
+    .mode-edit { background: #2980b9; }
+    .mode-play { background: #e67e22; }
+  </style>
+</head>
+<body>
+
+  <h1>Editor & Testador de Fases</h1>
+
+  <div class="panel">
+    <div class="controls-top">
+      <div class="input-group">
+        <label>Largura:</label>
+        <input type="number" id="gridWidth" value="20" min="5" max="50" style="width: 60px;">
+      </div>
+      <div class="input-group">
+        <label>Altura:</label>
+        <input type="number" id="gridHeight" value="12" min="5" max="30" style="width: 60px;">
+      </div>
+      <div class="input-group">
+        <label>Item Desbloqueado:</label>
+        <select id="unlockedItem">
+          <option value="nenhum">Nenhum (Plataforma Padrão)</option>
+          <option value="sabao">Sabão (Desliza)</option>
+          <option value="guarda_chuva">Guarda-Chuva (Plana)</option>
+          <option value="tostadeira">Tostadeira (Pesado)</option>
+          <option value="pedra">Pedra (Arremesso)</option>
+          <option value="bota">Bota (Pulo Duplo)</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <button id="btnTest" class="btn-test">▶ Testar Fase</button>
+        <button id="btnExport">Exportar JSON</button>
+        <button id="btnImportTrigger">Carregar JSON</button>
+        <input type="file" id="fileImport" accept=".json" style="display: none;">
+        <button id="btnClear" class="btn-danger">Limpar</button>
+      </div>
+    </div>
+
+    <div class="palette" id="palette"></div>
+  </div>
+
+  <div class="canvas-container">
+    <canvas id="editorCanvas"></canvas>
+  </div>
+
+  <script>
+    const TILE_SIZE = 32;
+    const TOOLS = [
+      { id: 0, label: "0: Ar / Vazio", color: "#000000" },
+      { id: 1, label: "1: Plataforma Sólida", color: "#4a4a4a" },
+      { id: 2, label: "2: Botão Pressão", color: "#e74c3c" },
+      { id: 3, label: "3: Bloco Quebrável", color: "#8d6e63" },
+      { id: 4, label: "4: Alavanca Distante", color: "#f1c40f" },
+      { id: 'S', label: "S: Spawn Gnomo", color: "#2ecc71" },
+      { id: 'G', label: "G: Meta / Goal", color: "#3498db" }
+    ];
+
+    let width = 20, height = 12;
+    let grid = [], spawn = { x: 2, y: 10 }, goal = { x: 18, y: 2 };
+    let currentTool = 1, isDrawing = false, isTesting = false;
+
+    // Estado do Testador de Fase
+    let testPlayer = { x: 0, y: 0, vx: 0, vy: 0, width: 24, height: 28, grounded: false, facingRight: true, jumpCount: 0 };
+    let keys = {}, prevKeys = {}, testProjectiles = [], testActivatedLevers = new Set(), testPressedButtons = new Set();
+
+    const canvas = document.getElementById('editorCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function initGrid() {
+      grid = Array.from({ length: height }, () => Array(width).fill(0));
+      resizeCanvas();
+    }
+
+    function resizeCanvas() {
+      canvas.width = width * TILE_SIZE;
+      canvas.height = height * TILE_SIZE;
+      draw();
+    }
+
+    function setupPalette() {
+      const paletteContainer = document.getElementById('palette');
+      paletteContainer.innerHTML = '';
+      TOOLS.forEach(tool => {
+        const btn = document.createElement('div');
+        btn.className = `tool-btn ${tool.id === currentTool ? 'active' : ''}`;
+        btn.innerHTML = `<span class="swatch" style="background:${tool.color}"></span><span>${tool.label}</span>`;
+        btn.onclick = () => {
+          if (isTesting) return;
+          document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentTool = tool.id;
+        };
+        paletteContainer.appendChild(btn);
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Renderizar Matriz de Tiles com arte real do jogo
+      for (let r = 0; r < height; r++) {
+        for (let c = 0; c < width; c++) {
+          const tile = grid[r][c];
+          const x = c * TILE_SIZE, y = r * TILE_SIZE;
+
+          if (tile === 1) {
+            ctx.fillStyle = "#4a4a4a"; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = "#2c2c2c"; ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          } else if (tile === 2) {
+            const isPressed = testPressedButtons.has(`${r},${c}`);
+            ctx.fillStyle = "#e74c3c";
+            const h = isPressed ? 6 : 12;
+            ctx.fillRect(x + 4, y + TILE_SIZE - h, TILE_SIZE - 8, h);
+          } else if (tile === 3) {
+            ctx.fillStyle = "#8d6e63"; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = "#5d4037"; ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          } else if (tile === 4) {
+            const isActivated = testActivatedLevers.has(`${r},${c}`);
+            ctx.fillStyle = isActivated ? "#2ecc71" : "#f1c40f";
+            ctx.fillRect(x + 12, y + 10, 8, 20);
+            ctx.beginPath(); ctx.arc(x + 16, y + 10, 8, 0, Math.PI * 2); ctx.fill();
+          }
+
+          if (!isTesting) {
+            ctx.strokeStyle = '#222'; ctx.lineWidth = 1; ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+
+      // Meta (G)
+      const gx = goal.x * TILE_SIZE, gy = goal.y * TILE_SIZE;
+      ctx.fillStyle = "#3498db"; ctx.fillRect(gx, gy, TILE_SIZE, TILE_SIZE);
+      ctx.fillStyle = "#fff"; ctx.font = "bold 16px sans-serif"; ctx.fillText("G", gx + 10, gy + 22);
+
+      // Se estiver editando, desenha o Gnomo no Spawn para noção de escala!
+      if (!isTesting) {
+        const sx = spawn.x * TILE_SIZE + (TILE_SIZE - 24) / 2;
+        const sy = spawn.y * TILE_SIZE + (TILE_SIZE - 28);
+        drawGnomoSprite(sx, sy, true);
+        ctx.strokeStyle = "#2ecc71"; ctx.lineWidth = 2; ctx.strokeRect(spawn.x * TILE_SIZE, spawn.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      } else {
+        // Projéteis
+        ctx.fillStyle = "#95a5a6";
+        for (const proj of testProjectiles) {
+          ctx.beginPath(); ctx.arc(proj.x, proj.y, proj.radius, 0, Math.PI * 2); ctx.fill();
+        }
+        // Gnomo Jogável
+        drawGnomoSprite(testPlayer.x, testPlayer.y, testPlayer.facingRight);
+      }
+    }
+
+    function drawGnomoSprite(x, y, facingRight) {
+      // Barril
+      ctx.fillStyle = "#8e5a2b"; ctx.fillRect(x, y + 8, 24, 20);
+      ctx.strokeStyle = "#4a2e13"; ctx.lineWidth = 1; ctx.strokeRect(x, y + 8, 24, 20);
+      ctx.fillStyle = "#7f8c8d"; ctx.fillRect(x, y + 12, 24, 2); ctx.fillRect(x, y + 22, 24, 2);
+      // Chapéu
+      ctx.fillStyle = "#e74c3c";
+      ctx.beginPath(); ctx.moveTo(x, y + 8); ctx.lineTo(x + 12, y - 4); ctx.lineTo(x + 24, y + 8); ctx.closePath(); ctx.fill();
+      // Olho
+      ctx.fillStyle = "#fff"; const eyeOff = facingRight ? 12 : 4; ctx.fillRect(x + eyeOff, y + 10, 4, 4);
+      ctx.fillStyle = "#000"; ctx.fillRect(x + eyeOff + (facingRight ? 2 : 0), y + 11, 2, 2);
+    }
+
+    function applyTool(e) {
+      if (isTesting) return;
+      const rect = canvas.getBoundingClientRect();
+      const c = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+      const r = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+      if (r < 0 || r >= height || c < 0 || c >= width) return;
+
+      if (currentTool === 'S') spawn = { x: c, y: r };
+      else if (currentTool === 'G') goal = { x: c, y: r };
+      else grid[r][c] = currentTool;
+      draw();
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDrawing = true; applyTool(e); });
+    canvas.addEventListener('mousemove', (e) => { if (isDrawing) applyTool(e); });
+    window.addEventListener('mouseup', () => { isDrawing = false; });
+
+    // Botão Testar Fase
+    const btnTest = document.getElementById('btnTest');
+    btnTest.addEventListener('click', () => {
+      isTesting = !isTesting;
+      if (isTesting) {
+        btnTest.innerText = "■ Parar Teste";
+        btnTest.style.background = "#c0392b";
+        resetTestPlayer();
+      } else {
+        btnTest.innerText = "▶ Testar Fase";
+        btnTest.style.background = "#e67e22";
+        draw();
+      }
+    });
+
+    function resetTestPlayer() {
+      testPlayer.x = spawn.x * TILE_SIZE + (TILE_SIZE - testPlayer.width) / 2;
+      testPlayer.y = spawn.y * TILE_SIZE + (TILE_SIZE - testPlayer.height);
+      testPlayer.vx = 0; testPlayer.vy = 0; testPlayer.grounded = false; testPlayer.jumpCount = 0;
+      testProjectiles = []; testActivatedLevers.clear(); testPressedButtons.clear();
+    }
+
+    // Loop de Teste no Editor
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function updateTest() {
+      if (!isTesting) return;
+      const item = document.getElementById('unlockedItem').value;
+      let accel = 0.8, friction = 0.80, maxSpeed = 4.5, gravity = 0.45;
+
+      if (item === 'sabao') { friction = 0.96; accel = 0.35; maxSpeed = 6.5; }
+      else if (item === 'tostadeira') { gravity = 0.70; }
+
+      if (keys['ArrowLeft'] || keys['KeyA']) { testPlayer.vx -= accel; testPlayer.facingRight = false; }
+      if (keys['ArrowRight'] || keys['KeyD']) { testPlayer.vx += accel; testPlayer.facingRight = true; }
+
+      testPlayer.vx *= friction;
+      if (Math.abs(testPlayer.vx) > maxSpeed) testPlayer.vx = Math.sign(testPlayer.vx) * maxSpeed;
+
+      const jumpPressed = keys['KeyW'] || keys['Space'] || keys['ArrowUp'];
+      const isJustPressed = jumpPressed && !prevKeys['Space'] && !prevKeys['KeyW'] && !prevKeys['ArrowUp'];
+
+      if (isJustPressed) {
+        if (testPlayer.grounded) { testPlayer.vy = -9.5; testPlayer.grounded = false; testPlayer.jumpCount = 1; }
+        else if (item === 'bota' && testPlayer.jumpCount < 2) { testPlayer.vy = -8.5; testPlayer.jumpCount++; }
+      }
+
+      if (item === 'guarda_chuva' && !testPlayer.grounded && jumpPressed && testPlayer.vy > 0) testPlayer.vy = 1.2;
+      else testPlayer.vy += gravity;
+
+      if (item === 'pedra' && keys['KeyZ'] && !prevKeys['KeyZ']) {
+        testProjectiles.push({ x: testPlayer.x + 12, y: testPlayer.y + 14, vx: testPlayer.facingRight ? 7 : -7, vy: -3.5, radius: 5 });
+      }
+
+      testPlayer.x += testPlayer.vx; checkCollisions(true);
+      testPlayer.y += testPlayer.vy; testPlayer.grounded = false; checkCollisions(false);
+
+      // Projéteis
+      for (let i = testProjectiles.length - 1; i >= 0; i--) {
+        const p = testProjectiles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.3;
+        const c = Math.floor(p.x / TILE_SIZE), r = Math.floor(p.y / TILE_SIZE);
+        if (r >= 0 && r < height && c >= 0 && c < width) {
+          if (grid[r][c] === 4) { testActivatedLevers.add(`${r},${c}`); testProjectiles.splice(i, 1); continue; }
+          if (grid[r][c] === 1 || grid[r][c] === 3) { testProjectiles.splice(i, 1); continue; }
+        }
+      }
+
+      if (testPlayer.y > canvas.height + 50) resetTestPlayer();
+
+      prevKeys = { ...keys };
+      draw();
+    }
+
+    function checkCollisions(isHorizontal) {
+      const startCol = Math.floor(testPlayer.x / TILE_SIZE), endCol = Math.floor((testPlayer.x + testPlayer.width) / TILE_SIZE);
+      const startRow = Math.floor(testPlayer.y / TILE_SIZE), endRow = Math.floor((testPlayer.y + testPlayer.height) / TILE_SIZE);
+
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= endCol; c++) {
+          if (r < 0 || r >= height || c < 0 || c >= width) continue;
+          const tile = grid[r][c];
+          if (tile === 1 || tile === 3) {
+            const tb = { x: c * TILE_SIZE, y: r * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE };
+            if (testPlayer.x < tb.x + tb.w && testPlayer.x + testPlayer.width > tb.x && testPlayer.y < tb.y + tb.h && testPlayer.y + testPlayer.height > tb.y) {
+              if (tile === 3 && document.getElementById('unlockedItem').value === 'tostadeira' && !isHorizontal && testPlayer.vy > 0) {
+                grid[r][c] = 0; continue;
+              }
+              if (isHorizontal) { testPlayer.x = testPlayer.vx > 0 ? tb.x - testPlayer.width : tb.x + tb.w; testPlayer.vx = 0; }
+              else { if (testPlayer.vy > 0) { testPlayer.y = tb.y - testPlayer.height; testPlayer.grounded = true; testPlayer.jumpCount = 0; } else { testPlayer.y = tb.y + tb.h; } testPlayer.vy = 0; }
+            }
+          } else if (tile === 2 && !isHorizontal) {
+            if (testPlayer.x < c * TILE_SIZE + TILE_SIZE && testPlayer.x + testPlayer.width > c * TILE_SIZE && testPlayer.y + testPlayer.height >= r * TILE_SIZE + 16) {
+              testPressedButtons.add(`${r},${c}`);
+            }
+          }
+        }
+      }
+    }
+
+    setInterval(updateTest, 1000 / 60);
+
+    // Redimensionar & Exportar
+    document.getElementById('gridWidth').addEventListener('change', (e) => {
+      const newW = parseInt(e.target.value);
+      grid = grid.map(row => newW > width ? [...row, ...Array(newW - width).fill(0)] : row.slice(0, newW));
+      width = newW; resizeCanvas();
+    });
+    document.getElementById('gridHeight').addEventListener('change', (e) => {
+      const newH = parseInt(e.target.value);
+      if (newH > height) { for (let i = height; i < newH; i++) grid.push(Array(width).fill(0)); }
+      else { grid = grid.slice(0, newH); }
+      height = newH; resizeCanvas();
+    });
+    document.getElementById('btnClear').addEventListener('click', () => {
+      grid = Array.from({ length: height }, () => Array(width).fill(0)); draw();
+    });
+    document.getElementById('btnExport').addEventListener('click', () => {
+      const data = { tileSize: TILE_SIZE, unlockedItem: document.getElementById('unlockedItem').value, spawn, goal, grid };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'level1.json'; a.click();
+    });
+    document.getElementById('btnImportTrigger').addEventListener('click', () => document.getElementById('fileImport').click());
+    document.getElementById('fileImport').addEventListener('change', (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const json = JSON.parse(evt.target.result);
+        height = json.grid.length; width = json.grid[0].length; grid = json.grid; spawn = json.spawn; goal = json.goal;
+        document.getElementById('gridWidth').value = width; document.getElementById('gridHeight').value = height;
+        document.getElementById('unlockedItem').value = json.unlockedItem || 'nenhum'; resizeCanvas();
+      };
+      reader.readAsText(file);
+    });
+
+    initGrid(); setupPalette();
+  </script>
+</body>
+</html>
