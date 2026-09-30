@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON DODGE</title>
+<style>
+/* ================================================================
+   ===== VARIÁVEIS CSS E CONSTANTES DE DESIGN =====================
+   ================================================================ */
+:root {
+  --cor-fundo: #0a0a1a;
+  --cor-fundo-claro: #12122a;
+  --cor-primaria: #00f0ff;
+  --cor-secundaria: #ff006e;
+  --cor-acento: #ffd700;
+  --cor-texto: #ffffff;
+  --cor-texto-fraco: #555577;
+  --cor-perigo: #ff2255;
+  --cor-sucesso: #00ff88;
+  --cor-combo: #aa44ff;
+  --cor-grade: #141430;
+  --fonte: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --raio: 12px;
+  --transicao: 0.3s ease;
+}
+
+/* ================================================================
+   ===== RESET E LAYOUT ===========================================
+   ================================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--cor-fundo);
+  font-family: var(--fonte);
+  color: var(--cor-texto);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* ================================================================
+   ===== CONTAINER E CANVAS =======================================
+   ================================================================ */
+#game-container {
+  position: relative;
+  width: 100%; height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#gameCanvas {
+  display: block;
+  border-radius: var(--raio);
+  box-shadow: 0 0 80px rgba(0, 240, 255, 0.08);
+}
+
+/* ================================================================
+   ===== HUD (INFORMAÇÕES EM JOGO) ================================
+   ================================================================ */
+#hud {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%; max-width: 400px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 10;
+}
+.vidas { display: flex; gap: 6px; }
+.coracao {
+  width: 20px; height: 20px;
+  transition: var(--transicao);
+}
+.coracao.ativa { filter: drop-shadow(0 0 6px var(--cor-perigo)); }
+.coracao.perdida { opacity: 0.15; transform: scale(0.7); }
+#pontuacao {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-shadow: 0 0 25px var(--cor-primaria);
+  transition: transform 0.12s ease;
+}
+#pontuacao.pop { transform: scale(1.25); }
+#recorde-box {
+  font-size: 10px;
+  color: var(--cor-texto-fraco);
+  text-align: right;
+  letter-spacing: 2px;
+}
+#recorde-box span {
+  color: var(--cor-acento);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ================================================================
+   ===== COMBO E NOTIFICAÇÕES =====================================
+   ================================================================ */
+#combo-display {
+  position: absolute;
+  top: 70px; left: 50%;
+  transform: translateX(-50%) scale(0);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--cor-combo);
+  text-shadow: 0 0 18px var(--cor-combo);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  z-index: 15;
+  white-space: nowrap;
+}
+#combo-display.visivel { transform: translateX(-50%) scale(1); }
+
+#notificacao {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 5px;
+  color: var(--cor-acento);
+  text-shadow: 0 0 30px var(--cor-acento);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  z-index: 15;
+}
+#notificacao.visivel {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+#notificacao.oculta {
+  transform: translate(-50%, -50%) scale(1.5);
+  opacity: 0;
+}
+
+/* ================================================================
+   ===== BOTÃO PAUSA =============================================
+   ================================================================ */
+#btn-pausa {
+  position: absolute;
+  top: 14px; right: 50%;
+  margin-right: -190px;
+  width: 34px; height: 34px;
+  border: 1px solid var(--cor-texto-fraco);
+  border-radius: 8px;
+  background: rgba(10, 10, 26, 0.6);
+  color: var(--cor-texto-fraco);
+  font-size: 13px;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#btn-pausa:hover {
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+
+/* ================================================================
+   ===== TELAS (START, PAUSE, GAME OVER) ==========================
+   ================================================================ */
+.tela {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(10, 10, 26, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 100;
+  transition: opacity 0.45s ease, visibility 0.45s;
+}
+.tela.oculta { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.tela h1 {
+  font-size: 46px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--cor-primaria), var(--cor-secundaria));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 35px rgba(0, 240, 255, 0.45));
+}
+.tela h2 {
+  font-size: 13px;
+  color: var(--cor-texto-fraco);
+  margin-bottom: 35px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+}
+
+/* ================================================================
+   ===== BOTÕES ===================================================
+   ================================================================ */
+.btn {
+  padding: 15px 44px;
+  border: 2px solid var(--cor-primaria);
+  border-radius: 50px;
+  background: transparent;
+  color: var(--cor-primaria);
+  font-family: var(--fonte);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: all;
+  margin: 6px;
+}
+.btn:hover {
+  background: var(--cor-primaria);
+  color: var(--cor-fundo);
+  box-shadow: 0 0 35px rgba(0, 240, 255, 0.5);
+  transform: translateY(-3px);
+}
+.btn:active { transform: translateY(1px) scale(0.96); }
+.btn-sec {
+  border-color: var(--cor-secundaria);
+  color: var(--cor-secundaria);
+}
+.btn-sec:hover {
+  background: var(--cor-secundaria);
+  color: var(--cor-fundo);
+  box-shadow: 0 0 35px rgba(255, 0, 110, 0.5);
+}
+.linha-botoes { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* ================================================================
+   ===== INSTRUÇÕES ===============================================
+   ================================================================ */
+.instrucoes {
+  display: flex;
+  gap: 22px;
+  margin: 22px 0 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.instrucao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--cor-texto-fraco);
+  letter-spacing: 1.5px;
+}
+.instrucao-icone {
+  width: 38px; height: 38px;
+  border: 1px solid var(--cor-texto-fraco);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  animation: flutuar 3s ease-in-out infinite;
+}
+.instrucao:nth-child(2) .instrucao-icone { animation-delay: 0.4s; }
+.instrucao:nth-child(3) .instrucao-icone { animation-delay: 0.8s; }
+.instrucao:nth-child(4) .instrucao-icone { animation-delay: 1.2s; }
+
+/* ================================================================
+   ===== ESTATÍSTICAS (GAME OVER) ================================
+   ================================================================ */
+.estatisticas {
+  display: flex;
+  gap: 28px;
+  margin: 22px 0;
+}
+.stat { text-align: center; }
+.stat-val {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--cor-primaria);
+  text-shadow: 0 0 18px var(--cor-primaria);
+}
+.stat-lbl {
+  font-size: 9px;
+  color: var(--cor-texto-fraco);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.novo-recorde {
+  color: var(--cor-acento);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  animation: brilho-pulso 1s ease infinite;
+  margin-bottom: 12px;
+}
+.novo-recorde.oculta { display: none; }
+
+/* ================================================================
+   ===== ANIMAÇÕES ================================================
+   ================================================================ */
+@keyframes flutuar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes brilho-pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@keyframes tremor {
+  0%, 100% { transform: translate(0); }
+  25% { transform: translate(-4px, 4px); }
+  50% { transform: translate(4px, -4px); }
+  75% { transform: translate(-2px, 2px); }
+}
+
+/* ================================================================
+   ===== RESPONSIVO ===============================================
+   ================================================================ */
+@media (max-width: 500px) {
+  .tela h1 { font-size: 30px; letter-spacing: 5px; }
+  .tela h2 { font-size: 11px; }
+  .estatisticas { gap: 16px; }
+  .stat-val { font-size: 22px; }
+  .instrucoes { gap: 14px; }
+  .btn { padding: 13px 32px; font-size: 13px; }
+  #pontuacao { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     ===== ESTRUTURA HTML =========================================
+     ================================================================ -->
+<div id="game-container">
+
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="vidas">
+      <svg class="coracao ativa" id="vida-1" viewBox="0 0 24 24" fill="#ff2255"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      <svg class="coracao ativa" id="vida-2" viewBox="0 0 24 24" fill="#ff2255"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      <svg class="coracao ativa" id="vida-3" viewBox="0 0 24 24" fill="#ff2255"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </div>
+    <div id="pontuacao">0</div>
+    <div id="recorde-box">RECORDE<br><span id="recorde-val">0</span></div>
+  </div>
+
+  <!-- Combo -->
+  <div id="combo-display">COMBO x2</div>
+
+  <!-- Notificação de Nível -->
+  <div id="notificacao">NÍVEL 2</div>
+
+  <!-- Botão Pausa -->
+  <button id="btn-pausa">⏸</button>
+
+  <!-- ===== TELA INICIAL ===== -->
+  <div class="tela" id="tela-inicio">
+    <h1>NEON DODGE</h1>
+    <h2>Desvie &bull; Cole &bull; Sobreviva</h2>
+    <div class="instrucoes">
+      <div class="instrucao">
+        <div class="instrucao-icone">←→</div>
+        <span>MOVER</span>
+      </div>
+      <div class="instrucao">
+        <div class="instrucao-icone">●</div>
+        <span>COLETAR ORBS</span>
+      </div>
+      <div class="instrucao">
+        <div class="instrucao-icone">⛔</div>
+        <span>EVITAR</span>
+      </div>
+      <div class="instrucao">
+        <div class="instrucao-icone">⏸</div>
+        <span>PAUSA</span>
+      </div>
+    </div>
+    <button class="btn" id="btn-iniciar">JOGAR</button>
+  </div>
+
+  <!-- ===== TELA PAUSE ===== -->
+  <div class="tela oculta" id="tela-pausa">
+    <h1>PAUSA</h1>
+    <h2>Respire um pouco...</h2>
+    <div class="linha-botoes">
+      <button class="btn" id="btn-continuar">CONTINUAR</button>
+      <button class="btn btn-sec" id="btn-reiniciar-pausa">REINICIAR</button>
+    </div>
+  </div>
+
+  <!-- ===== TELA GAME OVER ===== -->
+  <div class="tela oculta" id="tela-gameover">
+    <h1>GAME OVER</h1>
+    <h2 id="gameover-subtitulo">Tente novamente!</h2>
+    <div class="novo-recorde oculta" id="novo-recorde">🏆 NOVO RECORDE!</div>
+    <div class="estatisticas">
+      <div class="stat">
+        <div class="stat-val" id="final-pontos">0</div>
+        <div class="stat-lbl">Pontos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="final-orbs">0</div>
+        <div class="stat-lbl">Orbs</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="final-combo">x1</div>
+        <div class="stat-lbl">Max Combo</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="final-tempo">0s</div>
+        <div class="stat-lbl">Tempo</div>
+      </div>
+    </div>
+    <div class="linha-botoes">
+      <button class="btn" id="btn-retry">JOGAR DE NOVO</button>
+      <button class="btn btn-sec" id="btn-menu">MENU</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================================================================
+   ===== SEÇÃO 1: CONSTANTES E VARIÁVEIS GLOBAIS =================
+   ================================================================ */
+
+// --- Configuração do Jogo ---
+const CONFIG = {
+  WIDTH: 400,
+  HEIGHT: 640,
+  INITIAL_SPEED: 2.4,
+  SPEED_INCREMENT: 0.0035,
+  MAX_SPEED: 9,
+  SPAWN_RATE_BASE: 55,
+  MIN_SPAWN_RATE: 22,
+  ORB_CHANCE: 0.38,
+  START_LIVES: 3,
+  LEVEL_INTERVAL: 900, // frames (~15s a 60fps)
+};
+
+// --- Configuração do Jogador ---
+const PLAYER_CFG = {
+  SIZE: 14,
+  SPEED: 5.2,
+  TRAIL_LEN: 12,
+  INVINCIBLE_FRAMES: 80,
+  Y_POS: 0.82,
+};
+
+// --- Cores ---
+const CORES = {
+  BG: '#0a0a1a',
+  GRADE: '#121230',
+  JOGADOR: '#00f0ff',
+  JOGADOR_GLOW: 'rgba(0,240,255,0.3)',
+  OBSTACULO: '#ff2255',
+  OBSTACULO_GLOW: 'rgba(255,34,85,0.35)',
+  ORB: '#00ff88',
+  ORB_GLOW: 'rgba(0,255,136,0.3)',
+  PART_QUEENTE: '#ffaa00',
+  PART_FRIO: '#00f0ff',
+  PART_ROSA: '#ff006e',
+  PART_VERDE: '#00ff88',
+  TEXTO: '#ffffff',
+  TEXTO_FRACO: '#555577',
+  COMBO: '#aa44ff',
+};
+
+// --- Pontuação ---
+const PONTOS = {
+  POR_SEGUNDO: 2,
+  POR_ORB: 15,
+  COMBO_MULT: 0.25,
+  NEAR_MISS: 8,
+  SOBREVIVENCIA: 60,
+};
+
+// --- Tipos de Obstáculos (largura, altura, velocidade, altura de spawn) ---
+const TIPOS_OBS = [
+  { w: 80,  h: 16, vel: 1.0 },
+  { w: 45,  h: 22, vel: 1.3 },
+  { w: 110, h: 11, vel: 0.8 },
+  { w: 22,  h: 38, vel: 1.5 },
+  { w: 60,  h: 14, vel: 1.1 },
+];
+
+// --- Frequências de Áudio ---
+const AUDIO = {
+  ORB: [523, 659, 784, 1047, 1319],
+  DANO: [180, 140],
+  COMBO: [440, 554, 659, 880],
+  GAMEOVER: [440, 370, 311, 262],
+  NEAR_MISS: [900],
+  LEVEL_UP: [523, 659, 784, 1047, 1319, 1568],
+  INICIO: [392, 523, 659, 784, 1047],
+};
+
+/* ================================================================
+   ===== SEÇÃO 2: SISTEMA DE ÁUDIO ===============================
+   ================================================================ */
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) {}
+  }
+}
+
+function playTone(freq, dur = 0.1, vol = 0.12, tipo = 'sine') {
+  if (!audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.frequency.value = freq;
+    o.type = tipo;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(audioCtx.currentTime);
+    o.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+function playSeq(freqs, intervalo = 80, dur = 0.1, vol = 0.1, tipo = 'sine') {
+  freqs.forEach((f, i) => {
+    setTimeout(() => playTone(f, dur, vol, tipo), i * intervalo);
+  });
+}
+
+/* ================================================================
+   ===== SEÇÃO 3: SISTEMA DE PARTÍCULAS ==========================
+   ================================================================ */
+class Particula {
+  constructor(x, y, cor, tam, vx, vy, vida) {
+    this.x = x; this.y = y;
+    this.cor = cor;
+    this.tam = tam;
+    this.vx = vx; this.vy = vy;
+    this.vida = vida; this.maxVida = vida;
+    this.alpha = 1;
+    this.gravidade = 0.04 + Math.random() * 0.06;
+    this.rot = Math.random() * Math.PI * 2;
+    this.rotVel = (Math.random() - 0.5) * 0.15;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += this.gravidade;
+    this.vx *= 0.97;
+    this.vy *= 0.97;
+    this.vida--;
+    this.alpha = Math.max(0, this.vida / this.maxVida);
+    this.tam *= 0.988;
+    this.rot += this.rotVel;
+    return this.vida > 0;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.fillStyle = this.cor;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = this.cor;
+    const s = this.tam;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(0.5, s), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+class SistemaParticulas {
+  constructor() { this.itens = []; }
+  burst(x, y, cor, count = 10, vel = 3) {
+    for (let i = 0; i < count; i++) {
+      const ang = (Math.PI * 2 / count) * i + Math.random() * 0.6;
+      const spd = vel * (0.4 + Math.random() * 0.9);
+      this.itens.push(new Particula(
+        x, y, cor,
+        2.5 + Math.random() * 4,
+        Math.cos(ang) * spd, Math.sin(ang) * spd - 1.2,
+        25 + Math.random() * 35
+      ));
+    }
+  }
+  rastro(x, y, cor, tam = 2) {
+    this.itens.push(new Particula(
+      x + (Math.random() - 0.5) * 5,
+      y + (Math.random() - 0.5) * 5,
+      cor, tam,
+      (Math.random() - 0.5) * 1.2,
+      (Math.random() - 0.5) * 1.2 + 0.3,
+      12 + Math.random() * 18
+    ));
+  }
+  explosao(x, y, count = 35) {
+    const cores = [CORES.PART_QUEENTE, CORES.PART_ROSA, CORES.PART_FRIO, '#ffffff'];
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 1.5 + Math.random() * 7;
+      this.itens.push(new Particula(
+        x, y,
+        cores[Math.floor(Math.random() * cores.length)],
+        1.5 + Math.random() * 5,
+        Math.cos(ang) * spd, Math.sin(ang) * spd,
+        18 + Math.random() * 45
+      ));
+    }
+  }
+  update() { this.itens = this.itens.filter(p => p.update()); }
+  draw(ctx) { this.itens.forEach(p => p.draw(ctx)); }
+  clear() { this.itens = []; }
+}
+
+/* ================================================================
+   ===== SEÇÃO 4: TEXTO FLUTUANTE ================================
+   ================================================================ */
+class TextoFlutuante {
+  constructor(x, y, texto, cor) {
+    this.x = x; this.y = y;
+    this.texto = texto;
+    this.cor = cor;
+    this.vida = 55; this.maxVida = 55;
+    this.alpha = 1;
+    this.tam = 18;
+  }
+  update() {
+    this.y -= 1.6;
+    this.vida--;
+    this.alpha = this.vida / this.maxVida;
+    this.tam += 0.12;
+    return this.vida > 0;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, this.alpha * 1.5);
+    ctx.font = `bold ${Math.floor(this.tam)}px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.fillStyle = this.cor;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = this.cor;
+    ctx.textAlign = 'center';
+    ctx.fillText(this.texto, this.x, this.y);
+    ctx.restore();
+  }
+}
+
+/* ================================================================
+   ===== SEÇÃO 5: OBJETOS DO JOGO ================================
+   ================================================================ */
+
+// --- Jogador ---
+class Jogador {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.tam = PLAYER_CFG.SIZE;
+    this.vel = PLAYER_CFG.SPEED;
+    this.trilha = [];
+    this.invincivel = false;
+    this.timerInvinc = 0;
+    this.vivo = true;
+    this.fasePulso = 0;
+  }
+  atualizar() {
+    // Movimento por teclado (direto)
+    if (jogo.teclas['ArrowLeft'] || jogo.teclas['a'] || jogo.teclas['A']) this.x -= this.vel;
+    if (jogo.teclas['ArrowRight'] || jogo.teclas['d'] || jogo.teclas['D']) this.x += this.vel;
+
+    // Movimento por toque (suave)
+    if (jogo.tocando) {
+      this.x += (this.alvoX - this.x) * 0.12;
+    }
+
+    // Limites
+    this.x = Math.max(this.tam, Math.min(CONFIG.WIDTH - this.tam, this.x));
+
+    // Rastro
+    this.trilha.push({ x: this.x, y: this.y });
+    if (this.trilha.length > PLAYER_CFG.TRAIL_LEN) this.trilha.shift();
+
+    // Invencibilidade
+    if (this.invincivel) {
+      this.timerInvinc--;
+      if (this.timerInvinc <= 0) this.invincivel = false;
+    }
+    this.fasePulso += 0.055;
+  }
+  desenhar(ctx) {
+    // Rastro
+    this.trilha.forEach((pos, i) => {
+      const a = i / this.trilha.length * 0.45;
+      const s = this.tam * (i / this.trilha.length) * 0.75;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = CORES.JOGADOR;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = CORES.JOGADOR;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, Math.max(1, s), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Pisca quando invencível
+    if (this.invincivel && Math.floor(this.timerInvinc / 5) % 2 === 0) return;
+
+    const pulso = 1 + Math.sin(this.fasePulso) * 0.08;
+
+    // Brilho externo
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = CORES.JOGADOR;
+    ctx.shadowBlur = 35;
+    ctx.shadowColor = CORES.JOGADOR;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.tam * 2 * pulso, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Corpo principal
+    ctx.save();
+    ctx.fillStyle = CORES.JOGADOR;
+    ctx.shadowBlur = 28;
+    ctx.shadowColor = CORES.JOGADOR;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.tam * pulso, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Brilho interno
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(this.x - this.tam * 0.22, this.y - this.tam * 0.22, this.tam * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  dano() {
+    this.invincivel = true;
+    this.timerInvinc = PLAYER_CFG.INVINCIBLE_FRAMES;
+  }
+  reset(x, y) {
+    this.x = x; this.y = y;
+    this.trilha = [];
+    this.invincivel = false;
+    this.timerInvinc = 0;
+    this.vivo = true;
+    this.fasePulso = 0;
+  }
+}
+
+// --- Obstáculo ---
+class Obstaculo {
+  constructor(x, y, w, h, vel) {
+    this.x = x; this.y = y;
+    this.w = w; this.h = h;
+    this.vel = vel;
+    this.vivo = true;
+    this.faseGlow = Math.random() * Math.PI * 2;
+  }
+  atualizar(velJogo) {
+    this.y += this.vel * velJogo;
+    this.faseGlow += 0.045;
+    if (this.y > CONFIG.HEIGHT + 60) this.vivo = false;
+  }
+  desenhar(ctx) {
+    const glow = 0.35 + Math.sin(this.faseGlow) * 0.15;
+    ctx.save();
+    // Brilho
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = CORES.OBSTACULO;
+    ctx.globalAlpha = glow;
+    ctx.fillStyle = CORES.OBSTACULO;
+    ctx.beginPath();
+    ctx.roundRect(this.x - this.w/2, this.y - this.h/2, this.w, this.h, 5);
+    ctx.fill();
+    // Corpo
+    ctx.globalAlpha = 0.88;
+    ctx.beginPath();
+    ctx.roundRect(this.x - this.w/2, this.y - this.h/2, this.w, this.h, 5);
+    ctx.fill();
+    // Borda
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#ff8099';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(this.x - this.w/2, this.y - this.h/2, this.w, this.h, 5);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// --- Orb (coletável) ---
+class Orb {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.tam = 9;
+    this.vivo = true;
+    this.fase = Math.random() * Math.PI * 2;
+    this.raioColeta = 28;
+  }
+  atualizar(velJogo) {
+    this.y += 1.3 * velJogo;
+    this.fase += 0.065;
+    if (this.y > CONFIG.HEIGHT + 35) this.vivo = false;
+  }
+  desenhar(ctx) {
+    const pulso = 1 + Math.sin(this.fase) * 0.22;
+    const s = this.tam * pulso;
+
+    // Glow externo
+    ctx.save();
+    ctx.globalAlpha = 0.18 + Math.sin(this.fase) * 0.1;
+    ctx.fillStyle = CORES.ORB;
+    ctx.shadowBlur = 28;
+    ctx.shadowColor = CORES.ORB;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, s * 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Orb
+    ctx.save();
+    ctx.fillStyle = CORES.ORB;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = CORES.ORB;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Brilho interno
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.65;
+    ctx.beginPath();
+    ctx.arc(this.x - s * 0.22, this.y - s * 0.22, s * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+/* ================================================================
+   ===== SEÇÃO 6: ESTADO DO JOGO =================================
+   ================================================================ */
+const jogo = {
+  canvas: null,
+  ctx: null,
+  estado: 'menu', // menu | playing | paused | gameover
+  jogador: null,
+  particulas: new SistemaParticulas(),
+  textoFlut: [],
+  obstaculos: [],
+  orbs: [],
+  pontos: 0,
+  recorde: parseInt(localStorage.getItem('neonDodgeRecorde') || '0'),
+  vidas: CONFIG.START_LIVES,
+  combo: 0,
+  maxCombo: 0,
+  timerCombo: 0,
+  orbsColetados: 0,
+  tempoJogo: 0,
+  velJogo: CONFIG.INITIAL_SPEED,
+  timerSpawn: 0,
+  nivel: 1,
+  shakeIntensidade: 0,
+  shakeX: 0,
+  shakeY: 0,
+  flashVermelho: 0,
+  teclas: {},
+  tocando: false,
+};
+
+function iniciarJogo() {
+  initAudio();
+  jogo.estado = 'playing';
+  jogo.pontos = 0;
+  jogo.vidas = CONFIG.START_LIVES;
+  jogo.combo = 0;
+  jogo.maxCombo = 0;
+  jogo.timerCombo = 0;
+  jogo.orbsColetados = 0;
+  jogo.tempoJogo = 0;
+  jogo.velJogo = CONFIG.INITIAL_SPEED;
+  jogo.timerSpawn = 0;
+  jogo.nivel = 1;
+  jogo.shakeIntensidade = 0;
+  jogo.flashVermelho = 0;
+  jogo.obstaculos = [];
+  jogo.orbs = [];
+  jogo.textoFlut = [];
+  jogo.particulas.clear();
+
+  jogo.jogador.reset(CONFIG.WIDTH / 2, CONFIG.HEIGHT * PLAYER_CFG.Y_POS);
+
+  esconderTelas();
+  atualizarHUD();
+  playSeq(AUDIO.INICIO, 90, 0.12, 0.1);
+}
+
+function pausarJogo() {
+  if (jogo.estado === 'playing') {
+    jogo.estado = 'paused';
+    document.getElementById('tela-pausa').classList.remove('oculta');
+  }
+}
+
+function retomarJogo() {
+  if (jogo.estado === 'paused') {
+    jogo.estado = 'playing';
+    document.getElementById('tela-pausa').classList.add('oculta');
+    playSeq([440, 660], 80, 0.1, 0.08);
+  }
+}
+
+function gameOver() {
+  jogo.estado = 'gameover';
+  jogo.jogador.vivo = false;
+
+  jogo.particulas.explosao(jogo.jogador.x, jogo.jogador.y, 45);
+
+  const novoRecorde = jogo.pontos > jogo.recorde;
+  if (novoRecorde) {
+    jogo.recorde = jogo.pontos;
+    localStorage.setItem('neonDodgeRecorde', jogo.recorde.toString());
+  }
+
+  document.getElementById('final-pontos').textContent = jogo.pontos;
+  document.getElementById('final-orbs').textContent = jogo.orbsColetados;
+  document.getElementById('final-combo').textContent = 'x' + jogo.maxCombo;
+  document.getElementById('final-tempo').textContent = Math.floor(jogo.tempoJogo / 60) + 's';
+
+  document.getElementById('novo-recorde').classList.toggle('oculta', !novoRecorde);
+
+  const sub = document.getElementById('gameover-subtitulo');
+  if (jogo.pontos >= 1000) sub.textContent = 'Incrível! 🔥';
+  else if (jogo.pontos >= 500) sub.textContent = 'Muito bom! 👏';
+  else if (jogo.pontos >= 200) sub.textContent = 'Continue tentando! 💪';
+  else sub.textContent = 'Tente novamente!';
+
+  setTimeout(() => {
+    document.getElementById('tela-gameover').classList.remove('oculta');
+  }, 750);
+
+  playSeq(AUDIO.GAMEOVER, 160, 0.22, 0.12, 'sawtooth');
+  triggerShake(16);
+  jogo.flashVermelho = 25;
+}
+
+/* ================================================================
+   ===== SEÇÃO 7: SPAWN E COLISÃO ================================
+   ================================================================ */
+function spawnObstaculo() {
+  const tipo = TIPOS_OBS[Math.floor(Math.random() * TIPOS_OBS.length)];
+  const x = tipo.w / 2 + 10 + Math.random() * (CONFIG.WIDTH - tipo.w - 20);
+  jogo.obstaculos.push(new Obstaculo(x, -35, tipo.w, tipo.h, tipo.vel));
+
+  // Em níveis altos, chance de spawn duplo
+  if (jogo.nivel >= 3 && Math.random() < 0.25) {
+    const tipo2 = TIPOS_OBS[Math.floor(Math.random() * TIPOS_OBS.length)];
+    const x2 = tipo2.w / 2 + 10 + Math.random() * (CONFIG.WIDTH - tipo2.w - 20);
+    jogo.obstaculos.push(new Obstaculo(x2, -55, tipo2.w, tipo2.h, tipo2.vel));
+  }
+}
+
+function spawnOrb() {
+  const x = 25 + Math.random() * (CONFIG.WIDTH - 50);
+  jogo.orbs.push(new Orb(x, -25));
+}
+
+function verificarColisoes() {
+  const p = jogo.jogador;
+
+  // Colisão com obstáculos
+  for (const obs of jogo.obstaculos) {
+    if (!obs.vivo) continue;
+    const dx = Math.abs(p.x - obs.x);
+    const dy = Math.abs(p.y - obs.y);
+    const minX = p.tam * 0.8 + obs.w / 2;  // hitbox levemente generosa
+    const minY = p.tam * 0.8 + obs.h / 2;
+
+    if (dx < minX && dy < minY) {
+      if (!p.invincivel) {
+        p.dano();
+        jogo.vidas--;
+        jogo.combo = 0;
+        jogo.timerCombo = 0;
+
+        jogo.particulas.burst(p.x, p.y, CORES.OBSTACULO, 18, 4.5);
+        triggerShake(13);
+        jogo.flashVermelho = 18;
+        playSeq(AUDIO.DANO, 80, 0.18, 0.14, 'sawtooth');
+
+        if (jogo.vidas <= 0) {
+          gameOver();
+        }
+        atualizarHUD();
+        return;
+      }
+    }
+
+    // Near miss
+    if (!p.invincivel && dx < minX + 18 && dx > minX - 3 && dy < minY + 5) {
+      jogo.pontos += PONTOS.NEAR_MISS;
+      jogo.textoFlut.push(new TextoFlutuante(p.x, p.y - 25, '+8', CORES.COMBO));
+      jogo.particulas.burst(p.x, p.y, CORES.COMBO, 3, 1.8);
+      if (Math.random() > 0.6) playTone(AUDIO.NEAR_MISS[0], 0.04, 0.04);
+    }
+  }
+
+  // Coleta de orbs
+  for (const orb of jogo.orbs) {
+    if (!orb.vivo) continue;
+    const dx = p.x - orb.x;
+    const dy = p.y - orb.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < orb.raioColeta + p.tam) {
+      orb.vivo = false;
+      jogo.orbsColetados++;
+      jogo.combo++;
+      jogo.timerCombo = 170;
+      jogo.maxCombo = Math.max(jogo.maxCombo, jogo.combo);
+
+      const mult = 1 + (jogo.combo - 1) * PONTOS.COMBO_MULT;
+      const pts = Math.floor(PONTOS.POR_ORB * mult);
+      jogo.pontos += pts;
+
+      // Efeitos
+      jogo.particulas.burst(orb.x, orb.y, CORES.ORB, 10, 3.2);
+      jogo.particulas.burst(orb.x, orb.y, '#ffffff', 5, 2);
+      jogo.textoFlut.push(new TextoFlutuante(orb.x, orb.y - 15, '+' + pts, CORES.ORB));
+
+      // Som (pitch sobe com combo)
+      const idx = Math.min(jogo.combo - 1, AUDIO.ORB.length - 1);
+      playTone(AUDIO.ORB[idx], 0.11, 0.1);
+
+      // Score pop
+      const el = document.getElementById('pontuacao');
+      el.classList.add('pop');
+      setTimeout(() => el.classList.remove('pop'), 140);
+
+      // Combo
+      if (jogo.combo >= 2) {
+        mostrarCombo(jogo.combo);
+        if (jogo.combo % 5 === 0) {
+          playSeq(AUDIO.COMBO, 70, 0.13, 0.1);
+          triggerShake(5);
+        }
+      }
+
+      atualizarHUD();
+    }
+  }
+}
+
+/* ================================================================
+   ===== SEÇÃO 8: EFEITOS VISUAIS ================================
+   ================================================================ */
+function triggerShake(intensidade) {
+  jogo.shakeIntensidade = intensidade;
+}
+
+function mostrarCombo(combo) {
+  const el = document.getElementById('combo-display');
+  el.textContent = '🔥 COMBO x' + combo;
+  el.classList.add('visivel');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('visivel'), 1400);
+}
+
+function mostrarNotificacao(texto) {
+  const el = document.getElementById('notificacao');
+  el.textContent = texto;
+  el.classList.remove('oculta');
+  el.classList.add('visivel');
+  setTimeout(() => {
+    el.classList.remove('visivel');
+    el.classList.add('oculta');
+    setTimeout(() => el.classList.remove('oculta'), 500);
+  }, 1200);
+}
+
+function desenharGrade(ctx) {
+  ctx.save();
+  ctx.strokeStyle = CORES.GRADE;
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+
+  for (let x = 0; x <= CONFIG.WIDTH; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, CONFIG.HEIGHT);
+    ctx.stroke();
+  }
+  const offset = (jogo.tempoJogo * jogo.velJogo * 0.5) % gridSize;
+  for (let y = -gridSize; y <= CONFIG.HEIGHT + gridSize; y += gridSize) {
+    const yPos = y + offset;
+    ctx.beginPath();
+    ctx.moveTo(0, yPos);
+    ctx.lineTo(CONFIG.WIDTH, yPos);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function desenharFundo(ctx) {
+  // Gradiente
+  const g = ctx.createLinearGradient(0, 0, 0, CONFIG.HEIGHT);
+  g.addColorStop(0, '#070714');
+  g.addColorStop(0.5, '#0a0a1a');
+  g.addColorStop(1, '#0c0c22');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+  desenharGrade(ctx);
+
+  // Vinheta
+  const v = ctx.createRadialGradient(
+    CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2, CONFIG.WIDTH * 0.25,
+    CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2, CONFIG.WIDTH * 0.85
+  );
+  v.addColorStop(0, 'transparent');
+  v.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+}
+
+/* ================================================================
+   ===== SEÇÃO 9: RENDERIZAÇÃO ===================================
+   ================================================================ */
+function render() {
+  const ctx = jogo.ctx;
+
+  ctx.save();
+
+  // Screen shake
+  if (jogo.shakeIntensidade > 0) {
+    jogo.shakeX = (Math.random() - 0.5) * jogo.shakeIntensidade;
+    jogo.shakeY = (Math.random() - 0.5) * jogo.shakeIntensidade;
+    ctx.translate(jogo.shakeX, jogo.shakeY);
+    jogo.shakeIntensidade *= 0.82;
+    if (jogo.shakeIntensidade < 0.4) jogo.shakeIntensidade = 0;
+  }
+
+  // Fundo
+  desenharFundo(ctx);
+
+  // Orbs
+  jogo.orbs.forEach(o => { if (o.vivo) o.desenhar(ctx); });
+
+  // Obstáculos
+  jogo.obstaculos.forEach(o => { if (o.vivo) o.desenhar(ctx); });
+
+  // Jogador
+  if (jogo.jogador.vivo) jogo.jogador.desenhar(ctx);
+
+  // Partículas
+  jogo.particulas.draw(ctx);
+
+  // Textos flutuantes
+  jogo.textoFlut.forEach(t => t.draw(ctx));
+
+  // Zona de perigo (base)
+  if (jogo.estado === 'playing') {
+    const dg = ctx.createLinearGradient(0, CONFIG.HEIGHT - 25, 0, CONFIG.HEIGHT);
+    dg.addColorStop(0, 'transparent');
+    dg.addColorStop(1, 'rgba(255,34,85,0.12)');
+    ctx.fillStyle = dg;
+    ctx.fillRect(0, CONFIG.HEIGHT - 25, CONFIG.WIDTH, 25);
+  }
+
+  // Flash vermelho (dano)
+  if (jogo.flashVermelho > 0) {
+    ctx.fillStyle = `rgba(255,20,50,${jogo.flashVermelho / 30})`;
+    ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+    jogo.flashVermelho--;
+  }
+
+  ctx.restore();
+}
+
+/* ================================================================
+   ===== SEÇÃO 10: HUD E INTERFACE ===============================
+   ================================================================ */
+function atualizarHUD() {
+  document.getElementById('pontuacao').textContent = jogo.pontos;
+  document.getElementById('recorde-val').textContent = jogo.recorde;
+
+  for (let i = 1; i <= CONFIG.START_LIVES; i++) {
+    const h = document.getElementById('vida-' + i);
+    if (i <= jogo.vidas) {
+      h.classList.add('ativa');
+      h.classList.remove('perdida');
+    } else {
+      h.classList.remove('ativa');
+      h.classList.add('perdida');
+    }
+  }
+}
+
+function esconderTelas() {
+  document.querySelectorAll('.tela').forEach(t => t.classList.add('oculta'));
+}
+
+/* ================================================================
+   ===== SEÇÃO 11: ENTRADA (INPUT) ===============================
+   ================================================================ */
+function setupInput() {
+  // Teclado
+  window.addEventListener('keydown', e => {
+    jogo.teclas[e.key] = true;
+
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      if (jogo.estado === 'playing') pausarJogo();
+      else if (jogo.estado === 'paused') retomarJogo();
+    }
+    if (e.key === ' ' || e.key === 'Enter') {
+      if (jogo.estado === 'menu') { initAudio(); iniciarJogo(); }
+      else if (jogo.estado === 'gameover') { iniciarJogo(); }
+    }
+    e.preventDefault();
+  });
+
+  window.addEventListener('keyup', e => {
+    jogo.teclas[e.key] = false;
+    e.preventDefault();
+  });
+
+  // Toque / Mouse
+  const canvas = jogo.canvas;
+
+  function getX(clientX) {
+    const r = canvas.getBoundingClientRect();
+    return (clientX - r.left) / r.width * CONFIG.WIDTH;
+  }
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    jogo.tocando = true;
+    jogo.jogador.alvoX = getX(e.touches[0].clientX);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (jogo.tocando) {
+      jogo.jogador.alvoX = getX(e.touches[0].clientX);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    jogo.tocando = false;
+  }, { passive: false });
+
+  canvas.addEventListener('mousedown', e => {
+    jogo.tocando = true;
+    jogo.jogador.alvoX = getX(e.clientX);
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (jogo.tocando) jogo.jogador.alvoX = getX(e.clientX);
+  });
+  canvas.addEventListener('mouseup', () => { jogo.tocando = false; });
+}
+
+/* ================================================================
+   ===== SEÇÃO 12: LOOP PRINCIPAL ================================
+   ================================================================ */
+function loopJogo() {
+  requestAnimationFrame(loopJogo);
+  if (jogo.estado === 'playing') atualizar();
+  render();
+}
+
+function atualizar() {
+  jogo.tempoJogo++;
+
+  // Velocidade crescente
+  jogo.velJogo = Math.min(CONFIG.MAX_SPEED, CONFIG.INITIAL_SPEED + jogo.tempoJogo * CONFIG.SPEED_INCREMENT);
+
+  // Nível
+  const novoNivel = Math.floor(jogo.tempoJogo / CONFIG.LEVEL_INTERVAL) + 1;
+  if (novoNivel > jogo.nivel) {
+    jogo.nivel = novoNivel;
+    mostrarNotificacao('NÍVEL ' + jogo.nivel);
+    playSeq(AUDIO.LEVEL_UP, 70, 0.12, 0.1);
+    jogo.particulas.burst(CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2, CORES.PART_QUEENTE, 25, 4);
+  }
+
+  // Spawn
+  jogo.timerSpawn++;
+  const taxaSpawn = Math.max(CONFIG.MIN_SPAWN_RATE, CONFIG.SPAWN_RATE_BASE - Math.floor(jogo.tempoJogo / 250) * 3);
+  if (jogo.timerSpawn >= taxaSpawn) {
+    jogo.timerSpawn = 0;
+    spawnObstaculo();
+    if (Math.random() < CONFIG.ORB_CHANCE) spawnOrb();
+  }
+
+  // Atualizar jogador
+  jogo.jogador.atualizar();
+
+  // Atualizar obstáculos e orbs
+  jogo.obstaculos.forEach(o => o.atualizar(jogo.velJogo));
+  jogo.obstaculos = jogo.obstaculos.filter(o => o.vivo);
+  jogo.orbs.forEach(o => o.atualizar(jogo.velJogo));
+  jogo.orbs = jogo.orbs.filter(o => o.vivo);
+
+  // Partículas e texto
+  jogo.particulas.update();
+  jogo.textoFlut = jogo.textoFlut.filter(t => t.update());
+
+  // Rastro do jogador
+  if (jogo.jogador.vivo && jogo.tempoJogo % 2 === 0) {
+    jogo.particulas.rastro(
+      jogo.jogador.x + (Math.random() - 0.5) * 12,
+      jogo.jogador.y + 6,
+      CORES.JOGADOR,
+      1.2 + Math.random() * 1.5
+    );
+  }
+
+  // Timer do combo
+  if (jogo.timerCombo > 0) {
+    jogo.timerCombo--;
+    if (jogo.timerCombo <= 0) jogo.combo = 0;
+  }
+
+  // Pontuação passiva
+  if (jogo.tempoJogo % 60 === 0) {
+    jogo.pontos += PONTOS.POR_SEGUNDO;
+
+    // Bônus de sobrevivência a cada 10s
+    const seg = Math.floor(jogo.tempoJogo / 60);
+    if (seg > 0 && seg % 10 === 0) {
+      jogo.pontos += PONTOS.SOBREVIVENCIA;
+      jogo.textoFlut.push(new TextoFlutuante(
+        CONFIG.WIDTH / 2, CONFIG.HEIGHT * 0.35,
+        '+' + PONTOS.SOBREVIVENCIA + ' SOBREVIVÊNCIA', CORES.PART_QUEENTE
+      ));
+      jogo.particulas.burst(CONFIG.WIDTH / 2, CONFIG.HEIGHT * 0.35, CORES.PART_QUEENTE, 22, 3.5);
+      playSeq([440, 554, 659], 80, 0.1, 0.08);
+    }
+
+    atualizarHUD();
+  }
+
+  verificarColisoes();
+}
+
+/* ================================================================
+   ===== SEÇÃO 13: INICIALIZAÇÃO =================================
+   ================================================================ */
+function init() {
+  jogo.canvas = document.getElementById('gameCanvas');
+  jogo.ctx = jogo.canvas.getContext('2d');
+  ajustarCanvas();
+
+  jogo.jogador = new Jogador(CONFIG.WIDTH / 2, CONFIG.HEIGHT * PLAYER_CFG.Y_POS);
+  jogo.jogador.alvoX = jogo.jogador.x;
+
+  window.addEventListener('resize', ajustarCanvas);
+  setupInput();
+  setupUI();
+  atualizarHUD();
+
+  requestAnimationFrame(loopJogo);
+}
+
+function ajustarCanvas() {
+  const container = document.getElementById('game-container');
+  const aspect = CONFIG.WIDTH / CONFIG.HEIGHT;
+  let w = container.clientWidth;
+  let h = container.clientHeight;
+  if (w / h > aspect) { w = h * aspect; }
+  else { h = w / aspect; }
+  jogo.canvas.width = CONFIG.WIDTH;
+  jogo.canvas.height = CONFIG.HEIGHT;
+  jogo.canvas.style.width = w + 'px';
+  jogo.canvas.style.height = h + 'px';
+}
+
+function setupUI() {
+  document.getElementById('btn-iniciar').addEventListener('click', () => {
+    initAudio();
+    iniciarJogo();
+  });
+  document.getElementById('btn-pausa').addEventListener('click', () => {
+    if (jogo.estado === 'playing') pausarJogo();
+    else if (jogo.estado === 'paused') retomarJogo();
+  });
+  document.getElementById('btn-continuar').addEventListener('click', retomarJogo);
+  document.getElementById('btn-reiniciar-pausa').addEventListener('click', iniciarJogo);
+  document.getElementById('btn-retry').addEventListener('click', iniciarJogo);
+  document.getElementById('btn-menu').addEventListener('click', () => {
+    jogo.estado = 'menu';
+    esconderTelas();
+    document.getElementById('tela-inicio').classList.remove('oculta');
+    atualizarHUD();
+  });
+
+  // Pausa quando aba muda
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && jogo.estado === 'playing') pausarJogo();
+  });
+}
+
+// --- Iniciar ---
+init();
+
+</script>
+</body>
+</html>
