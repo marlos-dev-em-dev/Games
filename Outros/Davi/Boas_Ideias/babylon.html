@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON DASH - 3D Ball Platformer</title>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-serif}
+#renderCanvas{width:100%;height:100%;display:block;touch-action:none;outline:none}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;color:#fff;user-select:none}
+.stat{position:absolute;font-weight:700;text-shadow:0 0 12px currentColor,0 0 24px currentColor}
+#sc{top:18px;left:22px;font-size:22px;color:#0ff}
+#lv{top:18px;right:22px;font-size:22px;color:#f0f}
+#hp{top:18px;left:50%;transform:translateX(-50%);font-size:28px;color:#f44;letter-spacing:4px}
+#tm{top:52px;left:22px;font-size:17px;color:#ff0}
+#gm{top:52px;right:22px;font-size:17px;color:#fa0}
+.ov{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,8,.88);pointer-events:all;transition:opacity .3s}
+.ov h1{font-size:clamp(36px,8vw,72px);font-weight:900;letter-spacing:5px;margin-bottom:8px}
+.ov h2{font-size:clamp(20px,4vw,36px);margin-bottom:15px}
+.ov p{font-size:clamp(14px,2.5vw,20px);color:#aaa;margin:6px 0}
+.ov .st{font-size:clamp(18px,3.5vw,30px);margin:12px 0}
+.ov .pt{font-size:clamp(16px,3vw,26px);margin-top:30px;animation:bl 1.3s ease-in-out infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.15}}
+.nc{text-shadow:0 0 18px #0ff,0 0 36px #0ff,0 0 72px #08f}
+.nr{text-shadow:0 0 18px #f44,0 0 36px #f44}
+.ng{text-shadow:0 0 18px #4f4,0 0 36px #4f4}
+.ny{text-shadow:0 0 18px #ff0,0 0 36px #ff0}
+.controls{display:flex;gap:30px;margin-top:18px;flex-wrap:wrap;justify-content:center}
+.ctrl{text-align:center;padding:10px 18px;border:1px solid #334;border-radius:12px;background:rgba(20,20,40,.5)}
+.ctrl .key{font-size:22px;font-weight:700;color:#0ff;margin-bottom:4px}
+.ctrl .desc{font-size:13px;color:#888}
+</style>
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+<div id="hud">
+<div id="sc" class="stat">SCORE: 0</div>
+<div id="lv" class="stat">LEVEL 1</div>
+<div id="hp" class="stat">♥ ♥ ♥</div>
+<div id="tm" class="stat">TIME: 180</div>
+<div id="gm" class="stat">GEMS: 0/0</div>
+
+<div id="menu" class="ov">
+<h1 class="nc">NEON DASH</h1>
+<p>3D Rolling Ball Platformer</p>
+<div class="controls">
+<div class="ctrl"><div class="key">W A S D</div><div class="desc">Mover</div></div>
+<div class="ctrl"><div class="key">SPACE</div><div class="desc">Pular</div></div>
+</div>
+<p style="margin-top:18px">💎 Colete gemas e alcance o objetivo!</p>
+<div class="pt nc">APERTE ESPAÇO PARA COMEÇAR</div>
+</div>
+
+<div id="lc" class="ov" style="display:none">
+<h1 class="ny">LEVEL COMPLETE!</h1>
+<div class="st ny">SCORE: <span id="lcs">0</span></div>
+<p>Gemas: <span id="lcg">0</span> | Bônus de tempo: <span id="lct">0</span></p>
+<div class="pt ny">ESPAÇO PARA PRÓXIMO NÍVEL</div>
+</div>
+
+<div id="go" class="ov" style="display:none">
+<h1 class="nr">GAME OVER</h1>
+<div class="st nr">SCORE FINAL: <span id="gos">0</span></div>
+<div class="pt nr">ESPAÇO PARA TENTAR DE NOVO</div>
+</div>
+
+<div id="win" class="ov" style="display:none">
+<h1 class="ng">🏆 YOU WIN! 🏆</h1>
+<h2 class="ng">Parabéns, você completou todos os níveis!</h2>
+<div class="st ng">SCORE FINAL: <span id="wins">0</span></div>
+<div class="pt ng">ESPAÇO PARA JOGAR DE NOVO</div>
+</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══════════════════ CONFIGURAÇÃO ═══════════════════ */
+const GRAV=20, MOVSPD=6, ACCEL=12, JUMPV=10, MAXFALL=25, BALLR=0.5, KILLY=-35;
+
+/* ═══════════════════ ENGINE ═══════════════════ */
+const canvas=document.getElementById('renderCanvas');
+const engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:true,stencil:true,antialias:true});
+const scene=new BABYLON.Scene(engine);
+scene.clearColor=new BABYLON.Color4(.01,.01,.05,1);
+scene.fogMode=BABYLON.Scene.FOGMODE_EXP2;
+scene.fogDensity=.0025;
+scene.fogColor=new BABYLON.Color3(.01,.01,.05);
+
+/* ═══════════════════ CÂMERA ═══════════════════ */
+const cam=new BABYLON.FreeCamera('c',new BABYLON.Vector3(0,12,-16),scene);
+cam.setTarget(BABYLON.Vector3.Zero());
+cam.minZ=.5; cam.maxZ=600;
+
+/* ═══════════════════ LUZES ═══════════════════ */
+const hemi=new BABYLON.HemisphericLight('h',new BABYLON.Vector3(0,1,0),scene);
+hemi.intensity=.42; hemi.diffuse=new BABYLON.Color3(.32,.32,.55);
+hemi.groundColor=new BABYLON.Color3(.08,.08,.2);
+const dirL=new BABYLON.DirectionalLight('d',new BABYLON.Vector3(-1,-3,-1),scene);
+dirL.intensity=.6;
+const ballLight=new BABYLON.PointLight('bl',BABYLON.Vector3.Zero(),scene);
+ballLight.intensity=.5; ballLight.diffuse=new BABYLON.Color3(0,.8,1); ballLight.range=18;
+
+/* ═══════════════════ PÓS-PROCESSAMENTO ═══════════════════ */
+const pipe=new BABYLON.DefaultRenderingPipeline('pp',true,scene,[cam]);
+pipe.bloomEnabled=true; pipe.bloomThreshold=.12; pipe.bloomWeight=.55;
+pipe.bloomKernel=64; pipe.bloomScale=.5;
+pipe.imageProcessingEnabled=true; pipe.imageProcessing.contrast=1.25;
+pipe.imageProcessing.exposure=1.1; pipe.imageProcessing.vignetteEnabled=true;
+pipe.imageProcessing.vignetteWeight=1.5;
+const glow=new BABYLON.GlowLayer('gl',scene); glow.intensity=.7;
+
+/* ═══════════════════ ESTADO ═══════════════════ */
+let state='menu', score=0, lives=3, lvIdx=0, timer=180, gemsGot=0, gemsTotal=0;
+let ball=null, ballVel=BABYLON.Vector3.Zero(), onGround=false;
+let startPos=new BABYLON.Vector3(0,3,0), goalPos=new BABYLON.Vector3(0,3,100);
+let platforms=[], gems=[], goalMesh=null;
+
+/* ═══════════════════ INPUT ═══════════════════ */
+const keys={}; let jumpQ=false;
+window.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();
+    if(k===' '&&!keys[' ']) jumpQ=true;
+    keys[k]=true;
+    if(k===' '||k==='enter'){e.preventDefault();act();}
+});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+
+function act(){
+    if(state==='menu') startGame();
+    else if(state==='levelComplete') nextLevel();
+    else if(state==='gameOver'||state==='win') restart();
+}
+
+/* ═══════════════════ CORES ═══════════════════ */
+const C={CYAN:[0,.85,1],MAGENTA:[1,.15,.85],YELLOW:[1,.9,.1],GREEN:[.1,1,.35],
+RED:[1,.15,.15],ORANGE:[1,.55,0],PURPLE:[.55,.15,1],GOLD:[1,.85,.15],WHITE:[1,1,1]};
+function c3(a){return new BABYLON.Color3(a[0],a[1],a[2])}
+
+/* ═══════════════════ MATERIAIS ═══════════════════ */
+const matCache={};
+function getMat(arr,em=.22){
+    const k=arr.join(',')+'_'+em;
+    if(!matCache[k]){
+        const m=new BABYLON.StandardMaterial('m',scene);
+        const c=c3(arr); m.diffuseColor=c; m.emissiveColor=c.scale(em);
+        m.specularColor=new BABYLON.Color3(.25,.25,.25); m.specularPower=32;
+        matCache[k]=m;
+    }
+    return matCache[k];
+}
+
+/* ═══════════════════ TEXTURA DE PARTÍCULAS ═══════════════════ */
+let ptex=null;
+function initPTex(){
+    const s=64, dt=new BABYLON.DynamicTexture('pt',s,scene,false);
+    const ctx=dt.getContext(), g=ctx.createRadialGradient(32,32,0,32,32,32);
+    g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(.4,'rgba(255,255,255,.5)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,s,s); dt.update(); ptex=dt;
+}
+
+/* ═══════════════════ PARTÍCULAS ═══════════════════ */
+function burst(pos,col,n=22){
+    if(!ptex)return;
+    const ps=new BABYLON.ParticleSystem('p',n,scene);
+    ps.particleTexture=ptex; ps.emitter=pos.clone();
+    ps.createSphereEmitter(.3);
+    ps.minLifeTime=.15; ps.maxLifeTime=.65;
+    ps.minSize=.12; ps.maxSize=.45; ps.emitRate=n*25;
+    ps.color1=new BABYLON.Color4(col[0],col[1],col[2],1);
+    ps.color2=new BABYLON.Color4(col[0],col[1],col[2],.5);
+    ps.colorDead=new BABYLON.Color4(0,0,0,0);
+    ps.minEmitPower=2; ps.maxEmitPower=6;
+    ps.targetStopDuration=.04; ps.disposeOnStop=true; ps.start();
+}
+
+/* ═══════════════════ SKYBOX ═══════════════════ */
+function createSkybox(){
+    const s=512, dt=new BABYLON.DynamicTexture('sky',s,scene,true);
+    const ctx=dt.getContext(), gr=ctx.createLinearGradient(0,0,0,s);
+    gr.addColorStop(0,'#000012'); gr.addColorStop(.5,'#010108'); gr.addColorStop(1,'#020212');
+    ctx.fillStyle=gr; ctx.fillRect(0,0,s,s);
+    for(let i=0;i<600;i++){
+        const x=Math.random()*s,y=Math.random()*s,r=Math.random()*1.8+.3,b=Math.random()*.85+.15;
+        ctx.fillStyle='rgba(255,255,255,'+b+')';
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    }
+    for(let i=0;i<6;i++){
+        const x=Math.random()*s,y=Math.random()*s,r=Math.random()*55+25;
+        const cl=['rgba(0,80,220,.06)','rgba(120,0,220,.06)','rgba(220,0,80,.06)','rgba(0,220,100,.06)'];
+        ctx.fillStyle=cl[i%cl.length];
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    }
+    dt.update();
+    const box=BABYLON.MeshBuilder.CreateBox('sky',{size:800},scene);
+    const m=new BABYLON.StandardMaterial('sm',scene);
+    m.backFaceCulling=false; m.disableLighting=true; m.emissiveTexture=dt;
+    box.material=m; box.infiniteDistance=true; box.isPickable=false;
+}
+
+/* ═══════════════════ PLATAFORMA ═══════════════════ */
+function addPlat(x,y,z,w,h,d,col){
+    const mesh=BABYLON.MeshBuilder.CreateBox('p',{width:w,height:h,depth:d},scene);
+    mesh.position.set(x,y,z); mesh.material=getMat(col);
+    mesh.enableEdgesRendering(); mesh.edgesWidth=2.5;
+    mesh.edgesColor=new BABYLON.Color4(col[0],col[1],col[2],.35);
+    platforms.push({minX:x-w/2,minY:y-h/2,minZ:z-d/2,maxX:x+w/2,maxY:y+h/2,maxZ:z+d/2,mesh});
+    return mesh;
+}
+
+/* ═══════════════════ GEMA ═══════════════════ */
+function addGem(x,y,z){
+    const mesh=BABYLON.MeshBuilder.CreatePolyhedron('g',{type:1,size:.4},scene);
+    mesh.position.set(x,y,z);
+    const m=new BABYLON.StandardMaterial('gm',scene);
+    m.diffuseColor=new BABYLON.Color3(1,1,.2);
+    m.emissiveColor=new BABYLON.Color3(1,.85,0); m.specularPower=128;
+    m.specularColor=new BABYLON.Color3(1,1,.5);
+    mesh.material=m;
+    gems.push({mesh,baseY:y,collected:false});
+}
+
+/* ═══════════════════ OBJETIVO ═══════════════════ */
+function addGoal(x,y,z){
+    if(goalMesh) goalMesh.dispose();
+    goalMesh=BABYLON.MeshBuilder.CreateCylinder('goal',{diameter:4,height:7,tessellation:24},scene);
+    goalMesh.position.set(x,y+3.5,z);
+    const m=new BABYLON.StandardMaterial('gm2',scene);
+    m.diffuseColor=new BABYLON.Color3(1,.9,.2); m.emissiveColor=new BABYLON.Color3(1,.9,.2);
+    m.alpha=.22; goalMesh.material=m;
+    // Raio de luz no objetivo
+    const gl2=new BABYLON.PointLight('gl2',new BABYLON.Vector3(x,y+5,z),scene);
+    gl2.intensity=.8; gl2.diffuse=new BABYLON.Color3(1,.9,.3); gl2.range=25;
+    goalPos=new BABYLON.Vector3(x,y+1,z);
+}
+
+/* ═══════════════════ BOLA ═══════════════════ */
+function createBall(){
+    if(ball) ball.dispose();
+    ball=BABYLON.MeshBuilder.CreateSphere('ball',{diameter:BALLR*2,segments:18},scene);
+    const m=new BABYLON.StandardMaterial('bm',scene);
+    m.diffuseColor=new BABYLON.Color3(1,1,1);
+    m.emissiveColor=new BABYLON.Color3(0,.7,1); m.specularPower=64;
+    m.specularColor=new BABYLON.Color3(1,1,1);
+    ball.material=m;
+    ball.position.copyFrom(startPos); ballVel=BABYLON.Vector3.Zero(); onGround=false;
+}
+
+/* ═══════════════════ COLISÃO AABB-ESFERA ═══════════════════ */
+function clmp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function resolveColl(pos,vel){
+    onGround=false;
+    for(let i=0;i<platforms.length;i++){
+        const p=platforms[i];
+        const cx=clmp(pos.x,p.minX,p.maxX), cy=clmp(pos.y,p.minY,p.maxY), cz=clmp(pos.z,p.minZ,p.maxZ);
+        const dx=pos.x-cx, dy=pos.y-cy, dz=pos.z-cz, dSq=dx*dx+dy*dy+dz*dz;
+        if(dSq<BALLR*BALLR&&dSq>.0001){
+            const d=Math.sqrt(dSq), nx=dx/d, ny=dy/d, nz=dz/d, push=BALLR-d;
+            pos.x+=nx*push; pos.y+=ny*push; pos.z+=nz*push;
+            const dot=vel.x*nx+vel.y*ny+vel.z*nz;
+            if(dot<0){vel.x-=dot*nx; vel.y-=dot*ny; vel.z-=dot*nz}
+            if(ny>.5) onGround=true;
+        }
+    }
+}
+
+/* ═══════════════════ NÍVEIS ═══════════════════ */
+function clearLevel(){
+    platforms.forEach(p=>p.mesh.dispose());
+    gems.forEach(g=>{if(g.mesh&&!g.collected)g.mesh.dispose()});
+    if(goalMesh)goalMesh.dispose();
+    platforms=[]; gems=[]; goalMesh=null;
+}
+
+function buildLevel(i){
+    clearLevel();
+    if(i===0) L1(); else if(i===1) L2(); else L3();
+    gemsTotal=gems.length; gemsGot=0;
+}
+
+/* NÍVEL 1: THE PATH */
+function L1(){
+    addPlat(0,-.5,0,14,1,14,C.CYAN); addGem(0,1.5,0);
+    addPlat(0,-.5,16,7,1,10,C.CYAN); addGem(0,1.5,16);
+    addPlat(0,-.5,32,7,1,10,C.CYAN); addGem(0,1.5,32);
+    addPlat(-3,-.5,43,3.5,1,3.5,C.MAGENTA); addGem(-3,1.5,43);
+    addPlat(0,-.5,49,3.5,1,3.5,C.MAGENTA); addGem(0,1.5,49);
+    addPlat(3,-.5,55,3.5,1,3.5,C.MAGENTA); addGem(3,1.5,55);
+    addPlat(0,-.5,66,12,1,12,C.GREEN); addGem(0,1.5,63); addGem(0,1.5,69);
+    addPlat(-3,1,63,1.5,3,1.5,C.RED); addPlat(3,1,68,1.5,3,1.5,C.RED);
+    addPlat(0,-.25,78,5,1.5,6,C.YELLOW); addGem(0,1.8,78);
+    addPlat(0,.5,84,5,1,5,C.YELLOW); addGem(0,2.5,84);
+    addPlat(0,1,90,5,1,5,C.YELLOW); addGem(0,3,90);
+    addPlat(0,1,100,3,1,10,C.PURPLE); addGem(0,3,100);
+    addPlat(0,1,114,12,1,12,C.GOLD); addGem(-3,3,114); addGem(0,3,114); addGem(3,3,114);
+    addGoal(0,1.5,114);
+    startPos=new BABYLON.Vector3(0,2,0);
+}
+
+/* NÍVEL 2: SKY BRIDGES */
+function L2(){
+    addPlat(0,-.5,0,10,1,10,C.CYAN); addGem(0,1.5,0);
+    addPlat(3,-.5,12,4,1,8,C.MAGENTA); addGem(3,1.5,12);
+    addPlat(-3,-.5,22,4,1,8,C.GREEN); addGem(-3,1.5,22);
+    addPlat(3,-.5,32,4,1,8,C.YELLOW); addGem(3,1.5,32);
+    addPlat(-3,-.5,43,4,1,8,C.ORANGE); addGem(-3,1.5,43);
+    addPlat(0,-.5,55,6,1,8,C.CYAN); addGem(0,1.5,55);
+    addPlat(0,0,65,5,1,6,C.ORANGE); addGem(0,2,65);
+    addPlat(0,1.5,71,5,1,5,C.ORANGE); addGem(0,3.5,71);
+    addPlat(0,3,77,5,1,5,C.ORANGE); addGem(0,5,77);
+    addPlat(0,3,89,2.5,1,16,C.PURPLE); addGem(0,5,86); addGem(0,5,92);
+    addPlat(0,1,102,5,1,8,C.GREEN); addGem(0,3,102);
+    addPlat(4,1,113,2,1,8,C.YELLOW); addGem(4,3,113);
+    addPlat(-4,1,123,2,1,8,C.YELLOW); addGem(-4,3,123);
+    addPlat(0,1,135,10,1,10,C.GOLD); addGem(0,3,135); addGem(-2,3,135); addGem(2,3,135);
+    addGoal(0,1.5,135);
+    startPos=new BABYLON.Vector3(0,2,0);
+}
+
+/* NÍVEL 3: THE GAUNTLET */
+function L3(){
+    addPlat(0,-.5,0,8,1,8,C.CYAN); addGem(0,1.5,0);
+    addPlat(3,-.5,10,2.5,1,5,C.MAGENTA); addGem(3,1.5,10);
+    addPlat(-3,-.5,18,2.5,1,5,C.MAGENTA); addGem(-3,1.5,18);
+    addPlat(3,-.5,26,2.5,1,5,C.MAGENTA); addGem(3,1.5,26);
+    addPlat(-3,-.5,34,2.5,1,5,C.MAGENTA); addGem(-3,1.5,34);
+    addPlat(-2,-.5,43,2,1,2,C.RED); addGem(-2,1.5,43);
+    addPlat(2,-.5,47,2,1,2,C.RED); addGem(2,1.5,47);
+    addPlat(-2,-.5,51,2,1,2,C.RED); addGem(-2,1.5,51);
+    addPlat(2,-.5,55,2,1,2,C.RED); addGem(2,1.5,55);
+    addPlat(0,0,63,3.5,1,5,C.YELLOW); addGem(0,2,63);
+    addPlat(0,1.5,69,3.5,1,5,C.YELLOW); addGem(0,3.5,69);
+    addPlat(0,3,75,3.5,1,5,C.YELLOW); addGem(0,5,75);
+    addPlat(0,4.5,81,3.5,1,5,C.YELLOW); addGem(0,6.5,81);
+    addPlat(0,4.5,96,2,1,22,C.PURPLE); addGem(0,6.5,96);
+    addPlat(-1.3,5.5,90,1,2,1,C.RED); addPlat(1.3,5.5,94,1,2,1,C.RED);
+    addPlat(-1.3,5.5,98,1,2,1,C.RED); addPlat(1.3,5.5,102,1,2,1,C.RED);
+    addPlat(0,3,112,3,1,5,C.GREEN); addGem(0,5,112);
+    addPlat(0,1,120,3,1,5,C.GREEN); addGem(0,3,120);
+    addPlat(0,1,132,2,1,12,C.CYAN); addGem(0,3,132);
+    addPlat(0,1,148,10,1,10,C.GOLD);
+    addGem(0,3,148); addGem(-3,3,148); addGem(3,3,148); addGem(0,3,145); addGem(0,3,151);
+    addGoal(0,1.5,148);
+    startPos=new BABYLON.Vector3(0,2,0);
+}
+
+/* ═══════════════════ FLUXO DO JOGO ═══════════════════ */
+function hideAll(){document.querySelectorAll('.ov').forEach(e=>e.style.display='none')}
+function show(id){hideAll(); document.getElementById(id).style.display='flex'}
+
+function startGame(){
+    state='playing'; score=0; lives=3; lvIdx=0; timer=180;
+    buildLevel(0); createBall(); hideAll();
+}
+
+function nextLevel(){
+    lvIdx++;
+    if(lvIdx>=3){
+        state='win';
+        document.getElementById('wins').textContent=score;
+        show('win'); return;
+    }
+    state='playing'; timer+=60;
+    buildLevel(lvIdx); createBall(); hideAll();
+}
+
+function restart(){ state='menu'; show('menu'); }
+
+function playerDie(){
+    burst(ball.position,C.RED,35); lives--;
+    if(lives<=0){
+        state='gameOver';
+        document.getElementById('gos').textContent=score;
+        show('go');
+    }else{
+        ball.position.copyFrom(startPos);
+        ballVel=BABYLON.Vector3.Zero(); onGround=false;
+    }
+}
+
+function levelDone(){
+    state='levelComplete';
+    const timeBonus=Math.ceil(timer)*5;
+    score+=500+timeBonus;
+    document.getElementById('lcs').textContent=score;
+    document.getElementById('lcg').textContent=gemsGot+'/'+gemsTotal;
+    document.getElementById('lct').textContent='+'+timeBonus;
+    show('lc');
+}
+
+/* ═══════════════════ HUD ═══════════════════ */
+function updateHUD(){
+    document.getElementById('sc').textContent='SCORE: '+score;
+    document.getElementById('lv').textContent='LEVEL '+(lvIdx+1);
+    document.getElementById('hp').textContent='♥'.repeat(Math.max(0,lives));
+    document.getElementById('tm').textContent='TIME: '+Math.max(0,Math.ceil(timer));
+    document.getElementById('gm').textContent='GEMS: '+gemsGot+'/'+gemsTotal;
+}
+
+/* ═══════════════════ LOOP PRINCIPAL ═══════════════════ */
+engine.runRenderLoop(()=>{
+    const dt=Math.min(engine.getDeltaTime()/1000,.05);
+
+    if(state==='playing'){
+        /* Timer */
+        timer-=dt;
+        if(timer<=0){timer=0; lives=0; playerDie()}
+
+        /* Input */
+        let ix=0,iz=0;
+        if(keys['w']||keys['arrowup'])iz++;
+        if(keys['s']||keys['arrowdown'])iz--;
+        if(keys['a']||keys['arrowleft'])ix--;
+        if(keys['d']||keys['arrowright'])ix++;
+
+        /* Movimento relativo à câmera */
+        const fwd=cam.getDirection(BABYLON.Vector3.Forward()); fwd.y=0; fwd.normalize();
+        const rgt=cam.getDirection(BABYLON.Vector3.Right()); rgt.y=0; rgt.normalize();
+        const mdir=fwd.scale(iz).add(rgt.scale(ix));
+        if(mdir.lengthSquared()>0)mdir.normalize();
+
+        /* Física */
+        ballVel.x+=(mdir.x*MOVSPD-ballVel.x)*ACCEL*dt;
+        ballVel.z+=(mdir.z*MOVSPD-ballVel.z)*ACCEL*dt;
+        ballVel.y-=GRAV*dt;
+        if(ballVel.y<-MAXFALL)ballVel.y=-MAXFALL;
+
+        if(jumpQ&&onGround){ballVel.y=JUMPV; onGround=false; jumpQ=false}
+        else jumpQ=false;
+
+        ball.position.x+=ballVel.x*dt;
+        ball.position.y+=ballVel.y*dt;
+        ball.position.z+=ballVel.z*dt;
+
+        resolveColl(ball.position,ballVel);
+
+        /* Rotação visual */
+        const hs=Math.sqrt(ballVel.x*ballVel.x+ballVel.z*ballVel.z);
+        if(hs>.01){
+            const ax=new BABYLON.Vector3(ballVel.z,0,-ballVel.x).normalize();
+            ball.rotate(ax,hs*dt/BALLR,BABYLON.Space.WORLD);
+        }
+
+        ballLight.position.copyFrom(ball.position);
+
+        /* Gemas */
+        const now=performance.now();
+        for(let i=0;i<gems.length;i++){
+            const g=gems[i]; if(g.collected)continue;
+            g.mesh.rotation.y+=.025; g.mesh.rotation.x+=.012;
+            g.mesh.position.y=g.baseY+Math.sin(now*.0025)*.15;
+            if(BABYLON.Vector3.Distance(ball.position,g.mesh.position)<1.8){
+                const gp=g.mesh.position.clone();
+                g.collected=true; g.mesh.dispose(); score+=100; gemsGot++;
+                burst(gp,C.YELLOW,18);
+            }
+        }
+
+        /* Objetivo */
+        if(goalMesh){
+            goalMesh.rotation.y+=.012;
+            goalMesh.scaling.y=1+Math.sin(now*.003)*.12;
+            if(BABYLON.Vector3.Distance(ball.position,goalPos)<4.5) levelDone();
+        }
+
+        /* Queda */
+        if(ball.position.y<KILLY) playerDie();
+
+        /* Câmera */
+        const cp=new BABYLON.Vector3(ball.position.x,ball.position.y+10,ball.position.z-15);
+        cam.position=BABYLON.Vector3.Lerp(cam.position,cp,Math.min(1,dt*4));
+        cam.setTarget(new BABYLON.Vector3(ball.position.x,ball.position.y+2,ball.position.z+3));
+    }
+
+    updateHUD();
+    scene.render();
+});
+
+window.addEventListener('resize',()=>engine.resize());
+
+/* ═══════════════════ INICIALIZAÇÃO ═══════════════════ */
+initPTex();
+createSkybox();
+
+})();
+</script>
+</body>
+</html>
