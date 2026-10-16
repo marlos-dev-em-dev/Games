@@ -138,9 +138,9 @@ class Game {
 
     if (jumpPressed) {
       if (this.player.grounded) {
-        this.player.vy = -9.5; this.player.grounded = false; this.player.jumpCount = 1;
+        this.player.vy = -10.5; this.player.grounded = false; this.player.jumpCount = 1;
       } else if (item === 'bota' && this.player.jumpCount < 2) {
-        this.player.vy = -8.5; this.player.jumpCount++;
+        this.player.vy = -9.5; this.player.jumpCount++;
       }
     }
 

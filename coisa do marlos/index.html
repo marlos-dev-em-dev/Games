@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kingdoms of Tactics — Estratégia Medieval 3D</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="ui">
+  <!-- MENU PRINCIPAL -->
+  <section class="screen active" id="s-menu">
+    <div class="title-wrap">
+      <div class="crest">⚜</div>
+      <h1>KINGDOMS<span>OF</span>TACTICS</h1>
+      <p class="tag">Monte. Posicione. Adapte. Conquiste.</p>
+    </div>
+    <nav class="menu-btns">
+      <button class="btn big gold" data-act="go" data-arg="scenario">⚔ Campanha</button>
+      <button class="btn big" data-act="quick">⚡ Batalha Rápida</button>
+      <button class="btn big" data-act="go" data-arg="armory">🛡 Arsenal &amp; Unidades</button>
+      <button class="btn big" data-act="go" data-arg="tests">🧪 Testes &amp; QA</button>
+      <button class="btn big" data-act="go" data-arg="settings">⚙ Configurações</button>
+    </nav>
+    <div class="menu-foot" id="menu-foot"></div>
+  </section>
+
+  <!-- SELEÇÃO DE BATALHA -->
+  <section class="screen" id="s-scenario">
+    <header class="bar"><h2>Escolha a Batalha</h2><button class="btn sm" data-act="go" data-arg="menu">← Voltar</button></header>
+    <div class="cols">
+      <div class="col" id="scenario-list"></div>
+      <div class="col narrow">
+        <div class="panel" id="scenario-info"></div>
+        <div class="panel">
+          <h3>Dificuldade do Computador</h3>
+          <input type="range" id="diff" min="1" max="10" value="5">
+          <div class="diff-read"><b id="diff-val">5</b><span id="diff-desc"></span></div>
+          <div class="panel sub" id="diff-preview"></div>
+          <button class="btn big gold" data-act="start-setup">Montar Exército →</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARMY BUILDER -->
+  <section class="screen" id="s-builder">
+    <header class="bar">
+      <h2>Montagem do Exército</h2>
+      <div class="budget-wrap">
+        <div class="budget-bar"><i id="budget-fill"></i></div>
+        <div class="budget-num"><span id="budget-used">0</span> / <span id="budget-max">0</span> ouro</div>
+      </div>
+      <button class="btn sm" data-act="go" data-arg="scenario">← Voltar</button>
+    </header>
+    <div class="cols three">
+      <div class="col" id="unit-catalog"></div>
+      <div class="col">
+        <div class="panel" id="army-panel"></div>
+        <div class="panel sub" id="synergy-preview"></div>
+      </div>
+      <div class="col narrow"><div class="panel sticky" id="unit-detail"></div></div>
+    </div>
+    <footer class="bar bottom">
+      <button class="btn" data-act="army-clear">Limpar</button>
+      <button class="btn" data-act="army-save">Salvar Composição</button>
+      <button class="btn" data-act="army-load">Carregar Composição</button>
+      <button class="btn" data-act="army-preset" data-arg="defense">Preset: Defesa</button>
+      <button class="btn" data-act="army-preset" data-arg="ranged">Preset: Arqueiros</button>
+      <button class="btn" data-act="army-preset" data-arg="mobility">Preset: Mobilidade</button>
+      <span class="spacer"></span>
+      <button class="btn big gold" data-act="to-deploy">Confirmar Exército →</button>
+    </footer>
+  </section>
+
+  <!-- DEPLOYMENT -->
+  <section class="screen" id="s-deploy">
+    <header class="bar">
+      <h2>Posicionamento</h2>
+      <div class="hint" id="deploy-hint"></div>
+      <button class="btn sm" data-act="go" data-arg="builder">← Voltar</button>
+    </header>
+    <aside class="side left" id="deploy-pool"></aside>
+    <aside class="side right" id="deploy-inspect"></aside>
+    <footer class="bar bottom">
+      <button class="btn" data-act="deploy-auto">Auto-Formação</button>
+      <button class="btn" data-act="deploy-clear">Limpar Campo</button>
+      <span class="spacer"></span>
+      <button class="btn big gold" data-act="battle-start">▶ Iniciar Batalha</button>
+    </footer>
+  </section>
+
+  <!-- BATALHA (HUD) -->
+  <section class="screen" id="s-battle">
+    <div class="hud top">
+      <div class="hud-box" id="hud-player"></div>
+      <div class="hud-box center" id="hud-timer">0:00</div>
+      <div class="hud-box right" id="hud-enemy"></div>
+    </div>
+    <aside class="side left slim" id="hud-synergy"></aside>
+    <aside class="side right slim" id="hud-log"></aside>
+    <div class="hud bottom">
+      <div class="cmds" id="cmd-bar"></div>
+      <div class="speeds">
+        <button class="btn sm" data-act="speed" data-arg="0">⏸</button>
+        <button class="btn sm" data-act="speed" data-arg="1">1x</button>
+        <button class="btn sm" data-act="speed" data-arg="2">2x</button>
+        <button class="btn sm" data-act="speed" data-arg="3">3x</button>
+        <button class="btn sm" data-act="camera-reset">🎥</button>
+      </div>
+    </div>
+    <div class="target-card" id="target-card"></div>
+    <div class="cast-hint" id="cast-hint"></div>
+  </section>
+
+  <!-- RESULTADO -->
+  <section class="screen" id="s-result">
+    <div class="result-box">
+      <h1 id="result-title">VITÓRIA</h1>
+      <p id="result-sub"></p>
+      <div class="cols">
+        <div class="col"><div class="panel"><h3>Desempenho por Unidade</h3><table class="tbl" id="result-table"></table></div></div>
+        <div class="col narrow">
+          <div class="panel"><h3>Recompensas</h3><div id="result-rewards"></div></div>
+          <div class="panel sub"><h3>Análise Tática</h3><div id="result-tips"></div></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" data-act="go" data-arg="menu">Menu</button>
+        <button class="btn" data-act="retry">Repetir Batalha</button>
+        <button class="btn big gold" data-act="go" data-arg="builder">Nova Composição →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARSENAL -->
+  <section class="screen" id="s-armory">
+    <header class="bar"><h2>Arsenal &amp; Unidades</h2>
+      <div class="gold-pill">🪙 <b id="armory-gold">0</b></div>
+      <button class="btn sm" data-act="go" data-arg="menu">← Voltar</button></header>
+    <div class="grid-cards" id="armory-grid"></div>
+  </section>
+
+  <!-- TESTES -->
+  <section class="screen" id="s-tests">
+    <header class="bar"><h2>Testes Automatizados &amp; QA</h2>
+      <button class="btn sm" data-act="go" data-arg="menu">← Voltar</button></header>
+    <div class="panel">
+      <p class="dim">Suíte de testes que roda a lógica pura do jogo (catálogo, orçamento, sinergias,
+        resolução de combate, balanceamento estatístico, persistência e renderização).</p>
+      <button class="btn big gold" data-act="run-tests">▶ Executar Suíte</button>
+      <div id="test-results"></div>
+    </div>
+    <div class="panel"><h3>Checklist de QA Manual</h3><div id="qa-list"></div></div>
+  </section>
+
+  <!-- CONFIGURAÇÕES -->
+  <section class="screen" id="s-settings">
+    <header class="bar"><h2>Configurações</h2><button class="btn sm" data-act="go" data-arg="menu">← Voltar</button></header>
+    <div class="panel">
+      <label class="row"><span>Qualidade de sombra (decals)</span>
+        <input type="range" id="opt-shadow" min="0" max="2" value="2"></label>
+      <label class="row"><span>Mostrar barras de vida</span>
+        <input type="checkbox" id="opt-hp" checked></label>
+      <label class="row"><span>Mostrar números de dano</span>
+        <input type="checkbox" id="opt-dmg" checked></label>
+      <label class="row"><span>Reduzir partículas</span>
+        <input type="checkbox" id="opt-fx"></label>
+      <button class="btn big danger" data-act="reset-save">Apagar progressão local</button>
+    </div>
+    <div class="panel sub"><h3>Controles</h3><div id="controls-help"></div></div>
+  </section>
+</div>
+
+<div id="toast"></div>
+<div id="fatal"></div>
+
+<script src="js/engine.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

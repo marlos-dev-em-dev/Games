@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syntax Shift - Code Racing Deluxe</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { background: #080810; color: #fff; font-family: 'Courier New', Courier, monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    #game-container { position: relative; width: 1000px; height: 650px; background: #040408; border: 2px solid #00f0ff; box-shadow: 0 0 30px rgba(0,240,255,0.3); overflow: hidden; border-radius: 8px; }
+    canvas { display: block; width: 100%; height: 100%; }
+    
+    .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(4,4,10,0.95); backdrop-filter: blur(6px); z-index: 10; }
+    .hidden { display: none !important; }
+
+    h1 { font-size: 2.8rem; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 4px; letter-spacing: 3px; font-weight: 900; }
+    p.subtitle { color: #8a99ad; margin-bottom: 12px; font-size: 0.88rem; letter-spacing: 1px; }
+
+    .net-box { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 6px; border: 1px solid rgba(0,240,255,0.3); }
+    .net-input { background: #020205; border: 1px solid #00f0ff; color: #fff; padding: 6px 12px; font-family: inherit; font-size: 0.9rem; border-radius: 4px; width: 140px; text-align: center; }
+    
+    .lobby-status { font-size: 0.9rem; color: #00ff66; margin-bottom: 12px; font-weight: bold; text-shadow: 0 0 8px rgba(0,255,102,0.4); }
+
+    .lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 90%; max-width: 840px; }
+    .lang-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,240,255,0.2); border-radius: 6px; padding: 12px; cursor: pointer; transition: all 0.2s ease; text-align: left; position: relative; }
+    .lang-card:not(.taken):hover { border-color: #00f0ff; transform: translateY(-2px); background: rgba(0,240,255,0.12); box-shadow: 0 0 15px rgba(0,240,255,0.2); }
+    .lang-card.selected { border-color: #00ff66 !important; background: rgba(0,255,102,0.15) !important; box-shadow: 0 0 15px rgba(0,255,102,0.3); }
+    .lang-card.taken { opacity: 0.45; cursor: not-allowed; border-color: #ff0055; filter: grayscale(0.6); }
+
+    .lang-title { font-size: 1.15rem; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; color: #fff; }
+    .lang-ability { font-size: 0.78rem; color: #ff0055; font-weight: bold; margin-bottom: 4px; }
+    .lang-desc { font-size: 0.72rem; color: #a0aab5; line-height: 1.35; }
+    .taken-badge { position: absolute; top: 8px; right: 8px; font-size: 0.65rem; background: #ff0055; color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+
+    #hud { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; pointer-events: none; z-index: 5; }
+    .hud-box { background: rgba(4,4,10,0.85); border: 1px solid #00f0ff; padding: 8px 14px; border-radius: 4px; font-size: 0.88rem; color: #00f0ff; text-shadow: 0 0 6px #00f0ff; font-weight: bold; }
+    
+    #qte-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(5,7,16,0.96); border: 2px solid #00ff66; box-shadow: 0 0 35px rgba(0,255,102,0.4); padding: 22px 28px; border-radius: 8px; width: 540px; text-align: center; z-index: 20; }
+    .qte-title { color: #00ff66; font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; text-shadow: 0 0 8px #00ff66; }
+    .qte-subtitle { font-size: 0.78rem; color: #8a99ad; margin-bottom: 12px; }
+    .qte-code { background: #020205; border: 1px solid #00ff66; padding: 14px; border-radius: 4px; font-family: monospace; font-size: 1.25rem; text-align: left; margin: 10px 0; white-space: pre; letter-spacing: 2px; box-shadow: inset 0 0 10px rgba(0,0,0,0.9); }
+    .typed-text { color: #00ff66; text-shadow: 0 0 8px #00ff66; font-weight: bold; }
+    .untyped-text { color: #445566; }
+    .cursor { display: inline-block; width: 8px; height: 1.1rem; background: #00ff66; margin-left: 2px; animation: blink 0.6s infinite alternate; vertical-align: middle; }
+    .timer-bar-container { width: 100%; height: 6px; background: #1a1a2a; margin-top: 14px; border-radius: 3px; overflow: hidden; }
+    .timer-bar { height: 100%; background: #00ff66; width: 100%; transition: width 0.05s linear; }
+
+    #autopilot-indicator { position: absolute; top: 65px; left: 15px; background: rgba(255,0,85,0.9); color: #fff; font-weight: 900; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; box-shadow: 0 0 12px #ff0055; display: none; z-index: 6; animation: pulse 0.5s infinite alternate; }
+
+    #notification { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,240,255,0.95); color: #05050a; font-weight: 900; padding: 8px 22px; border-radius: 20px; font-size: 1rem; box-shadow: 0 0 20px #00f0ff; transition: opacity 0.3s, transform 0.3s; opacity: 0; pointer-events: none; z-index: 15; letter-spacing: 1px; }
+    #notification.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+    .btn { padding: 8px 18px; background: #00f0ff; color: #05050a; font-weight: 900; font-size: 0.9rem; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .btn:hover:not(:disabled) { background: #fff; box-shadow: 0 0 15px #00f0ff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @keyframes blink { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas" width="1000" height="650"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-box" id="hud-pos">POS: 1 / 6</div>
+      <div class="hud-box" id="hud-lap">LAP: 1 / 3</div>
+      <div class="hud-box" id="hud-ping">PING: -- ms</div>
+      <div class="hud-box" id="hud-speed">0 KM/H</div>
+    </div>
+
+    <div id="autopilot-indicator">🤖 PILOTO AUTOMÁTICO DE EMERGÊNCIA ATIVO</div>
+    <div id="notification">HACK EXECUTED!</div>
+
+    <div id="qte-overlay" class="hidden">
+      <div class="qte-title">⚡ TERMINAL BREAKPOINT</div>
+      <div class="qte-subtitle">DIGITE A SINTAXE EXATA PARA INJETAR O HACK</div>
+      <div class="qte-code" id="qte-code-box"></div>
+      <div class="timer-bar-container"><div class="timer-bar" id="qte-timer"></div></div>
+    </div>
+
+    <div id="select-screen" class="overlay">
+      <h1>SYNTAX SHIFT</h1>
+      <p class="subtitle">SALA MULTIPLAYER (MÁX 6 JOGADORES) • SELEÇÃO ÚNICA DE CARRO</p>
+
+      <div class="net-box">
+        <span>SEU ID PIN: <strong id="my-peer-id" style="color:#00f0ff;">GERE...</strong></span>
+        <input type="text" id="join-peer-id" class="net-input" maxlength="6" placeholder="PIN HOST">
+        <button class="btn" id="btn-connect" onclick="connectToPeer()">ENTRAR NA SALA</button>
+      </div>
+
+      <div class="lobby-status" id="lobby-status">Aguardando jogadores escolherem seus carros... (1/6)</div>
+
+      <div class="lang-grid" id="lang-grid"></div>
+
+      <button class="btn" id="btn-start-race" style="margin-top: 15px; display: none;" onclick="hostStartRace()" disabled>
+        AGUARDANDO TODOS ESCOLHEREM...
+      </button>
+    </div>
+
+    <div id="end-screen" class="overlay hidden">
+      <h1 id="end-title">FIM DA CORRIDA</h1>
+      <p class="subtitle" id="end-stats">Posição Final: 1º Lugar</p>
+      <button class="btn" onclick="location.reload()">JOGAR NOVAMENTE</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
