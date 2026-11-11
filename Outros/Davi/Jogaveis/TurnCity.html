@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Império de Ferro — Cidades &amp; Monopólio</title>
+
+<!-- BLOCO 0.1 — fontes externas -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
+<!-- =========================================================
+     SISTEMA GLOBAL — CSS
+     Identidade, tipografia, paleta e componentes reutilizáveis
+     ========================================================= -->
+<style>
+:root{
+  --bg:#12121f;
+  --bg-deep:#0b0b15;
+  --panel:#1c1c30;
+  --panel-2:#242441;
+  --line:#3b3b60;
+  --sand:#f4e7cf;
+  --muted:#a79fc6;
+  --teal:#2ec4b6;
+  --orange:#ff9f1c;
+  --crimson:#ef476f;
+  --gold:#ffd166;
+  --ink:#0b0b15;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{
+  background:
+    radial-gradient(ellipse at 12% -15%, #2a1b4a 0%, transparent 55%),
+    radial-gradient(ellipse at 92% 115%, #331433 0%, transparent 52%),
+    var(--bg);
+  color:var(--sand);
+  font-family:'VT323', ui-monospace, monospace;
+  font-size:21px;
+  line-height:1.25;
+  overflow-x:hidden;
+}
+/* textura de ruído */
+body::before{
+  content:'';position:fixed;inset:0;z-index:70;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* linhas de varredura (CRT) */
+body::after{
+  content:'';position:fixed;inset:0;z-index:71;pointer-events:none;opacity:.22;
+  background:repeating-linear-gradient(0deg, rgba(11,11,21,.42) 0 1px, transparent 1px 3px);
+}
+
+/* ---------- tipografia utilitária ---------- */
+h1,h2,h3,.btn,.brand-mini,.kicker,.top-stats,.panel-title,.end-title{
+  font-family:'Press Start 2P', ui-monospace, monospace;
+}
+.kicker{font-size:10px;letter-spacing:3px;color:var(--teal)}
+.panel-title{font-size:11px;letter-spacing:1px;color:var(--gold);margin:14px 0 10px}
+.panel-title small{font-family:'VT323';font-size:17px;color:var(--muted);letter-spacing:0}
+
+/* ---------- botões ---------- */
+.btn{
+  font-size:11px;letter-spacing:.5px;line-height:1.5;
+  padding:14px 18px;color:var(--ink);background:var(--sand);
+  border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);
+  cursor:pointer;text-align:center;
+  transition:transform .12s ease, box-shadow .12s ease, background .2s ease;
+}
+.btn:hover{background:var(--gold);transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+.btn:active{transform:translate(5px,5px);box-shadow:0 0 0 var(--ink)}
+.btn:focus-visible{outline:3px solid var(--teal);outline-offset:3px}
+.btn[disabled]{opacity:.35;cursor:not-allowed;transform:none;box-shadow:5px 5px 0 var(--ink);background:var(--sand)}
+.btn-primary{background:var(--gold)}
+.btn-primary:hover{background:#ffe6a1}
+.btn-small{font-size:9px;padding:10px 12px}
+.btn-block{width:100%;margin:12px 0}
+.btn.mode-on{background:var(--teal)}
+kbd{
+  font-family:'Press Start 2P';font-size:8px;
+  background:rgba(11,11,21,.22);border:1px solid rgba(11,11,21,.45);
+  padding:2px 5px;margin-left:6px;
+}
+
+/* ---------- telas ---------- */
+.screen{display:none}
+.screen.active{display:flex}
+#menu-screen{
+  position:relative;overflow:hidden;flex-direction:column;justify-content:center;
+  min-height:100vh;padding:6vh 6vw;
+}
+.menu-wrap{position:relative;z-index:2;max-width:760px}
+.game-title{
+  font-size:clamp(32px,6.6vw,72px);line-height:1.08;color:var(--sand);
+  text-shadow:6px 6px 0 var(--crimson), 12px 12px 0 rgba(11,11,21,.5);
+  margin:18px 0;
+}
+.game-title span{color:var(--gold)}
+.tagline{max-width:540px;font-size:24px;color:var(--muted);margin:22px 0 30px}
+.menu-actions{display:flex;flex-wrap:wrap;gap:16px}
+.record-line{
+  margin-top:34px;color:var(--muted);font-size:20px;
+  border-left:4px solid var(--teal);padding-left:12px;
+}
+.skyline{position:absolute;left:0;right:0;bottom:0;width:100%;height:30vh;z-index:1}
+
+/* ---------- jogo ---------- */
+#game-screen{
+  flex-direction:column;gap:12px;
+  padding:12px 14px 20px;max-width:1520px;margin:0 auto;width:100%;
+}
+.topbar{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--panel);border:2px solid var(--line);
+  box-shadow:6px 6px 0 var(--bg-deep);padding:10px 14px;
+}
+.brand-mini{font-size:11px;color:var(--gold);letter-spacing:1px}
+.top-stats{display:flex;flex-wrap:wrap;gap:8px 20px;flex:1;font-size:10px;color:var(--muted)}
+.top-stats .stat-money{color:var(--teal)}
+.top-stats .stat-net{color:var(--gold)}
+.ap-dots{display:flex;align-items:center;gap:5px}
+.ap-dots i{width:13px;height:13px;background:var(--gold);border:2px solid var(--ink);display:inline-block}
+.ap-dots i.off{background:var(--line)}
+.ap-label{color:var(--muted)}
+
+.game-area{
+  display:grid;grid-template-columns:290px minmax(0,1fr) 320px;
+  gap:14px;flex:1;min-height:0;
+}
+.panel{
+  background:var(--panel);border:2px solid var(--line);
+  box-shadow:6px 6px 0 var(--bg-deep);padding:14px;
+  overflow-y:auto;
+}
+.p-card{
+  border-left:5px solid var(--pc);background:var(--panel-2);
+  padding:8px 10px;margin-bottom:8px;
+}
+.p-card .p-name{font-family:'Press Start 2P';font-size:10px;color:var(--sand)}
+.p-card .p-stats{font-size:18px;color:var(--muted);margin-top:5px}
+.turn-flag{color:var(--teal);font-family:'Press Start 2P';font-size:8px}
+.sel-info{
+  background:var(--panel-2);border:2px dashed var(--line);
+  padding:10px;font-size:19px;color:var(--muted);min-height:110px;
+}
+.sel-info b{color:var(--sand)}
+
+.map-wrap{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  background:var(--bg-deep);border:2px solid var(--line);
+  box-shadow:6px 6px 0 var(--bg-deep);min-height:0;
+}
+#map{width:100%;height:auto;display:block;cursor:crosshair}
+.toast{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%) translateY(-10px);
+  background:var(--gold);color:var(--ink);
+  font-family:'Press Start 2P';font-size:10px;line-height:1.6;
+  padding:10px 14px;border:3px solid var(--ink);box-shadow:5px 5px 0 rgba(11,11,21,.6);
+  opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;
+  max-width:80%;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.actions .btn{font-size:9px;padding:12px 8px}
+.log-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto}
+.log-entry{
+  font-size:17px;line-height:1.2;padding:6px 8px;
+  background:var(--panel-2);border-left:4px solid var(--line);color:var(--muted);
+}
+.log-entry.good{border-left-color:var(--teal);color:var(--sand)}
+.log-entry.event{border-left-color:var(--gold);color:var(--gold)}
+.log-entry.sys{border-left-color:var(--orange)}
+.log-entry.bad{border-left-color:var(--crimson);color:var(--crimson)}
+
+/* ---------- modais ---------- */
+.modal{
+  position:fixed;inset:0;z-index:90;display:none;
+  align-items:center;justify-content:center;padding:20px;
+  background:rgba(11,11,21,.85);
+}
+.modal.open{display:flex}
+.modal-card{
+  width:100%;max-width:580px;background:var(--panel);
+  border:3px solid var(--sand);box-shadow:12px 12px 0 var(--bg-deep);
+  padding:26px;max-height:88vh;overflow-y:auto;
+}
+.modal-card h2{font-size:17px;color:var(--gold);margin-bottom:16px;line-height:1.5}
+.modal-card p{font-size:20px;color:var(--muted);margin-bottom:12px}
+.modal-card ul{margin:0 0 14px 20px}
+.modal-card li{font-size:19px;color:var(--muted);margin-bottom:6px}
+.modal-card li b{color:var(--sand)}
+.modal-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.end-title{font-size:22px;line-height:1.5;margin-bottom:14px}
+.end-title.win{color:var(--teal)}
+.end-title.lose{color:var(--crimson)}
+
+/* ---------- responsivo ---------- */
+@media (max-width:1080px){
+  .game-area{grid-template-columns:1fr}
+  .map-wrap{order:-1}
+  .log-list{max-height:190px}
+  .game-title{text-shadow:4px 4px 0 var(--crimson), 8px 8px 0 rgba(11,11,21,.5)}
+}
+@media (max-width:560px){
+  body{font-size:19px}
+  .actions{grid-template-columns:1fr 1fr}
+  .btn{padding:12px 10px;font-size:10px}
+  .top-stats{font-size:9px}
+}
+</style>
+</head>
+<body>
+
+<!-- =========================================================
+     CENA 1 — MENU PRINCIPAL
+     ========================================================= -->
+<section id="menu-screen" class="screen active">
+
+  <!-- BLOCO 1.1 — estrutura do menu -->
+  <div class="menu-wrap">
+    <p class="kicker">ECONOMIA · TERRITÓRIO · PODER</p>
+    <h1 class="game-title">IMPÉRIO<br><span>DE FERRO</span></h1>
+    <p class="tagline">
+      Compre cidades, costure sua rede de estradas e forme o maior monopólio do país
+      antes que Dona Marta ou Sr. Otávio façam isso primeiro.
+    </p>
+
+    <!-- BLOCO 1.2 — controles -->
+    <div class="menu-actions">
+      <button id="btn-play" class="btn btn-primary">JOGAR</button>
+      <button id="btn-help" class="btn">COMO JOGAR</button>
+      <button id="btn-sound" class="btn">SOM: LIGADO</button>
+    </div>
+    <p id="record-line" class="record-line">Carregando recordes…</p>
+  </div>
+
+  <!-- silhueta da cidade -->
+  <svg class="skyline" viewBox="0 0 1440 260" preserveAspectRatio="none" aria-hidden="true">
+    <g fill="#0b0b15">
+      <rect x="0" y="168" width="118" height="92"/>
+      <rect x="128" y="118" width="88" height="142"/>
+      <rect x="226" y="150" width="140" height="110"/>
+      <rect x="376" y="88" width="78" height="172"/>
+      <rect x="464" y="138" width="122" height="122"/>
+      <rect x="598" y="108" width="98" height="152"/>
+      <rect x="708" y="158" width="150" height="102"/>
+      <rect x="868" y="98" width="88" height="162"/>
+      <rect x="968" y="143" width="130" height="117"/>
+      <rect x="1110" y="78" width="78" height="182"/>
+      <rect x="1200" y="148" width="122" height="112"/>
+      <rect x="1332" y="112" width="108" height="148"/>
+    </g>
+    <g fill="#ffd166" opacity=".85">
+      <rect x="150" y="140" width="10" height="13"/><rect x="176" y="140" width="10" height="13"/>
+      <rect x="150" y="172" width="10" height="13"/><rect x="396" y="112" width="10" height="13"/>
+      <rect x="420" y="146" width="10" height="13"/><rect x="622" y="132" width="10" height="13"/>
+      <rect x="648" y="168" width="10" height="13"/><rect x="890" y="122" width="10" height="13"/>
+      <rect x="914" y="158" width="10" height="13"/><rect x="1130" y="102" width="10" height="13"/>
+      <rect x="1152" y="140" width="10" height="13"/><rect x="1356" y="136" width="10" height="13"/>
+    </g>
+  </svg>
+</section>
+
+<!-- =========================================================
+     CENA 2 — JOGO PRINCIPAL
+     ========================================================= -->
+<section id="game-screen" class="screen">
+
+  <header class="topbar">
+    <div class="brand-mini">IMPÉRIO DE FERRO</div>
+    <div class="top-stats">
+      <span id="turn-label">TURNO 1/24</span>
+      <span id="money-label" class="stat-money">R$ 1.200</span>
+      <span id="net-label" class="stat-net">PATRIMÔNIO R$ 1.200</span>
+      <span id="city-count">CIDADES 1</span>
+      <span class="ap-label">PONTOS DE AÇÃO</span>
+      <span id="ap-dots" class="ap-dots"><i></i><i></i><i></i></span>
+    </div>
+    <button id="btn-pause" class="btn btn-small">PAUSA (P)</button>
+  </header>
+
+  <div class="game-area">
+
+    <!-- BLOCO 2.3 — painel de status -->
+    <aside class="panel">
+      <h2 class="panel-title">MAGNATAS</h2>
+      <div id="players-panel"></div>
+      <h2 class="panel-title">ALVO SELECIONADO</h2>
+      <div id="sel-info" class="sel-info">Nenhuma cidade selecionada. Clique num bloco do mapa.</div>
+    </aside>
+
+    <!-- BLOCO 2.1 — área de jogo -->
+    <div class="map-wrap">
+      <canvas id="map" width="800" height="560" aria-label="Mapa de cidades em disputa"></canvas>
+      <div id="toast" class="toast"></div>
+    </div>
+
+    <!-- BLOCO 2.2 — painel de ações -->
+    <aside class="panel">
+      <h2 class="panel-title">AÇÕES <small>— cada ação custa 1 PA</small></h2>
+      <div class="actions">
+        <button id="act-buy" class="btn act">COMPRAR <kbd>B</kbd></button>
+        <button id="act-upgrade" class="btn act">MELHORAR <kbd>U</kbd></button>
+        <button id="act-road" class="btn act">ESTRADA <kbd>R</kbd></button>
+        <button id="act-mkt" class="btn act">PUBLICIDADE <kbd>M</kbd></button>
+        <button id="act-sab" class="btn act">SABOTAR <kbd>S</kbd></button>
+        <button id="act-sell" class="btn act">VENDER <kbd>V</kbd></button>
+      </div>
+      <button id="btn-endturn" class="btn btn-primary btn-block">ENCERRAR TURNO <kbd>↵</kbd></button>
+      <h2 class="panel-title">REGISTRO</h2>
+      <div id="log-list" class="log-list"></div>
+    </aside>
+
+  </div>
+</section>
+
+<!-- =========================================================
+     CENA 3 — MODAIS E FEEDBACK
+     ========================================================= -->
+
+<!-- BLOCO 3.1 — ajuda e pausa -->
+<div id="modal-help" class="modal" role="dialog" aria-modal="true" aria-label="Como jogar">
+  <div class="modal-card">
+    <h2>COMO JOGAR</h2>
+    <p>Você disputa 16 cidades contra 2 rivais. Cada turno você tem <b>3 pontos de ação (PA)</b>.</p>
+    <ul>
+      <li><b>Estrada (R$ 100):</b> conecta uma cidade da fronteira à sua rede. Só é possível comprar cidades conectadas.</li>
+      <li><b>Comprar:</b> paga o valor da cidade e ela passa a render renda todo turno.</li>
+      <li><b>Melhorar:</b> aumenta o nível (até 3) e a receita da cidade.</li>
+      <li><b>Publicidade (R$ 200):</b> +25% na receita de todas as suas cidades por 2 turnos.</li>
+      <li><b>Sabotar (R$ 250):</b> corta pela metade a receita de uma cidade rival na fronteira da sua rede.</li>
+      <li><b>Vender:</b> devolve 60% do valor da cidade (não venda sua última cidade).</li>
+    </ul>
+    <p><b>Vitória:</b> chegar a R$ 4.500 em caixa, controlar 9 cidades ou ter o maior patrimônio no turno 24.</p>
+    <p><b>Atalhos:</b> B comprar · U melhorar · R estrada · M publicidade · S sabotar · V vender · Enter encerrar turno · P pausa · Esc cancelar.</p>
+    <div class="modal-actions">
+      <button id="btn-help-close" class="btn btn-primary">ENTENDIDO</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-pause" class="modal" role="dialog" aria-modal="true" aria-label="Jogo pausado">
+  <div class="modal-card">
+    <h2>PAUSA</h2>
+    <p>O mercado espera. Respire fundo antes do próximo movimento.</p>
+    <div class="modal-actions">
+      <button id="btn-resume" class="btn btn-primary">CONTINUAR</button>
+      <button id="btn-pause-help" class="btn">COMO JOGAR</button>
+      <button id="btn-pause-menu" class="btn">MENU PRINCIPAL</button>
+    </div>
+  </div>
+</div>
+
+<!-- BLOCO 3.2 — vitória e derrota -->
+<div id="modal-end" class="modal" role="dialog" aria-modal="true" aria-label="Fim de jogo">
+  <div class="modal-card">
+    <h2 id="end-title" class="end-title win">VITÓRIA!</h2>
+    <p id="end-text"></p>
+    <div class="modal-actions">
+      <button id="btn-restart" class="btn btn-primary">JOGAR NOVAMENTE</button>
+      <button id="btn-menu" class="btn">MENU PRINCIPAL</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+
+<!-- =========================================================
+     PARTE 2 — LÓGICA DO JOGO
+     (script 1 de 2 — inserir antes de </body>)
+     ========================================================= -->
+<script>
+'use strict';
+
+/* =========================================================
+   SISTEMA GLOBAL — JS / ESTADO E CONSTANTES
+   ========================================================= */
+
+// ---- BLOCO 0.2 — constantes, dados do mapa e estado ----
+
+const CFG = {
+  TURNS: 24,
+  AP: 3,
+  START_MONEY: 1200,
+  ROAD_COST: 100,
+  MKT_COST: 200,
+  SAB_COST: 250,
+  SELL_RATE: 0.6,
+  TAKEOVER_RATE: 1.6,
+  WIN_MONEY: 4500,
+  WIN_CITIES: 9
+};
+
+const PLAYER_DEFS = [
+  { name: 'VOCÊ',       color: '#2ec4b6', isHuman: true  },
+  { name: 'DONA MARTA', color: '#ef476f', isHuman: false },
+  { name: 'SR. OTÁVIO', color: '#ff9f1c', isHuman: false }
+];
+
+const NEUTRAL_COLOR = '#8d86c0';
+const LVL_MULT = [0, 1, 1.7, 2.5];
+
+const CITY_NAMES = [
+  'Porto Aurora', 'Vila Prata', 'Serra Verde', 'Cabo Norte',
+  'Cidade Velha', 'Nova Esperança', 'Pedra Alta', 'Maré Mansa',
+  'Vale Rico', 'Ipê Amarelo', 'Estrela do Sul', 'Ponte Ferro',
+  'Alto do Sol', 'Jardim Real', 'Morro Azul', 'Baía Dourada'
+];
+
+const CITY_PRICES = [
+  300, 240, 340, 260,
+  220, 380, 280, 320,
+  260, 300, 240, 360,
+  200, 320, 280, 340
+];
+
+// estado global do jogo
+const state = {
+  phase: 'menu',      // menu | playing | paused | over
+  turn: 1,
+  ap: CFG.AP,
+  selected: null,     // id da cidade selecionada
+  hover: null,        // id da cidade sob o cursor
+  cities: [],         // cidades em jogo (copia viva de CITY_DEFS)
+  players: [],        // magnatas
+  log: [],
+  sound: true,
+  record: 0,
+  anim: 0             // contador de animação do canvas
+};
+
+/* =========================================================
+   SISTEMA GLOBAL — ÁUDIO
+   ========================================================= */
+
+// ---- BLOCO 0.3 — áudio (WebAudio, sintetizado) ----
+
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function tone(freq, dur, type = 'square', vol = 0.05, delay = 0) {
+  if (!audioCtx || !state.sound) return;
+  const t0 = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+}
+
+function sfx(name) {
+  if (!state.sound) return;
+  switch (name) {
+    case 'click':   tone(660, 0.05); break;
+    case 'road':    tone(220, 0.06); tone(330, 0.08, 'square', 0.05, 0.07); break;
+    case 'buy':     [440, 550, 660].forEach((f, i) => tone(f, 0.09, 'square', 0.05, i * 0.08)); break;
+    case 'upgrade': [330, 495, 660].forEach((f, i) => tone(f, 0.09, 'triangle', 0.06, i * 0.08)); break;
+    case 'cash':    [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.11, 'square', 0.05, i * 0.09)); break;
+    case 'event':   [784, 587].forEach((f, i) => tone(f, 0.14, 'triangle', 0.06, i * 0.12)); break;
+    case 'error':   tone(160, 0.18, 'sawtooth', 0.05); break;
+    case 'turn':    [880, 660].forEach((f, i) => tone(f, 0.08, 'square', 0.04, i * 0.1)); break;
+    case 'win':     [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.18, 'square', 0.06, i * 0.15)); break;
+    case 'lose':    [392, 330, 262, 196].forEach((f, i) => tone(f, 0.22, 'triangle', 0.06, i * 0.18)); break;
+  }
+}
+
+/* =========================================================
+   CENA 4 — LÓGICA DO JOGO
+   ========================================================= */
+
+// ---- BLOCO 4.1 — utilidades, rede e fronteira ----
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+
+// vizinhança 8 direções na grade 4x4
+function neighborsOf(id) {
+  const r = Math.floor(id / 4), c = id % 4, out = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < 4 && nc >= 0 && nc < 4) out.push(nr * 4 + nc);
+    }
+  }
+  return out;
+}
+
+function inNetwork(pid, cityId) { return state.players[pid].network.includes(cityId); }
+
+function isFrontier(pid, cityId) {
+  if (inNetwork(pid, cityId)) return false;
+  return neighborsOf(cityId).some((n) => inNetwork(pid, n));
+}
+
+function cityIncome(city) {
+  if (city.owner < 0) return 0;
+  const p = state.players[city.owner];
+  let value = city.price * LVL_MULT[city.level];
+  if (city.sabotage > 0) value *= 0.5;
+  if (p.adTurns > 0) value *= 1.25;
+  return Math.round(value * 0.2);
+}
+
+function cityValue(city) { return Math.round(city.price * LVL_MULT[city.level]); }
+function upgradeCost(city) { return Math.round(city.price * 0.5 * city.level); }
+function ownedCities(pid) { return state.cities.filter((c) => c.owner === pid); }
+
+function netWorth(pid) {
+  const p = state.players[pid];
+  return p.money + ownedCities(pid).reduce((s, c) => s + cityValue(c), 0);
+}
+
+function addLog(msg, type = '') {
+  state.log.unshift({ msg, type, turn: state.turn });
+  if (state.log.length > 40) state.log.pop();
+}
+
+// ---- BLOCO 4.2 — fluxo de turno, renda e eventos ----
+
+function collectIncome() {
+  state.players.forEach((p, pid) => {
+    const gain = ownedCities(pid).reduce((s, c) => s + cityIncome(c), 0);
+    p.money += gain;
+    if (gain > 0) {
+      addLog(pid === 0 ? `Receita do turno: +${fmt(gain)}.` : `${p.name} arrecadou ${fmt(gain)}.`, pid === 0 ? 'good' : '');
+    }
+  });
+  state.cities.forEach((c) => { if (c.sabotage > 0) c.sabotage--; });
+  state.players.forEach((p) => { if (p.adTurns > 0) p.adTurns--; });
+}
+
+// tabela de eventos aleatórios (55% de chance por turno)
+const EVENTS = [
+  {
+    run() {
+      const owned = state.cities.filter((c) => c.owner >= 0);
+      if (!owned.length) return null;
+      const c = owned[Math.floor(Math.random() * owned.length)];
+      state.players[c.owner].money += 150;
+      return `Festival em ${c.name}: ${state.players[c.owner].name} lucrou ${fmt(150)}.`;
+    }
+  },
+  {
+    run() {
+      state.players.forEach((p) => { p.money -= 80; });
+      return `Crise de combustível: cada magnata paga ${fmt(80)}.`;
+    }
+  },
+  {
+    run() {
+      state.players.forEach((p) => { p.money += 100; });
+      return `Lei de incentivo: cada magnata recebe ${fmt(100)}.`;
+    }
+  },
+  {
+    run() {
+      const pool = state.cities.filter((c) => c.owner >= 0 && c.sabotage === 0);
+      if (!pool.length) return null;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      c.sabotage = 1;
+      return `Tempestade em ${c.name}: receita cortada neste turno.`;
+    }
+  },
+  {
+    run() {
+      let rich = 0;
+      state.players.forEach((p, i) => { if (p.money > state.players[rich].money) rich = i; });
+      state.players[rich].money -= 150;
+      return `Greve geral nos negócios de ${state.players[rich].name}: -${fmt(150)}.`;
+    }
+  },
+  {
+    run() {
+      let poor = 0;
+      state.players.forEach((p, i) => { if (netWorth(i) < netWorth(poor)) poor = i; });
+      state.players[poor].money += 200;
+      return `A bolsa favorece ${state.players[poor].name}: +${fmt(200)}.`;
+    }
+  }
+];
+
+function applyEvent() {
+  if (Math.random() > 0.55) return;
+  const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+  const msg = ev.run();
+  if (msg) {
+    addLog(msg, 'event');
+    showToast(msg);
+    sfx('event');
+  }
+}
+
+// falência: vende cidades até o caixa zerar
+function handleBankruptcy() {
+  state.players.forEach((p, pid) => {
+    while (p.money < 0) {
+      const mine = ownedCities(pid).sort((a, b) => a.invested - b.invested);
+      if (!mine.length) { p.money = 0; break; }
+      const c = mine[0];
+      const val = Math.round(c.invested * CFG.SELL_RATE);
+      p.money += val;
+      freeCity(c);
+      addLog(`${p.name} vendeu ${c.name} por ${fmt(val)} (caixa negativo).`, 'bad');
+    }
+    if (p.money < 0) p.money = 0;
+  });
+}
+
+function checkEnd() {
+  if (state.phase !== 'playing') return true;
+  const me = state.players[0];
+  if (me.money >= CFG.WIN_MONEY) {
+    endGame(true, `Você acumulou ${fmt(me.money)} em caixa e dominou a economia do país.`);
+    return true;
+  }
+  const mine = ownedCities(0).length;
+  if (mine >= CFG.WIN_CITIES) {
+    endGame(true, `Você controla ${mine} cidades: monopólio absoluto do território!`);
+    return true;
+  }
+  return false;
+}
+
+function finishByScore() {
+  const rank = state.players.map((p, i) => ({ i, net: netWorth(i) })).sort((a, b) => b.net - a.net);
+  const best = rank[0];
+  if (best.i === 0) {
+    endGame(true, `Turno ${CFG.TURNS} encerrado. Seu patrimônio de ${fmt(best.net)} é o maior do país.`);
+  } else {
+    endGame(false, `Turno ${CFG.TURNS} encerrado. ${state.players[best.i].name} venceu com ${fmt(best.net)}. Seu patrimônio: ${fmt(netWorth(0))}.`);
+  }
+}
+
+// encerra o turno do jogador: IA joga, renda entra, evento rola
+function advanceTurn() {
+  if (state.phase !== 'playing') return;
+  runAI(1);
+  runAI(2);
+  collectIncome();
+  applyEvent();
+  handleBankruptcy();
+  if (state.phase !== 'playing') { renderAll(); return; }
+  if (ownedCities(0).length === 0) {
+    endGame(false, 'Falência: suas últimas cidades foram tomadas para cobrir dívidas.');
+    return;
+  }
+  if (checkEnd()) return;
+  state.turn++;
+  if (state.turn > CFG.TURNS) { finishByScore(); return; }
+  state.ap = CFG.AP;
+  addLog(`--- Turno ${state.turn} ---`, 'sys');
+  sfx('turn');
+  renderAll();
+}
+
+// ---- BLOCO 4.3 — ações (compartilhadas por humano e IA) ----
+
+function freeCity(city) {
+  city.owner = -1;
+  city.level = 0;
+  city.invested = 0;
+  city.sabotage = 0;
+}
+
+function report(pid, msg, type = '', soundName = null) {
+  addLog(pid === 0 ? msg : `${state.players[pid].name} → ${msg}`, type);
+  showToast(pid === 0 ? msg : `${state.players[pid].name}: ${msg}`);
+  if (pid === 0 && soundName) sfx(soundName);
+}
+
+function err(pid, msg) {
+  if (pid !== 0) return false;
+  addLog(msg, 'bad');
+  showToast(msg);
+  sfx('error');
+  return false;
+}
+
+function actRoad(pid, cityId) {
+  const p = state.players[pid], city = state.cities[cityId];
+  if (inNetwork(pid, cityId)) return err(pid, 'Essa cidade já está conectada à sua rede.');
+  if (!isFrontier(pid, cityId)) return err(pid, 'Só é possível conectar cidades na fronteira da sua rede.');
+  if (p.money < CFG.ROAD_COST) return err(pid, 'Dinheiro insuficiente para construir a estrada.');
+  p.money -= CFG.ROAD_COST;
+  p.network.push(cityId);
+  report(pid, `Estrada até ${city.name} construída (-${fmt(CFG.ROAD_COST)}).`, 'good', 'road');
+  return true;
+}
+
+function actBuy(pid, cityId) {
+  const p = state.players[pid], city = state.cities[cityId];
+  if (city.owner === pid) return err(pid, 'Essa cidade já é sua.');
+  if (!inNetwork(pid, cityId)) return err(pid, 'Conecte a cidade à sua rede com uma estrada primeiro.');
+  const takeover = city.owner >= 0;
+  const cost = Math.round(city.price * (takeover ? CFG.TAKEOVER_RATE : 1));
+  if (p.money < cost) return err(pid, `Dinheiro insuficiente: a compra custa ${fmt(cost)}.`);
+  p.money -= cost;
+  if (takeover) {
+    const prev = state.players[city.owner];
+    prev.money += cost;
+    report(pid, `${city.name} foi tomada de ${prev.name} por ${fmt(cost)}!`, 'good', 'buy');
+  } else {
+    report(pid, `${city.name} comprada por ${fmt(cost)}.`, 'good', 'buy');
+  }
+  city.owner = pid;
+  city.level = 1;
+  city.invested = cost;
+  city.sabotage = 0;
+  return true;
+}
+
+function actUpgrade(pid, cityId) {
+  const p = state.players[pid], city = state.cities[cityId];
+  if (city.owner !== pid) return err(pid, 'Você não é dono dessa cidade.');
+  if (city.level >= 3) return err(pid, 'Essa cidade já está no nível máximo.');
+  const cost = upgradeCost(city);
+  if (p.money < cost) return err(pid, `Melhorar custa ${fmt(cost)}.`);
+  p.money -= cost;
+  city.level++;
+  city.invested += cost;
+  report(pid, `${city.name} chegou ao nível ${city.level} (-${fmt(cost)}).`, 'good', 'upgrade');
+  return true;
+}
+
+function actMarket(pid) {
+  const p = state.players[pid];
+  if (p.adTurns > 0) return err(pid, 'Sua publicidade já está no ar.');
+  if (p.money < CFG.MKT_COST) return err(pid, 'Dinheiro insuficiente para publicidade.');
+  if (ownedCities(pid).length === 0) return err(pid, 'Você não tem cidades para divulgar.');
+  p.money -= CFG.MKT_COST;
+  p.adTurns = 2;
+  report(pid, `Publicidade no ar: +25% de receita por 2 turnos (-${fmt(CFG.MKT_COST)}).`, 'good', 'cash');
+  return true;
+}
+
+function actSabotage(pid, cityId) {
+  const p = state.players[pid], city = state.cities[cityId];
+  if (city.owner < 0 || city.owner === pid) return err(pid, 'Escolha uma cidade rival.');
+  if (!isFrontier(pid, cityId) && !inNetwork(pid, cityId)) return err(pid, 'Alvo fora da fronteira da sua rede.');
+  if (city.sabotage > 0) return err(pid, 'Essa cidade já está sabotada.');
+  if (p.money < CFG.SAB_COST) return err(pid, 'Dinheiro insuficiente para sabotagem.');
+  p.money -= CFG.SAB_COST;
+  city.sabotage = 2;
+  report(pid, `Sabotagem em ${city.name}: receita cortada por 2 turnos.`, 'good', 'event');
+  return true;
+}
+
+function actSell(pid, cityId) {
+  const p = state.players[pid], city = state.cities[cityId];
+  if (city.owner !== pid) return err(pid, 'Você não é dono dessa cidade.');
+  if (ownedCities(pid).length <= 1) return err(pid, 'Você não pode vender sua última cidade.');
+  const val = Math.round(city.invested * CFG.SELL_RATE);
+  p.money += val;
+  freeCity(city);
+  report(pid, `${city.name} vendida por ${fmt(val)}.`, 'good', 'cash');
+  return true;
+}
+
+// ---- BLOCO 4.4 — inteligência dos rivais ----
+
+function runAI(pid) {
+  for (let i = 0; i < CFG.AP; i++) {
+    if (!aiStep(pid)) break;
+  }
+}
+
+function aiStep(pid) {
+  const p = state.players[pid];
+
+  // 1) comprar a cidade conectada mais barata (compra hostil se preciso)
+  const buyable = state.cities
+    .filter((c) => c.owner !== pid && inNetwork(pid, c.id))
+    .map((c) => ({ c, cost: Math.round(c.price * (c.owner >= 0 ? CFG.TAKEOVER_RATE : 1)) }))
+    .filter((b) => b.cost + 120 <= p.money)
+    .sort((a, b) => a.cost - b.cost);
+  if (buyable.length && Math.random() < 0.9) return actBuy(pid, buyable[0].c.id);
+
+  // 2) estrada para a cidade neutra mais barata da fronteira
+  const roads = state.cities
+    .filter((c) => isFrontier(pid, c.id) && c.owner !== pid)
+    .sort((a, b) => a.price - b.price);
+  if (roads.length && p.money >= CFG.ROAD_COST + 300) return actRoad(pid, roads[0].id);
+
+  // 3) melhorar a cidade própria mais barata de evoluir
+  const upg = ownedCities(pid)
+    .filter((c) => c.level < 3 && upgradeCost(c) + 150 <= p.money)
+    .sort((a, b) => upgradeCost(a) - upgradeCost(b));
+  if (upg.length && Math.random() < 0.7) return actUpgrade(pid, upg[0].id);
+
+  // 4) publicidade quando há caixa e rede relevante
+  if (p.adTurns === 0 && ownedCities(pid).length >= 2 &&
+      p.money >= CFG.MKT_COST + 300 && Math.random() < 0.35) {
+    return actMarket(pid);
+  }
+
+  // 5) sabotar a cidade rival mais lucrativa ao alcance
+  const targets = state.cities
+    .filter((c) => c.owner >= 0 && c.owner !== pid && c.sabotage === 0 &&
+                  (isFrontier(pid, c.id) || inNetwork(pid, c.id)))
+    .sort((a, b) => cityIncome(b) - cityIncome(a));
+  if (targets.length && p.money >= CFG.SAB_COST + 400 && Math.random() < 0.3) {
+    return actSabotage(pid, targets[0].id);
+  }
+
+  return false;
+}
+</script>
+
+<!-- =========================================================
+     PARTE 3 — RENDERIZAÇÃO, INTERFACE E ENTRADA
+     (script 2 de 2 — inserir antes de </body>)
+     ========================================================= -->
+<script>
+'use strict';
+
+/* =========================================================
+   SISTEMA GLOBAL — RENDERIZAÇÃO DO CANVAS
+   ========================================================= */
+
+// ---- BLOCO 5.1 — desenho do mapa, cidades e estradas ----
+
+function drawMap() {
+  const cv = $('map');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+
+  // fundo do mapa
+  ctx.fillStyle = '#0e0e1c';
+  ctx.fillRect(0, 0, W, H);
+
+  // malha de pontos
+  ctx.fillStyle = 'rgba(141,134,192,0.13)';
+  for (let x = 20; x < W; x += 40) {
+    for (let y = 20; y < H; y += 40) ctx.fillRect(x, y, 2, 2);
+  }
+
+  // faixa de horizonte (calor do entardecer)
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(255,159,28,0.12)');
+  grad.addColorStop(0.55, 'rgba(255,159,28,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // estradas da rede de cada magnata
+  state.players.forEach((p) => {
+    p.network.forEach((a) => {
+      neighborsOf(a).forEach((b) => {
+        if (b <= a || !p.network.includes(b)) return;
+        const ca = state.cities[a], cb = state.cities[b];
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#0b0b15';
+        ctx.lineWidth = 10;
+        ctx.beginPath(); ctx.moveTo(ca.x, ca.y); ctx.lineTo(cb.x, cb.y); ctx.stroke();
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(ca.x, ca.y); ctx.lineTo(cb.x, cb.y); ctx.stroke();
+      });
+    });
+  });
+
+  // cidades
+  state.cities.forEach((c) => drawCity(ctx, c));
+
+  // dica flutuante sob o cursor
+  drawTooltip(ctx, W);
+}
+
+function drawCity(ctx, c) {
+  const S = 48;
+  const x = c.x - S / 2, y = c.y - S / 2;
+  const ownerColor = c.owner >= 0 ? state.players[c.owner].color : NEUTRAL_COLOR;
+
+  // anel de estado: seleção > hover > fronteira jogável
+  if (state.selected === c.id) {
+    const pulse = (Math.sin(state.anim * 2) + 1) / 2;
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 3 + pulse * 3;
+    ctx.strokeRect(x - 10 - pulse * 4, y - 10 - pulse * 4, S + 20 + pulse * 8, S + 20 + pulse * 8);
+  } else if (state.hover === c.id) {
+    ctx.strokeStyle = '#f4e7cf';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x - 8, y - 8, S + 16, S + 16);
+  } else if (state.phase === 'playing' && isFrontier(0, c.id)) {
+    ctx.save();
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = 'rgba(46,196,182,0.75)';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x - 8, y - 8, S + 16, S + 16);
+    ctx.restore();
+  }
+
+  // corpo do bloco (com sombra sólida)
+  ctx.fillStyle = '#0b0b15';
+  ctx.fillRect(x + 6, y + 6, S, S);
+  ctx.fillStyle = ownerColor;
+  ctx.fillRect(x, y, S, S);
+  ctx.strokeStyle = '#0b0b15';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(x, y, S, S);
+
+  // brilho superior (estilo cartaz)
+  ctx.fillStyle = 'rgba(244,231,207,0.30)';
+  ctx.fillRect(x + 5, y + 5, S - 10, 8);
+
+  // pips de nível
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = i < c.level ? '#ffd166' : 'rgba(11,11,21,0.35)';
+    ctx.fillRect(x + 6 + i * 12, y + S - 12, 8, 6);
+  }
+
+  // marca de sabotagem
+  if (c.sabotage > 0) {
+    ctx.strokeStyle = '#ef476f';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(x + 7, y + 7); ctx.lineTo(x + S - 7, y + S - 7);
+    ctx.moveTo(x + S - 7, y + 7); ctx.lineTo(x + 7, y + S - 7);
+    ctx.stroke();
+  }
+
+  // rótulos (nome e valor-base)
+  ctx.textAlign = 'center';
+  ctx.font = '17px VT323, monospace';
+  ctx.fillStyle = '#0b0b15';
+  ctx.fillText(c.name, c.x + 2, c.y + S / 2 + 22);
+  ctx.fillStyle = '#f4e7cf';
+  ctx.fillText(c.name, c.x, c.y + S / 2 + 20);
+  ctx.font = '15px VT323, monospace';
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(fmt(c.price), c.x, c.y + S / 2 + 38);
+}
+
+function drawTooltip(ctx, W) {
+  if (state.hover === null || !state.cities.length) return;
+  const c = state.cities[state.hover];
+  const lines = [
+    c.name,
+    c.owner >= 0 ? 'Dono: ' + state.players[c.owner].name : 'Cidade neutra',
+    'Valor ' + fmt(c.price) + ' · Nível ' + c.level,
+    'Receita: ' + fmt(cityIncome(c)) + '/turno'
+  ];
+  const w = 250, h = 22 * lines.length + 16;
+  let tx = c.x + 38, ty = c.y - 34;
+  if (tx + w > W) tx = c.x - 38 - w;
+  if (ty < 8) ty = 8;
+
+  ctx.fillStyle = 'rgba(11,11,21,0.93)';
+  ctx.fillRect(tx, ty, w, h);
+  ctx.strokeStyle = '#ffd166';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(tx, ty, w, h);
+  ctx.textAlign = 'left';
+  ctx.font = '17px VT323, monospace';
+  lines.forEach((ln, i) => {
+    ctx.fillStyle = i === 0 ? '#ffd166' : '#a79fc6';
+    ctx.fillText(ln, tx + 10, ty + 22 + i * 22);
+  });
+}
+
+// ---- BLOCO 5.2 — loop de animação ----
+
+function loop() {
+  const gameEl = $('game-screen');
+  if (gameEl && gameEl.classList.contains('active') && state.cities.length) {
+    drawMap();
+    state.anim += 0.05;
+  }
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   CENA 6 — INTERFACE, ENTRADA E INICIALIZAÇÃO
+   ========================================================= */
+
+// ---- BLOCO 6.1 — painéis de status, seleção e registro ----
+
+function renderTop() {
+  $('turn-label').textContent = `TURNO ${state.turn}/${CFG.TURNS}`;
+  $('money-label').textContent = fmt(state.players[0].money);
+  $('net-label').textContent = 'PATRIMÔNIO ' + fmt(netWorth(0));
+  $('city-count').textContent = 'CIDADES ' + ownedCities(0).length;
+
+  let dots = '';
+  for (let i = 0; i < CFG.AP; i++) dots += `<i class="${i < state.ap ? '' : 'off'}"></i>`;
+  $('ap-dots').innerHTML = dots;
+}
+
+function renderPlayers() {
+  $('players-panel').innerHTML = state.players.map((p, pid) => {
+    const cities = ownedCities(pid);
+    const inc = cities.reduce((s, c) => s + cityIncome(c), 0);
+    return `
+      <div class="p-card" style="--pc:${p.color}">
+        <div class="p-name" style="color:${p.color}">${p.name}</div>
+        <div class="p-stats">${fmt(p.money)} · ${cities.length} cidade(s)<br>
+        Receita ${fmt(inc)}/turno · Patrimônio ${fmt(netWorth(pid))}</div>
+        ${p.adTurns > 0 ? `<div class="turn-flag">PUBLICIDADE NO AR (${p.adTurns})</div>` : ''}
+        ${pid === 0 && state.phase === 'playing' ? '<div class="turn-flag">SUA VEZ</div>' : ''}
+      </div>`;
+  }).join('');
+}
+
+function renderSel() {
+  const el = $('sel-info');
+  if (state.selected === null) {
+    el.innerHTML = 'Nenhuma cidade selecionada. Clique num bloco do mapa.';
+    return;
+  }
+  const c = state.cities[state.selected];
+  const owner = c.owner >= 0 ? state.players[c.owner].name : 'NEUTRA';
+  el.innerHTML = `
+    <b>${c.name}</b><br>
+    Dono: ${owner}<br>
+    Valor: ${fmt(c.price)} · Nível ${c.level}<br>
+    Receita: ${fmt(cityIncome(c))}/turno<br>
+    Na sua rede: ${inNetwork(0, c.id) ? 'sim' : 'não'} ·
+    Fronteira: ${isFrontier(0, c.id) ? 'sim' : 'não'}`;
+}
+
+function renderLog() {
+  $('log-list').innerHTML = state.log
+    .slice(0, 18)
+    .map((e) => `<div class="log-entry ${e.type}">T${e.turn} · ${e.msg}</div>`)
+    .join('');
+}
+
+function updateButtons() {
+  const canAct = state.phase === 'playing' && state.ap > 0;
+  const hasSel = state.selected !== null;
+  $('act-buy').disabled    = !(canAct && hasSel);
+  $('act-upgrade').disabled = !(canAct && hasSel);
+  $('act-road').disabled   = !(canAct && hasSel);
+  $('act-sab').disabled    = !(canAct && hasSel);
+  $('act-sell').disabled   = !(canAct && hasSel);
+  $('act-mkt').disabled    = !canAct;
+  $('btn-endturn').disabled = state.phase !== 'playing';
+  $('btn-pause').disabled = state.phase === 'over' || state.phase === 'menu';
+}
+
+function renderAll() {
+  renderTop();
+  renderPlayers();
+  renderSel();
+  renderLog();
+  updateButtons();
+}
+
+// ---- BLOCO 6.2 — toast, modais e recordes ----
+
+let toastTimer = null;
+
+function showToast(msg) {
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function openModal(id) { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+
+function loadRecords() {
+  try {
+    state.record = parseInt(localStorage.getItem('imperio_record') || '0', 10) || 0;
+    state.recordCities = parseInt(localStorage.getItem('imperio_cities') || '0', 10) || 0;
+    state.games = parseInt(localStorage.getItem('imperio_games') || '0', 10) || 0;
+    state.sound = localStorage.getItem('imperio_sound') !== 'off';
+  } catch (e) { /* localStorage indisponível */ }
+}
+
+function saveRecord() {
+  try {
+    const net = netWorth(0), cities = ownedCities(0).length;
+    if (net > (state.record || 0)) {
+      state.record = net;
+      localStorage.setItem('imperio_record', String(net));
+    }
+    if (cities > (state.recordCities || 0)) {
+      state.recordCities = cities;
+      localStorage.setItem('imperio_cities', String(cities));
+    }
+    state.games = (state.games || 0) + 1;
+    localStorage.setItem('imperio_games', String(state.games));
+  } catch (e) { /* ignora */ }
+}
+
+function renderRecordLine() {
+  $('record-line').textContent =
+    `RECORDE DE PATRIMÔNIO: ${fmt(state.record || 0)} · ` +
+    `MAIS CIDADES: ${state.recordCities || 0} · PARTIDAS: ${state.games || 0}`;
+}
+
+// ---- BLOCO 6.3 — ações do jogador, entrada e fluxo de telas ----
+
+function doAction(kind) {
+  if (state.phase !== 'playing') return;
+  if (state.ap <= 0) { err(0, 'Sem pontos de ação. Encerre o turno.'); return; }
+
+  let ok = false;
+  if (kind === 'mkt') {
+    ok = actMarket(0);
+  } else {
+    if (state.selected === null) { err(0, 'Selecione uma cidade no mapa.'); return; }
+    const id = state.selected;
+    if (kind === 'buy') ok = actBuy(0, id);
+    else if (kind === 'upgrade') ok = actUpgrade(0, id);
+    else if (kind === 'road') ok = actRoad(0, id);
+    else if (kind === 'sab') ok = actSabotage(0, id);
+    else if (kind === 'sell') ok = actSell(0, id);
+  }
+
+  if (ok) {
+    state.ap--;
+    if (checkEnd()) return;
+  }
+  renderAll();
+}
+
+function pickCity(e) {
+  const cv = $('map');
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (cv.width / r.width);
+  const y = (e.clientY - r.top) * (cv.height / r.height);
+  let best = null, bestD = 34;
+  state.cities.forEach((c) => {
+    const d = Math.hypot(c.x - x, c.y - y);
+    if (d < bestD) { bestD = d; best = c.id; }
+  });
+  return best;
+}
+
+function openPause() {
+  if (state.phase !== 'playing') return;
+  state.phase = 'paused';
+  openModal('modal-pause');
+  sfx('click');
+}
+
+function closePause() {
+  if (state.phase !== 'paused') return;
+  state.phase = 'playing';
+  closeModal('modal-pause');
+  sfx('click');
+  renderAll();
+}
+
+function endGame(win, text) {
+  state.phase = 'over';
+  saveRecord();
+  $('end-title').textContent = win ? 'VITÓRIA!' : 'DERROTA';
+  $('end-title').className = 'end-title ' + (win ? 'win' : 'lose');
+  $('end-text').textContent = text;
+  openModal('modal-end');
+  sfx(win ? 'win' : 'lose');
+  renderAll();
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+  $(name === 'menu' ? 'menu-screen' : 'game-screen').classList.add('active');
+}
+
+function goMenu() {
+  state.phase = 'menu';
+  closeModal('modal-end');
+  closeModal('modal-pause');
+  closeModal('modal-help');
+  showScreen('menu');
+  renderRecordLine();
+}
+
+function buildCities() {
+  state.cities = CITY_NAMES.map((name, id) => ({
+    id,
+    name,
+    price: CITY_PRICES[id],
+    x: 100 + (id % 4) * 200,
+    y: 100 + Math.floor(id / 4) * 120,
+    owner: -1,
+    level: 0,
+    invested: 0,
+    sabotage: 0
+  }));
+}
+
+function buildPlayers() {
+  state.players = PLAYER_DEFS.map((d) => ({
+    name: d.name,
+    color: d.color,
+    isHuman: d.isHuman,
+    money: CFG.START_MONEY,
+    network: [],
+    adTurns: 0
+  }));
+  // cidades iniciais: você (5), Dona Marta (10), Sr. Otávio (2)
+  [5, 10, 2].forEach((cid, pid) => {
+    state.players[pid].network.push(cid);
+    const c = state.cities[cid];
+    c.owner = pid;
+    c.level = 1;
+    c.invested = c.price;
+  });
+}
+
+function newGame() {
+  buildCities();
+  buildPlayers();
+  state.turn = 1;
+  state.ap = CFG.AP;
+  state.selected = null;
+  state.hover = null;
+  state.log = [];
+  state.phase = 'playing';
+  closeModal('modal-end');
+  closeModal('modal-pause');
+  closeModal('modal-help');
+  addLog('Você herda uma rede modesta e R$ 1.200. Domine o mapa.', 'sys');
+  addLog('--- Turno 1 ---', 'sys');
+  showScreen('game');
+  renderAll();
+}
+
+// ---- BLOCO 6.4 — ligação de eventos e inicialização ----
+
+function onKey(e) {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+
+  if (state.phase === 'playing') {
+    if (k === 'b') doAction('buy');
+    else if (k === 'u') doAction('upgrade');
+    else if (k === 'r') doAction('road');
+    else if (k === 'm') doAction('mkt');
+    else if (k === 's') doAction('sab');
+    else if (k === 'v') doAction('sell');
+    else if (k === 'enter') { e.preventDefault(); sfx('click'); advanceTurn(); }
+    else if (k === 'p') openPause();
+    else if (k === 'escape') { state.selected = null; renderAll(); }
+  } else if (state.phase === 'paused') {
+    if (k === 'p' || k === 'escape') closePause();
+  } else if (k === 'escape') {
+    closeModal('modal-help');
+  }
+}
+
+function bindUI() {
+  $('btn-play').addEventListener('click', () => { initAudio(); sfx('click'); newGame(); });
+  $('btn-help').addEventListener('click', () => { initAudio(); sfx('click'); openModal('modal-help'); });
+  $('btn-help-close').addEventListener('click', () => { sfx('click'); closeModal('modal-help'); });
+
+  $('btn-sound').addEventListener('click', () => {
+    state.sound = !state.sound;
+    try { localStorage.setItem('imperio_sound', state.sound ? 'on' : 'off'); } catch (e) { /* ignora */ }
+    $('btn-sound').textContent = 'SOM: ' + (state.sound ? 'LIGADO' : 'DESLIGADO');
+    initAudio();
+    sfx('click');
+  });
+
+  $('btn-pause').addEventListener('click', openPause);
+  $('btn-resume').addEventListener('click', closePause);
+  $('btn-pause-help').addEventListener('click', () => openModal('modal-help'));
+  $('btn-pause-menu').addEventListener('click', () => { closePause(); goMenu(); });
+
+  $('btn-restart').addEventListener('click', () => { sfx('click'); newGame(); });
+  $('btn-menu').addEventListener('click', () => { sfx('click'); goMenu(); });
+  $('btn-endturn').addEventListener('click', () => { sfx('click'); advanceTurn(); });
+
+  const acts = {
+    'act-buy': 'buy', 'act-upgrade': 'upgrade', 'act-road': 'road',
+    'act-mkt': 'mkt', 'act-sab': 'sab', 'act-sell': 'sell'
+  };
+  Object.keys(acts).forEach((id) => {
+    $(id).addEventListener('click', () => { initAudio(); doAction(acts[id]); });
+  });
+
+  // canvas: mouse e toque (pointer events cobrem ambos)
+  const cv = $('map');
+  cv.addEventListener('pointermove', (e) => { state.hover = pickCity(e); });
+  cv.addEventListener('pointerleave', () => { state.hover = null; });
+  cv.addEventListener('pointerdown', (e) => {
+    initAudio();
+    const id = pickCity(e);
+    if (id !== null) {
+      state.selected = id;
+      sfx('click');
+      renderAll();
+    }
+  });
+
+  document.addEventListener('keydown', onKey);
+}
+
+function init() {
+  loadRecords();
+  renderRecordLine();
+  $('btn-sound').textContent = 'SOM: ' + (state.sound ? 'LIGADO' : 'DESLIGADO');
+  bindUI();
+  requestAnimationFrame(loop);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
