@@ -1,0 +1,2399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Farol das Profundezas</title>
+
+    <!-- REGIÃO GLOBAL — FONTES (única dependência externa permitida) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
+    <!-- REGIÃO GLOBAL — CSS -->
+    <style>
+        :root {
+            --deep: #081c2b;
+            --deep2: #0e2c40;
+            --panel: #0b2334;
+            --line: #1e5674;
+            --water: #14527c;
+            --foam: #7fd8ea;
+            --sand: #e6cf9c;
+            --gold: #ffd25a;
+            --red: #e8534f;
+            --green: #6fd08c;
+            --ink: #f2ead8;
+            --muted: #84a9bd;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden
+        }
+
+        body {
+            background:
+                radial-gradient(1100px 700px at 18% -12%, #123a55 0%, transparent 62%),
+                radial-gradient(900px 620px at 92% 112%, #0c2c46 0%, transparent 55%),
+                var(--deep);
+            color: var(--ink);
+            font-family: 'VT323', 'Courier New', monospace;
+            font-size: 21px;
+            line-height: 1.25;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+
+        /* ---------- telas ---------- */
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            padding: 22px 18px;
+        }
+
+        .screen.active {
+            display: flex
+        }
+
+        .scanlines {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: .3;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 2px, transparent 2px 4px);
+        }
+
+        /* ---------- tipografia ---------- */
+        .game-title {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(24px, 5.6vw, 52px);
+            color: var(--gold);
+            text-align: center;
+            line-height: 1.3;
+            text-shadow: 4px 4px 0 #6d4310, 9px 9px 0 rgba(0, 0, 0, .4);
+        }
+
+        .game-title span {
+            display: block;
+            font-size: .42em;
+            color: var(--foam);
+            letter-spacing: 5px;
+            margin-top: 12px;
+            text-shadow: 3px 3px 0 #12506d;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: clamp(18px, 2.4vw, 24px);
+            text-align: center;
+            letter-spacing: 1px
+        }
+
+        h2.panel-title {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(15px, 2.6vw, 22px);
+            color: var(--gold);
+            letter-spacing: 1px;
+        }
+
+        /* ---------- botões ---------- */
+        .btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 13px;
+            letter-spacing: 1px;
+            color: var(--ink);
+            background: var(--panel);
+            border: 3px solid var(--line);
+            padding: 15px 24px;
+            cursor: pointer;
+            box-shadow: 5px 5px 0 rgba(0, 0, 0, .5);
+            transition: transform .09s ease, background .16s ease, border-color .16s ease;
+        }
+
+        .btn:hover {
+            background: #144562;
+            border-color: var(--foam);
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 rgba(0, 0, 0, .5)
+        }
+
+        .btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, .5)
+        }
+
+        .btn-primary {
+            background: var(--gold);
+            color: #241906;
+            border-color: #a37c1e
+        }
+
+        .btn-primary:hover {
+            background: #ffe08c;
+            border-color: #ffd25a
+        }
+
+        .btn-small {
+            font-size: 10px;
+            padding: 10px 16px
+        }
+
+        .btn-wide {
+            width: min(360px, 86vw)
+        }
+
+        .btn[disabled] {
+            opacity: .45;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 5px 5px 0 rgba(0, 0, 0, .5)
+        }
+
+        /* ---------- menu ---------- */
+        .menu-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 8px
+        }
+
+        .menu-stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 6px;
+        }
+
+        .stat {
+            background: rgba(11, 35, 52, .8);
+            border: 3px solid var(--line);
+            padding: 10px 22px;
+            text-align: center;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, .4);
+        }
+
+        .stat span {
+            display: block;
+            font-size: 15px;
+            color: var(--muted);
+            letter-spacing: 2px
+        }
+
+        .stat b {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 15px;
+            color: var(--gold)
+        }
+
+        .credit {
+            position: absolute;
+            bottom: 14px;
+            color: #4c7288;
+            letter-spacing: 2px;
+            font-size: 16px
+        }
+
+        /* ---------- painéis ---------- */
+        .panel {
+            background: linear-gradient(180deg, rgba(14, 44, 64, .97), rgba(9, 28, 42, .97));
+            border: 3px solid var(--line);
+            box-shadow: 8px 8px 0 rgba(0, 0, 0, .45);
+            padding: 24px;
+            width: min(880px, 94vw);
+        }
+
+        .panel .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            margin-top: 16px
+        }
+
+        /* ---------- loja ---------- */
+        .shop-top {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            width: min(880px, 94vw)
+        }
+
+        .coin-pill {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 13px;
+            color: var(--gold);
+            border: 3px solid var(--line);
+            background: rgba(11, 35, 52, .9);
+            padding: 12px 18px;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, .4);
+        }
+
+        #collection {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+            gap: 12px;
+            width: min(880px, 94vw);
+            max-height: 44vh;
+            overflow-y: auto;
+            padding: 4px 2px 10px;
+        }
+
+        .unit-card {
+            background: rgba(11, 35, 52, .86);
+            border: 3px solid var(--line);
+            padding: 13px;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, .4);
+            transition: transform .12s ease, border-color .12s ease;
+        }
+
+        .unit-card h3 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: var(--foam);
+            line-height: 1.5;
+            letter-spacing: .5px
+        }
+
+        .unit-card p {
+            color: var(--muted);
+            font-size: 17px;
+            margin: 8px 0 10px;
+            min-height: 42px
+        }
+
+        .unit-card .card-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap
+        }
+
+        .unit-card.locked {
+            opacity: .55;
+            filter: grayscale(.7)
+        }
+
+        .unit-card.owned {
+            border-color: var(--gold)
+        }
+
+        .unit-card.revealed {
+            animation: pop .5s ease;
+            border-color: var(--gold)
+        }
+
+        .tag {
+            font-size: 13px;
+            letter-spacing: 2px;
+            padding: 3px 8px;
+            border: 2px solid var(--line);
+            color: var(--muted)
+        }
+
+        .owned-tag {
+            color: #12280f;
+            background: var(--green);
+            border-color: var(--green)
+        }
+
+        .cost {
+            color: var(--gold);
+            font-size: 17px
+        }
+
+        #shop-msg {
+            min-height: 26px;
+            color: var(--gold);
+            letter-spacing: 1px
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(.82) rotate(-2deg)
+            }
+
+            60% {
+                transform: scale(1.06) rotate(1deg)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        /* ---------- ajuda ---------- */
+        .help-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 14px 0 4px
+        }
+
+        .help-list li {
+            list-style: none;
+            color: var(--ink);
+            border-left: 4px solid var(--gold);
+            padding-left: 12px
+        }
+
+        .help-list li b {
+            color: var(--foam)
+        }
+
+        /* ---------- cena de jogo ---------- */
+        #screen-game {
+            justify-content: flex-start;
+            gap: 0;
+            padding: 0
+        }
+
+        #hud {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 9px 12px;
+            background: linear-gradient(180deg, rgba(6, 20, 32, .95), rgba(6, 20, 32, .55) 78%, transparent);
+        }
+
+        .hud-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(11, 35, 52, .9);
+            border: 2px solid var(--line);
+            padding: 6px 12px;
+            font-size: 18px;
+            white-space: nowrap;
+        }
+
+        .hud-chip b {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px;
+            color: var(--gold)
+        }
+
+        .hud-chip .lbl {
+            color: var(--muted);
+            letter-spacing: 2px;
+            font-size: 14px
+        }
+
+        #lh-bar-wrap {
+            width: 150px;
+            height: 14px;
+            background: #061726;
+            border: 2px solid var(--line);
+            overflow: hidden
+        }
+
+        #lh-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, var(--green), var(--gold));
+            transition: width .25s ease
+        }
+
+        #hearts {
+            color: var(--red);
+            letter-spacing: 2px;
+            font-size: 19px
+        }
+
+        .hud-btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 9px;
+            letter-spacing: .5px;
+            background: var(--panel);
+            color: var(--ink);
+            border: 2px solid var(--line);
+            padding: 9px 11px;
+            cursor: pointer;
+            box-shadow: 3px 3px 0 rgba(0, 0, 0, .45);
+        }
+
+        .hud-btn:hover {
+            border-color: var(--foam);
+            background: #144562
+        }
+
+        .hud-btn b {
+            color: var(--gold)
+        }
+
+        .hud-btn[disabled] {
+            opacity: .45;
+            cursor: not-allowed
+        }
+
+        #stage {
+            position: relative;
+            width: min(960px, 100vw);
+            margin: auto 0
+        }
+
+        #game {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-top: 3px solid var(--line);
+            border-bottom: 3px solid var(--line);
+            background: var(--water);
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+
+        #build-bar {
+            width: 100%;
+            display: flex;
+            gap: 8px;
+            padding: 10px 12px 14px;
+            background: linear-gradient(0deg, rgba(6, 20, 32, .96), rgba(6, 20, 32, .5));
+            overflow-x: auto;
+        }
+
+        .unit-btn {
+            flex: 0 0 auto;
+            min-width: 104px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(11, 35, 52, .92);
+            border: 2px solid var(--line);
+            color: var(--ink);
+            padding: 8px 6px;
+            box-shadow: 3px 3px 0 rgba(0, 0, 0, .4);
+            transition: border-color .12s ease, transform .12s ease;
+        }
+
+        .unit-btn .u-name {
+            display: block;
+            font-size: 15px;
+            color: var(--foam);
+            letter-spacing: .5px
+        }
+
+        .unit-btn .u-cost {
+            display: block;
+            font-size: 15px;
+            color: var(--gold)
+        }
+
+        .unit-btn .u-key {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 2px
+        }
+
+        .unit-btn:hover {
+            border-color: var(--foam);
+            transform: translateY(-2px)
+        }
+
+        .unit-btn.sel {
+            border-color: var(--gold);
+            background: #16415c;
+            transform: translateY(-3px)
+        }
+
+        .unit-btn.locked {
+            opacity: .32;
+            cursor: not-allowed;
+            filter: grayscale(1)
+        }
+
+        .unit-btn.poor .u-cost {
+            color: var(--red)
+        }
+
+        /* ---------- overlays ---------- */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(5, 16, 26, .82);
+            z-index: 20;
+            padding: 18px;
+        }
+
+        .overlay.active {
+            display: flex
+        }
+
+        .overlay .panel {
+            width: min(460px, 92vw);
+            text-align: center
+        }
+
+        .big-num {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(20px, 5vw, 34px);
+            color: var(--gold);
+            margin: 10px 0
+        }
+
+        .overlay p {
+            color: var(--muted);
+            margin: 6px 0
+        }
+
+        /* ---------- joystick de toque ---------- */
+        .joystick {
+            position: fixed;
+            left: 26px;
+            bottom: 26px;
+            width: 118px;
+            height: 118px;
+            border: 3px solid rgba(127, 216, 234, .5);
+            border-radius: 50%;
+            background: rgba(12, 36, 54, .5);
+            display: none;
+            z-index: 15;
+            touch-action: none;
+        }
+
+        .joystick.on {
+            display: block
+        }
+
+        .joy-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 52px;
+            height: 52px;
+            margin: -26px 0 0 -26px;
+            border-radius: 50%;
+            background: rgba(127, 216, 234, .65);
+            border: 3px solid var(--foam);
+        }
+
+        @media (max-width:640px) {
+            body {
+                font-size: 19px
+            }
+
+            .btn {
+                font-size: 11px;
+                padding: 13px 16px
+            }
+
+            .hud-chip {
+                padding: 5px 8px;
+                font-size: 16px
+            }
+
+            #lh-bar-wrap {
+                width: 96px
+            }
+
+            .unit-btn {
+                min-width: 88px
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- CENA 1 — MENU PRINCIPAL -->
+    <!-- BLOCO 1.1 — estrutura do menu -->
+    <section class="screen active" id="screen-menu">
+        <div class="scanlines"></div>
+        <h1 class="game-title">FAROL<span>DAS PROFUNDEZAS</span></h1>
+        <p class="subtitle">A ilha está cercada. O mar não descansa.</p>
+        <nav class="menu-actions">
+            <button class="btn btn-primary btn-wide" id="btn-play">INICIAR PARTIDA</button>
+            <button class="btn btn-wide" id="btn-shop">LOJA DO FAROLEIRO</button>
+            <button class="btn btn-wide" id="btn-help">COMO JOGAR</button>
+        </nav>
+        <div class="menu-stats">
+            <div class="stat"><span>MOEDAS</span><b id="menu-coins">0</b></div>
+            <div class="stat"><span>RECORDE</span><b id="menu-best">ONDA 0</b></div>
+        </div>
+        <button class="btn btn-small" id="btn-sound">SOM: LIGADO</button>
+        <footer class="credit">pixel roguelike &bull; defesa de torre</footer>
+    </section>
+
+    <!-- CENA 1.2 — LOJA DO FAROLEIRO -->
+    <section class="screen" id="screen-shop">
+        <div class="scanlines"></div>
+        <h2 class="panel-title">LOJA DO FAROLEIRO</h2>
+        <div class="shop-top">
+            <div class="coin-pill">MOEDAS: <span id="shop-coins">0</span></div>
+            <button class="btn btn-primary" id="btn-spin">GIRAR POR 30 MOEDAS</button>
+        </div>
+        <div id="shop-msg"></div>
+        <div id="collection"></div>
+        <button class="btn" id="btn-back-menu">VOLTAR AO MENU</button>
+    </section>
+
+    <!-- CENA 1.3 — COMO JOGAR -->
+    <section class="screen" id="screen-help">
+        <div class="scanlines"></div>
+        <div class="panel">
+            <h2 class="panel-title">COMO JOGAR</h2>
+            <ul class="help-list">
+                <li><b>Mover o garoto:</b> WASD, setas ou joystick de toque.</li>
+                <li><b>Arma de água:</b> dispara sozinha no inimigo mais próximo.</li>
+                <li><b>Farol:</b> gira sozinho a cada 6s e gera moedas. Melhore-o para girar mais rápido e render mais.
+                </li>
+                <li><b>Aliados e construções:</b> escolha no painel inferior e clique/toque na ilha para colocar (custa
+                    moedas).</li>
+                <li><b>Loja:</b> gire a roleta no menu para desbloquear novos aliados para sempre.</li>
+                <li><b>Vitória:</b> sobreviva até a onda 100. <b>Derrota:</b> o mar destrói o farol.</li>
+                <li><b>Pausa:</b> tecla ESC ou botão no canto superior.</li>
+            </ul>
+            <div class="row"><button class="btn" id="btn-back-menu2">VOLTAR</button></div>
+        </div>
+    </section>
+
+    <!-- CENA 2 — JOGO PRINCIPAL -->
+    <!-- BLOCO 2.1 — área de jogo -->
+    <section class="screen" id="screen-game">
+        <div id="hud">
+            <div class="hud-chip"><span class="lbl">ONDA</span><b id="hud-wave">1</b><span class="lbl">/100</span></div>
+            <div class="hud-chip"><span class="lbl">MOEDAS</span><b id="hud-coins">0</b></div>
+            <div class="hud-chip"><span class="lbl">FAROL</span>
+                <div id="lh-bar-wrap">
+                    <div id="lh-bar"></div>
+                </div>
+                <b id="lh-hp-text">200</b>
+            </div>
+            <div class="hud-chip"><span class="lbl">GAROTO</span><span
+                    id="hearts">&#9829;&#9829;&#9829;&#9829;&#9829;</span></div>
+            <button class="hud-btn" id="btn-upgrade">MELHORAR FAROL <b id="upg-cost">45</b></button>
+            <button class="hud-btn" id="btn-repair">REPARAR <b id="rep-cost">25</b></button>
+            <button class="hud-btn" id="btn-pause">| | PAUSA</button>
+        </div>
+
+        <div id="stage">
+            <canvas id="game" width="960" height="540"></canvas>
+            <div class="joystick" id="joystick">
+                <div class="joy-knob" id="joy-knob"></div>
+            </div>
+        </div>
+
+        <div id="build-bar"></div>
+
+        <!-- BLOCO 3.1 — pausa -->
+        <div class="overlay" id="ov-pause">
+            <div class="panel">
+                <h2 class="panel-title">PAUSA</h2>
+                <p>O mar espera. Respire.</p>
+                <div class="row">
+                    <button class="btn btn-primary" id="btn-resume">CONTINUAR</button>
+                    <button class="btn" id="btn-restart">REINICIAR</button>
+                    <button class="btn" id="btn-quit">SAIR PARA O MENU</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOCO 3.2 — derrota -->
+        <div class="overlay" id="ov-gameover">
+            <div class="panel">
+                <h2 class="panel-title" style="color:var(--red)">O FAROL CAIU</h2>
+                <p>As profundezas levaram a ilha desta vez.</p>
+                <div class="big-num">ONDA <span id="go-wave">0</span></div>
+                <p>Moedas na carteira: <b id="go-coins" style="color:var(--gold)">0</b></p>
+                <div class="row">
+                    <button class="btn btn-primary" id="btn-go-restart">JOGAR DE NOVO</button>
+                    <button class="btn" id="btn-go-menu">MENU / LOJA</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOCO 3.3 — vitória -->
+        <div class="overlay" id="ov-victory">
+            <div class="panel">
+                <h2 class="panel-title" style="color:var(--green)">MAR DERROTADO!</h2>
+                <p>Você sobreviveu às 100 ondas. A luz venceu.</p>
+                <div class="big-num">100 ONDAS</div>
+                <p>Moedas na carteira: <b id="vic-coins" style="color:var(--gold)">0</b></p>
+                <div class="row">
+                    <button class="btn btn-primary" id="btn-vic-restart">JOGAR DE NOVO</button>
+                    <button class="btn" id="btn-vic-menu">MENU / LOJA</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        /* ============================================================
+           REGIÃO GLOBAL — CONFIG, PERSISTÊNCIA, ÁUDIO, UTILITÁRIOS
+           ============================================================ */
+        'use strict';
+
+        /* BLOCO G.1 — constantes do jogo */
+        const W = 960, H = 540, CX = W / 2, CY = H / 2;   // dimensões lógicas do canvas
+        const ISLAND_RX = 316, ISLAND_RY = 196;           // raio da ilha (elipse)
+        const SAVE_KEY = 'farol_das_profundezas_v1';
+        const WAVE_GOAL = 100;                            // condição de vitória
+        const GACHA_COST = 30;
+
+        // Definição das unidades desbloqueáveis (aliados e construções)
+        const UNITS = {
+            soldado: { name: 'Soldado de Água', cost: 30, range: 120, rate: 1.1, dmg: 10, proj: 'bolha', desc: 'Atirador equilibrado de bolhas d\'água.' },
+            bolha: { name: 'Estilingue de Bolhas', cost: 40, range: 135, rate: 2.4, dmg: 6, proj: 'bolha', desc: 'Rajadas rápidas, ideal contra multidões.' },
+            canhao: { name: 'Canhão de Concha', cost: 65, range: 165, rate: 0.5, dmg: 36, proj: 'concha', splash: 38, desc: 'Disparo lento com impacto em área.' },
+            catapulta: { name: 'Catapulta de Areia', cost: 75, range: 205, rate: 0.42, dmg: 28, proj: 'areia', splash: 58, desc: 'Alcance enorme, dano em área.' },
+            corrente: { name: 'Torre da Corrente', cost: 55, range: 125, rate: 0.9, dmg: 5, proj: 'corrente', slow: 0.45, desc: 'Reduz a velocidade dos inimigos.' },
+            mergulhador: { name: 'Mergulhador', cost: 50, range: 0, rate: 0.75, dmg: 20, proj: null, desc: 'Aliado corpo a corpo que persegue o inimigo.' },
+            curandeiro: { name: 'Faroleiro Auxiliar', cost: 60, range: 0, rate: 0.5, heal: 3, proj: null, desc: 'Repara o farol continuamente.' },
+            mina: { name: 'Mina de Coral', cost: 30, range: 0, rate: 0, dmg: 85, proj: null, splash: 64, desc: 'Armadilha que explode ao contato.' }
+        };
+        const UNIT_ORDER = ['soldado', 'bolha', 'canhao', 'catapulta', 'corrente', 'mergulhador', 'curandeiro', 'mina'];
+
+        // Definição dos inimigos (escala por onda: hp = hp + hpG * onda)
+        const ENEMIES = {
+            aguaViva: { name: 'Água-viva', hp: 20, hpG: 3.2, spd: 36, dmg: 5, reward: 3, r: 11, wave: 1 },
+            agulha: { name: 'Peixe-agulha', hp: 14, hpG: 2.4, spd: 78, dmg: 4, reward: 4, r: 9, wave: 2 },
+            caranguejo: { name: 'Caranguejo', hp: 60, hpG: 8, spd: 28, dmg: 11, reward: 7, r: 14, wave: 3 },
+            polvo: { name: 'Polvo', hp: 38, hpG: 5.5, spd: 44, dmg: 8, reward: 9, r: 13, wave: 6, split: true },
+            tubarao: { name: 'Tubarão', hp: 120, hpG: 13, spd: 58, dmg: 18, reward: 16, r: 16, wave: 10 },
+            kraken: { name: 'KRAKEN', hp: 800, hpG: 55, spd: 26, dmg: 32, reward: 140, r: 30, wave: 10, boss: true }
+        };
+
+        /* BLOCO G.2 — persistência (localStorage) */
+        function defaultSave() {
+            return { coins: 5, unlocked: ['soldado', 'bolha'], best: 0, sound: true };
+        }
+        function loadSave() {
+            try {
+                const raw = localStorage.getItem(SAVE_KEY);
+                if (!raw) return defaultSave();
+                const d = JSON.parse(raw), s = defaultSave();
+                if (typeof d.coins === 'number') s.coins = Math.max(0, Math.floor(d.coins));
+                if (Array.isArray(d.unlocked)) s.unlocked = d.unlocked.filter(k => UNITS[k]);
+                if (s.unlocked.length === 0) s.unlocked = defaultSave().unlocked;
+                if (typeof d.best === 'number') s.best = d.best;
+                if (typeof d.sound === 'boolean') s.sound = d.sound;
+                return s;
+            } catch (e) { return defaultSave(); }
+        }
+        function persist() {
+            try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { }
+        }
+        const save = loadSave();
+
+        /* BLOCO G.3 — áudio (WebAudio sintetizado, sem arquivos externos) */
+        let AC = null;
+        function ensureAudio() {
+            try {
+                if (!AC) { const Ctx = window.AudioContext || window.webkitAudioContext; if (Ctx) AC = new Ctx(); }
+                if (AC && AC.state === 'suspended') AC.resume();
+            } catch (e) { }
+        }
+        function sfx(kind) {
+            if (!save.sound) return;
+            try {
+                ensureAudio(); if (!AC) return;
+                const t = AC.currentTime;
+                const o = AC.createOscillator(), g = AC.createGain();
+                o.connect(g); g.connect(AC.destination);
+                let f = 440, f2 = 440, dur = .12, type = 'square', vol = .13;
+                if (kind === 'shoot') { f = 520; f2 = 900; dur = .07; vol = .055; }
+                else if (kind === 'coin') { f = 660; f2 = 1010; dur = .11; vol = .1; }
+                else if (kind === 'hit') { f = 230; f2 = 130; dur = .08; vol = .075; type = 'triangle'; }
+                else if (kind === 'boom') { f = 170; f2 = 46; dur = .3; vol = .15; type = 'sawtooth'; }
+                else if (kind === 'place') { f = 330; f2 = 500; dur = .12; vol = .1; }
+                else if (kind === 'spin') { f = 392; f2 = 830; dur = .38; vol = .11; }
+                else if (kind === 'wave') { f = 190; f2 = 400; dur = .42; vol = .11; type = 'triangle'; }
+                else if (kind === 'lose') { f = 320; f2 = 92; dur = .95; vol = .15; type = 'triangle'; }
+                else if (kind === 'win') { f = 520; f2 = 1060; dur = .6; vol = .15; }
+                else if (kind === 'hurt') { f = 300; f2 = 175; dur = .12; vol = .11; type = 'sawtooth'; }
+                else if (kind === 'upg') { f = 440; f2 = 880; dur = .25; vol = .11; type = 'triangle'; }
+                o.type = type;
+                o.frequency.setValueAtTime(f, t);
+                o.frequency.exponentialRampToValueAtTime(Math.max(32, f2), t + dur);
+                g.gain.setValueAtTime(vol, t);
+                g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+                o.start(t); o.stop(t + dur + .03);
+            } catch (e) { }
+        }
+
+        /* BLOCO G.4 — utilitários */
+        function $(id) { return document.getElementById(id); }
+        function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+        function rand(a, b) { return a + Math.random() * (b - a); }
+        function dist(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+        function fmt(n) { return Math.floor(n).toLocaleString('pt-BR'); }
+        function onIsland(x, y) {
+            const dx = (x - CX) / ISLAND_RX, dy = (y - CY) / ISLAND_RY;
+            return dx * dx + dy * dy <= 0.92;   // margem de segurança para colocação
+        }
+        function setCoins(n) {
+            save.coins = Math.max(0, Math.floor(n));
+            $('menu-coins').textContent = fmt(save.coins);
+            $('shop-coins').textContent = fmt(save.coins);
+            const hc = $('hud-coins'); if (hc) hc.textContent = fmt(save.coins);
+            persist();
+        }
+
+        /* BLOCO G.5 — navegação de telas */
+        function showScreen(name) {
+            ['menu', 'shop', 'help', 'game'].forEach(n => {
+                $('screen-' + n).classList.toggle('active', n === name);
+            });
+        }
+        function refreshMenu() {
+            $('menu-coins').textContent = fmt(save.coins);
+            $('menu-best').textContent = 'ONDA ' + save.best;
+            $('btn-sound').textContent = 'SOM: ' + (save.sound ? 'LIGADO' : 'DESLIGADO');
+        }
+
+        /* BLOCO G.6 — loja (gacha e coleção) */
+        let shopMsgTimer = null;
+        function flashShopMsg(txt) {
+            const el = $('shop-msg');
+            el.textContent = txt;
+            clearTimeout(shopMsgTimer);
+            shopMsgTimer = setTimeout(() => { el.textContent = ''; }, 2200);
+        }
+        function renderCollection() {
+            const wrap = $('collection');
+            wrap.innerHTML = '';
+            UNIT_ORDER.forEach(key => {
+                const u = UNITS[key], owned = save.unlocked.includes(key);
+                const el = document.createElement('div');
+                el.className = 'unit-card ' + (owned ? 'owned' : 'locked');
+                el.dataset.key = key;
+                el.innerHTML =
+                    '<h3>' + u.name + '</h3>' +
+                    '<p>' + u.desc + '</p>' +
+                    '<div class="card-foot">' +
+                    '<span class="tag' + (owned ? ' owned-tag' : '') + '">' + (owned ? 'DESBLOQUEADO' : 'BLOQUEADO') + '</span>' +
+                    '<span class="cost">' + u.cost + ' moedas</span>' +
+                    '</div>';
+                wrap.appendChild(el);
+            });
+        }
+        function refreshShop() {
+            $('shop-coins').textContent = fmt(save.coins);
+            const done = save.unlocked.length >= UNIT_ORDER.length;
+            $('btn-spin').disabled = done || save.coins < GACHA_COST;
+            $('btn-spin').textContent = done ? 'COLEÇÃO COMPLETA!' : 'GIRAR POR ' + GACHA_COST + ' MOEDAS';
+            renderCollection();
+        }
+        function gachaSpin() {
+            ensureAudio();
+            if (save.unlocked.length >= UNIT_ORDER.length) { sfx('hurt'); flashShopMsg('Você já tem todos os aliados!'); return; }
+            if (save.coins < GACHA_COST) { sfx('hurt'); flashShopMsg('Moedas insuficientes. Defenda o farol para ganhar mais.'); return; }
+            save.coins -= GACHA_COST;
+            const locked = UNIT_ORDER.filter(k => !save.unlocked.includes(k));
+            const pick = locked[Math.floor(Math.random() * locked.length)];
+            save.unlocked.push(pick);
+            persist();
+            sfx('spin');
+            refreshShop();
+            const card = document.querySelector('[data-key="' + pick + '"]');
+            if (card) {
+                card.classList.add('revealed');
+                card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                flashShopMsg('Novo aliado: ' + UNITS[pick].name + '!');
+            }
+        }
+
+        /* BLOCO G.7 — eventos dos menus */
+        $('btn-play').addEventListener('click', () => { ensureAudio(); sfx('place'); startGame(); });
+        $('btn-shop').addEventListener('click', () => { ensureAudio(); sfx('place'); refreshShop(); showScreen('shop'); });
+        $('btn-help').addEventListener('click', () => { ensureAudio(); sfx('place'); showScreen('help'); });
+        $('btn-back-menu').addEventListener('click', () => { sfx('place'); refreshMenu(); showScreen('menu'); });
+        $('btn-back-menu2').addEventListener('click', () => { sfx('place'); showScreen('menu'); });
+        $('btn-sound').addEventListener('click', () => {
+            save.sound = !save.sound; persist(); refreshMenu();
+            if (save.sound) { ensureAudio(); sfx('coin'); }
+        });
+        $('btn-spin').addEventListener('click', gachaSpin);
+
+        /* primeira pintura das telas de menu e loja */
+        refreshMenu();
+        refreshShop();
+    </script>
+
+    /* PARTE 2 */
+
+    <script>
+        /* ============================================================
+           REGIÃO — ESTADO DA PARTIDA · MUNDO · SPRITES · EFEITOS
+           (continuação do arquivo único; bloco <script> concatenável)
+           ============================================================ */
+        'use strict';
+
+        /* BLOCO 2.2 — estado global da partida */
+        const canvas = $('game');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        const game = {
+            running: false, paused: false, over: false, victory: false,
+            wave: 1, waveBanner: 0,                 // banner "ONDA X" no canvas
+            spawnQueue: [], spawnTimer: 0, waveGap: 4, betweenWaves: 0,
+            time: 0, shake: 0,
+            lh: { x: CX, y: CY, hp: 200, max: 200, level: 1 },   // farol
+            beamTimer: 0, beamInterval: 6, beamValue: 10,   // economia do giro
+            upgradeCost: 45, repairCost: 25,
+            kills: 0, earned: 0
+        };
+
+        const player = {
+            x: CX, y: CY + 92, vx: 0, vy: 0, speed: 175,
+            hp: 5, maxHp: 5, inv: 0, face: 1, walk: 0, moving: false,
+            shootTimer: 0, shootRate: 0.42, range: 190, dmg: 12
+        };
+
+        let enemies = [], allies = [], projectiles = [];
+        let particles = [], rings = [], texts = [];
+        let selectedUnit = null;                // unidade escolhida no painel inferior
+        const pointer = { x: CX, y: CY, inside: false };
+
+        function resetGameState() {
+            game.running = true; game.paused = false; game.over = false; game.victory = false;
+            game.wave = 1; game.waveBanner = 2.2;
+            game.spawnQueue = []; game.spawnTimer = 0; game.betweenWaves = 0;
+            game.time = 0; game.shake = 0;
+            game.lh.hp = game.lh.max = 200; game.lh.level = 1;
+            game.beamTimer = 0; game.beamInterval = 6; game.beamValue = 10;
+            game.upgradeCost = 45; game.repairCost = 25;
+            game.kills = 0; game.earned = 0;
+            player.x = CX; player.y = CY + 92;
+            player.hp = player.maxHp = 5;
+            player.vx = player.vy = 0; player.inv = 0;
+            player.walk = 0; player.moving = false; player.face = 1;
+            player.shootTimer = 0;
+            enemies = []; allies = []; projectiles = [];
+            particles = []; rings = []; texts = [];
+            selectedUnit = null;
+        }
+
+        /* chamado pelo menu (BLOCO G.7); startWave/updateHUD/resetBuildBar chegam na Parte 4 */
+        function startGame() {
+            ensureAudio();
+            resetGameState();
+            showScreen('game');
+            resetBuildBar();
+            updateHUD();
+            startWave(1);
+            sfx('wave');
+        }
+
+        /* ============================================================
+           BLOCO 2.3 — mundo: água, ilha, farol e feixe de luz
+           ============================================================ */
+
+        /* pontos de textura da ilha e brilhos do mar (gerados uma única vez) */
+        const islandTex = [], sparkles = [];
+        for (let i = 0; i < 190; i++) {
+            const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random());
+            islandTex.push({
+                x: CX + Math.cos(a) * r * ISLAND_RX * 0.97,
+                y: CY + Math.sin(a) * r * ISLAND_RY * 0.97,
+                s: 1 + Math.random() * 2,
+                c: Math.random() < 0.5 ? '#d9bd8c' : '#f2e0b8'
+            });
+        }
+        for (let i = 0; i < 26; i++) {
+            sparkles.push({ x: Math.random() * W, y: Math.random() * H, ph: Math.random() * 6.28, s: 2 });
+        }
+
+        function drawWater(t) {
+            ctx.fillStyle = '#0e3a5c';
+            ctx.fillRect(0, 0, W, H);
+            /* faixas de onda em camadas */
+            const bands = [
+                { y: 0.10, amp: 8, sp: 20, wl: 240, h: 6, a: 0.10 },
+                { y: 0.32, amp: 6, sp: -15, wl: 190, h: 5, a: 0.08 },
+                { y: 0.56, amp: 9, sp: 12, wl: 280, h: 7, a: 0.09 },
+                { y: 0.80, amp: 7, sp: -18, wl: 220, h: 6, a: 0.10 }
+            ];
+            bands.forEach(b => {
+                ctx.fillStyle = 'rgba(126,206,232,' + b.a + ')';
+                for (let x = 0; x <= W; x += 8) {
+                    const y = H * b.y + Math.sin((x + t * b.sp * 10) / b.wl * Math.PI * 2) * b.amp;
+                    ctx.fillRect(x, y, 8, b.h);
+                }
+            });
+            /* brilhos pulsantes */
+            sparkles.forEach(sp => {
+                const a = 0.12 + 0.2 * (0.5 + 0.5 * Math.sin(t * 1.6 + sp.ph));
+                ctx.fillStyle = 'rgba(200,238,250,' + a.toFixed(3) + ')';
+                ctx.fillRect(sp.x, sp.y, sp.s, sp.s);
+            });
+        }
+
+        function drawIsland(t) {
+            /* sombra na água */
+            ctx.fillStyle = 'rgba(6,18,30,0.35)';
+            ctx.beginPath(); ctx.ellipse(CX, CY + 9, ISLAND_RX + 16, ISLAND_RY + 14, 0, 0, Math.PI * 2); ctx.fill();
+            /* areia */
+            ctx.fillStyle = '#e6cf9c';
+            ctx.beginPath(); ctx.ellipse(CX, CY, ISLAND_RX, ISLAND_RY, 0, 0, Math.PI * 2); ctx.fill();
+            /* areia molhada */
+            ctx.strokeStyle = '#c9a97a'; ctx.lineWidth = 12;
+            ctx.beginPath(); ctx.ellipse(CX, CY, ISLAND_RX - 7, ISLAND_RY - 6, 0, 0, Math.PI * 2); ctx.stroke();
+            /* interior claro */
+            ctx.fillStyle = '#efdcb0';
+            ctx.beginPath(); ctx.ellipse(CX, CY, ISLAND_RX - 27, ISLAND_RY - 23, 0, 0, Math.PI * 2); ctx.fill();
+            /* textura granulada */
+            islandTex.forEach(d => { ctx.fillStyle = d.c; ctx.fillRect(d.x, d.y, d.s, d.s); });
+            /* espuma animada ao redor */
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(226,246,252,0.75)';
+            ctx.setLineDash([12, 16]); ctx.lineDashOffset = -t * 22;
+            ctx.beginPath(); ctx.ellipse(CX, CY, ISLAND_RX + 9, ISLAND_RY + 8, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = 'rgba(226,246,252,0.4)';
+            ctx.setLineDash([8, 22]); ctx.lineDashOffset = t * 14;
+            ctx.beginPath(); ctx.ellipse(CX, CY, ISLAND_RX + 21, ISLAND_RY + 18, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        /* feixe duplo e oposto: uma volta completa a cada ciclo de moedas */
+        function drawBeam(t) {
+            const ang = (game.beamTimer / game.beamInterval) * Math.PI * 2;
+            ctx.save();
+            ctx.translate(CX, CY - 172);
+            ctx.rotate(ang);
+            for (const dir of [0, Math.PI]) {
+                ctx.save();
+                ctx.rotate(dir);
+                const g = ctx.createLinearGradient(0, 0, 480, 0);
+                g.addColorStop(0, 'rgba(255,214,120,0.40)');
+                g.addColorStop(0.55, 'rgba(255,214,120,0.15)');
+                g.addColorStop(1, 'rgba(255,214,120,0)');
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(480, -74); ctx.lineTo(480, 74); ctx.closePath(); ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        function drawLighthouse(t) {
+            const hpR = game.lh.hp / game.lh.max;
+            /* claridade no chão da ilha */
+            const glow = ctx.createRadialGradient(CX, CY, 10, CX, CY, 180);
+            glow.addColorStop(0, 'rgba(255,210,110,0.20)');
+            glow.addColorStop(1, 'rgba(255,210,110,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.ellipse(CX, CY, 185, 132, 0, 0, Math.PI * 2); ctx.fill();
+            /* sombra da torre */
+            ctx.fillStyle = 'rgba(40,26,16,0.30)';
+            ctx.beginPath(); ctx.ellipse(CX, CY + 8, 64, 22, 0, 0, Math.PI * 2); ctx.fill();
+            /* corpo da torre */
+            const tower = new Path2D();
+            tower.moveTo(CX - 19, CY - 146); tower.lineTo(CX + 19, CY - 146);
+            tower.lineTo(CX + 27, CY + 6); tower.lineTo(CX - 27, CY + 6); tower.closePath();
+            ctx.fillStyle = '#eae2d2'; ctx.fill(tower);
+            /* faixas vermelhas */
+            ctx.save();
+            ctx.clip(tower);
+            ctx.fillStyle = '#c94b46';
+            for (let i = 0; i < 3; i++) ctx.fillRect(CX - 32, CY - 122 + i * 52, 64, 26);
+            ctx.restore();
+            /* janelas */
+            ctx.fillStyle = '#2b3d4c';
+            ctx.fillRect(CX - 4, CY - 96, 8, 12);
+            ctx.fillRect(CX - 4, CY - 44, 8, 12);
+            /* galeria e sala da lâmpada */
+            ctx.fillStyle = '#24303c'; ctx.fillRect(CX - 26, CY - 158, 52, 12);
+            ctx.fillStyle = '#33414f'; ctx.fillRect(CX - 31, CY - 152, 62, 6);
+            ctx.fillStyle = '#ffd25a'; ctx.fillRect(CX - 15, CY - 187, 30, 29);
+            ctx.fillStyle = '#2b3d4c'; ctx.fillRect(CX - 15, CY - 187, 30, 5);
+            /* brilho pulsante da lâmpada */
+            const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+            const lampGlow = ctx.createRadialGradient(CX, CY - 172, 2, CX, CY - 172, 62);
+            lampGlow.addColorStop(0, 'rgba(255,226,150,' + (0.32 + 0.16 * pulse).toFixed(3) + ')');
+            lampGlow.addColorStop(1, 'rgba(255,226,150,0)');
+            ctx.fillStyle = lampGlow;
+            ctx.beginPath(); ctx.arc(CX, CY - 172, 62, 0, Math.PI * 2); ctx.fill();
+            /* telhado */
+            ctx.fillStyle = '#8c3a38';
+            ctx.beginPath(); ctx.moveTo(CX - 22, CY - 187); ctx.lineTo(CX + 22, CY - 187); ctx.lineTo(CX, CY - 213); ctx.closePath(); ctx.fill();
+            /* pips de nível do farol */
+            for (let i = 0; i < game.lh.level; i++) {
+                ctx.fillStyle = '#ffd25a';
+                ctx.fillRect(CX - 20 + i * 9, CY + 12, 6, 6);
+            }
+            /* estados de dano */
+            if (hpR < 0.62) {
+                ctx.strokeStyle = 'rgba(52,32,22,0.85)'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(CX - 12, CY - 84); ctx.lineTo(CX - 4, CY - 62); ctx.lineTo(CX - 10, CY - 40); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(CX + 15, CY - 30); ctx.lineTo(CX + 6, CY - 8); ctx.stroke();
+            }
+            if (hpR < 0.32) {
+                ctx.fillStyle = 'rgba(28,18,14,0.32)';
+                ctx.fillRect(CX - 19, CY - 146, 38, 152);
+                if (Math.random() < 0.14) {
+                    addParticles(CX + rand(-12, 12), CY - 152, 1, {
+                        color: '#5a5a5a', vy: rand(-30, -14), vx: rand(-9, 9),
+                        size: rand(4, 8), life: rand(0.8, 1.6), grav: -6, spread: 6
+                    });
+                }
+            }
+        }
+
+        function drawWorld(t) {
+            drawWater(t);
+            drawIsland(t);
+            drawBeam(t);        // luz atrás da torre
+            drawLighthouse(t);
+        }
+
+        /* ============================================================
+           BLOCO 2.4 — sprites em pixel art (desenhados em código)
+           ============================================================ */
+        function rectPx(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }
+
+        function drawPlayerSprite(p, t) {
+            if (p.inv > 0 && Math.floor(t * 14) % 2 === 0) return;   // pisca ao levar dano
+            const bob = p.moving ? Math.sin(p.walk * 9) * 1.4 : 0;
+            const leg = p.moving ? Math.sin(p.walk * 9) * 3 : 0;
+            ctx.save();
+            ctx.translate(Math.round(p.x), Math.round(p.y));
+            ctx.fillStyle = 'rgba(10,24,36,0.35)';
+            ctx.beginPath(); ctx.ellipse(0, 9, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+            /* pernas */
+            rectPx(-6, 3 + leg * 0.4, 5, 9, '#3a4c66');
+            rectPx(2, 3 - leg * 0.4, 5, 9, '#3a4c66');
+            /* capa de chuva */
+            rectPx(-8, -10 + bob, 16, 16, '#e8a33d');
+            rectPx(-8, -10 + bob, 6, 16, '#ffd25a');
+            /* cabeça e cabelo */
+            rectPx(-6, -22 + bob, 12, 11, '#f2c894');
+            rectPx(-6, -25 + bob, 12, 5, '#3a2a1e');
+            rectPx(-6, -22 + bob, 3, 4, '#3a2a1e');
+            /* olho na direção do movimento */
+            rectPx(p.face > 0 ? 2 : -4, -18 + bob, 2, 3, '#22303c');
+            /* arma de água */
+            ctx.save();
+            ctx.scale(p.face, 1);
+            rectPx(6, -8 + bob, 13, 5, '#4aa8d8');
+            rectPx(14, -11 + bob, 5, 4, '#7fd8ea');
+            ctx.restore();
+            ctx.restore();
+        }
+
+        function drawEnemySprite(e, t) {
+            const wob = Math.sin(t * 3 + e.ph) * 1.5;
+            ctx.save();
+            ctx.translate(Math.round(e.x), Math.round(e.y));
+            ctx.fillStyle = 'rgba(8,20,32,0.32)';
+            ctx.beginPath(); ctx.ellipse(0, e.r * 0.8, e.r * 0.95, e.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+
+            if (e.type === 'aguaViva') {
+                ctx.fillStyle = '#8a63c9';
+                ctx.beginPath(); ctx.arc(0, wob * 0.5, e.r, Math.PI, 0); ctx.fill();
+                rectPx(-e.r * 0.5, -e.r * 0.55 + wob * 0.5, e.r * 0.55, 3, '#b394e8');
+                ctx.strokeStyle = '#6b4aa8'; ctx.lineWidth = 2;
+                for (let i = 0; i < 4; i++) {
+                    const tx = -e.r * 0.65 + i * e.r * 0.42;
+                    ctx.beginPath(); ctx.moveTo(tx, 0);
+                    ctx.quadraticCurveTo(tx + Math.sin(t * 4 + i) * 4, e.r * 0.8, tx + Math.sin(t * 4 + i) * 7, e.r * 1.35);
+                    ctx.stroke();
+                }
+            } else if (e.type === 'agulha') {
+                ctx.scale(e.face, 1);
+                ctx.fillStyle = '#9fd8e8';
+                ctx.beginPath();
+                ctx.moveTo(-e.r * 1.6, wob * 0.3); ctx.lineTo(e.r * 1.4, -2 + wob * 0.3);
+                ctx.lineTo(e.r * 1.4, 3 + wob * 0.3); ctx.closePath(); ctx.fill();
+                rectPx(-e.r * 1.1, -4 + wob * 0.3, 5, 8, '#5a93a8');
+                rectPx(e.r * 0.8, -1 + wob * 0.3, 3, 3, '#22303c');
+            } else if (e.type === 'caranguejo') {
+                ctx.fillStyle = '#d8564e';
+                ctx.beginPath(); ctx.ellipse(0, wob * 0.3, e.r, e.r * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+                rectPx(-e.r * 1.5, -3 + wob * 0.3, 8, 7, '#b23c38');
+                rectPx(e.r * 0.9, -3 + wob * 0.3, 8, 7, '#b23c38');
+                rectPx(-3, -e.r * 0.8 + wob * 0.3, 3, 3, '#f2e2c8');
+                rectPx(3, -e.r * 0.8 + wob * 0.3, 3, 3, '#f2e2c8');
+                ctx.strokeStyle = '#8f2f2c'; ctx.lineWidth = 2;
+                for (let i = 0; i < 3; i++) {
+                    const lx = -e.r * 0.6 + i * e.r * 0.6;
+                    ctx.beginPath(); ctx.moveTo(lx, e.r * 0.5);
+                    ctx.lineTo(lx + Math.sin(t * 6 + i) * 3, e.r * 1.1); ctx.stroke();
+                }
+            } else if (e.type === 'polvo') {
+                ctx.fillStyle = '#7b68c8';
+                ctx.beginPath(); ctx.arc(0, -2 + wob * 0.4, e.r * 0.9, 0, Math.PI * 2); ctx.fill();
+                rectPx(-e.r * 0.42, -6 + wob * 0.4, 4, 4, '#22303c');
+                rectPx(e.r * 0.16, -6 + wob * 0.4, 4, 4, '#22303c');
+                ctx.strokeStyle = '#5c4aa0'; ctx.lineWidth = 3;
+                for (let i = 0; i < 5; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(-e.r * 0.7 + i * e.r * 0.35, e.r * 0.45);
+                    ctx.quadraticCurveTo(Math.sin(t * 5 + i) * 8, e.r * 1.1, Math.sin(t * 5 + i * 1.7) * 10, e.r * 1.5);
+                    ctx.stroke();
+                }
+            } else if (e.type === 'tubarao') {
+                ctx.scale(e.face, 1);
+                ctx.fillStyle = '#8fa2b2';
+                ctx.beginPath(); ctx.ellipse(0, wob * 0.25, e.r * 1.45, e.r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#6c808f';
+                ctx.beginPath();
+                ctx.moveTo(-e.r * 0.2, -e.r * 0.55); ctx.lineTo(e.r * 0.35, -e.r * 1.35);
+                ctx.lineTo(e.r * 0.55, -e.r * 0.5); ctx.closePath(); ctx.fill();
+                rectPx(-e.r * 1.2, e.r * 0.05, e.r * 1.9, e.r * 0.35, '#dfe8ee');
+                rectPx(e.r * 0.85, -e.r * 0.22, 4, 4, '#22303c');
+                rectPx(e.r * 0.75, e.r * 0.28, e.r * 0.55, 3, '#4c2b2b');
+            } else if (e.type === 'kraken') {
+                ctx.fillStyle = '#3d2b57';
+                ctx.beginPath(); ctx.arc(0, wob * 0.4, e.r, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#543b78';
+                ctx.beginPath(); ctx.arc(-e.r * 0.3, -e.r * 0.35 + wob * 0.4, e.r * 0.42, 0, Math.PI * 2); ctx.fill();
+                rectPx(-e.r * 0.5, -e.r * 0.25 + wob * 0.4, 9, 9, '#ff5a4e');
+                rectPx(e.r * 0.22, -e.r * 0.25 + wob * 0.4, 9, 9, '#ff5a4e');
+                rectPx(-e.r * 0.5 + 2, -e.r * 0.25 + wob * 0.4 + 2, 3, 3, '#ffe9a8');
+                rectPx(e.r * 0.22 + 2, -e.r * 0.25 + wob * 0.4 + 2, 3, 3, '#ffe9a8');
+                ctx.strokeStyle = '#2c1e42'; ctx.lineWidth = 5;
+                for (let i = 0; i < 6; i++) {
+                    const ang = Math.PI * 0.2 + i * Math.PI * 0.24;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(ang) * e.r * 0.85, Math.sin(ang) * e.r * 0.5 + e.r * 0.3);
+                    ctx.quadraticCurveTo(
+                        Math.cos(ang) * e.r * 1.6 + Math.sin(t * 2.5 + i) * 10, e.r * 1.1,
+                        Math.cos(ang) * e.r * 2 + Math.sin(t * 2.5 + i * 1.3) * 16, e.r * 1.6);
+                    ctx.stroke();
+                }
+            }
+
+            /* barra de vida (aparece ao tomar dano) */
+            if (e.hp < e.maxHp) {
+                const bw = e.r * 2.2;
+                rectPx(-bw / 2, -e.r - 13, bw, 5, 'rgba(8,20,32,0.7)');
+                rectPx(-bw / 2, -e.r - 13, bw * Math.max(0, e.hp / e.maxHp), 5, e.boss ? '#ff8a4e' : '#e8534f');
+            }
+            ctx.restore();
+        }
+
+        function drawAllySprite(a, t) {
+            const bob = Math.sin(t * 3 + a.ph) * 1.2;
+            ctx.save();
+            ctx.translate(Math.round(a.x), Math.round(a.y));
+            ctx.fillStyle = 'rgba(10,24,36,0.32)';
+            ctx.beginPath(); ctx.ellipse(0, 9, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+            if (a.type === 'soldado') {
+                rectPx(-7, -8 + bob, 14, 14, '#3f7a4e');
+                rectPx(-7, -8 + bob, 5, 14, '#6fd08c');
+                rectPx(-5, -19 + bob, 10, 10, '#f2c894');
+                rectPx(2, -16 + bob, 2, 3, '#22303c');
+                rectPx(6, -6 + bob, 11, 4, '#4aa8d8');
+            } else if (a.type === 'bolha') {
+                rectPx(-10, 0, 20, 8, '#2c4a5e');
+                rectPx(-3, -12, 6, 14, '#8a6a4a');
+                ctx.strokeStyle = '#7fd8ea'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(-9, -22);
+                ctx.moveTo(0, -12); ctx.lineTo(9, -22); ctx.stroke();
+            } else if (a.type === 'canhao') {
+                rectPx(-12, -2, 24, 10, '#8a6a4a');
+                ctx.save();
+                ctx.rotate(a.aim || 0);
+                rectPx(0, -5, 22, 10, '#4a5566');
+                ctx.restore();
+                ctx.fillStyle = '#2c3542';
+                ctx.beginPath(); ctx.arc(0, -4, 8, 0, Math.PI * 2); ctx.fill();
+            } else if (a.type === 'catapulta') {
+                rectPx(-12, 2, 24, 8, '#8a6a4a');
+                ctx.save();
+                ctx.rotate((a.aim || 0) - Math.PI / 2);
+                rectPx(-3, -26, 6, 28, '#a8845e');
+                rectPx(-8, -30, 16, 6, '#6b5238');
+                ctx.restore();
+            } else if (a.type === 'corrente') {
+                rectPx(-9, -2, 18, 10, '#2c4a5e');
+                const gl = 0.5 + 0.5 * Math.sin(t * 3 + a.ph);
+                ctx.fillStyle = 'rgba(127,216,234,' + (0.55 + 0.3 * gl).toFixed(3) + ')';
+                ctx.beginPath();
+                ctx.moveTo(0, -30); ctx.lineTo(10, -12); ctx.lineTo(0, -2); ctx.lineTo(-10, -12);
+                ctx.closePath(); ctx.fill();
+            } else if (a.type === 'mergulhador') {
+                const leg = a.moving ? Math.sin(a.walk * 9) * 3 : 0;
+                rectPx(-6, 3 + leg * 0.4, 5, 9, '#173244');
+                rectPx(2, 3 - leg * 0.4, 5, 9, '#173244');
+                rectPx(-8, -10 + bob, 16, 15, '#3f89b0');
+                rectPx(-6, -21 + bob, 12, 11, '#173244');
+                rectPx(-5, -19 + bob, 10, 5, '#7fd8ea');
+                rectPx(-3, -25 + bob, 6, 5, '#c94b46');
+            } else if (a.type === 'curandeiro') {
+                rectPx(-8, -10 + bob, 16, 16, '#e8e2d2');
+                rectPx(-5, -21 + bob, 10, 10, '#f2c894');
+                rectPx(-2, -7 + bob, 4, 11, '#6fd08c');
+                rectPx(-6, -3 + bob, 12, 4, '#6fd08c');
+            } else if (a.type === 'mina') {
+                const blink = 0.5 + 0.5 * Math.sin(t * 5 + a.ph);
+                ctx.fillStyle = '#c96a4b';
+                ctx.beginPath(); ctx.arc(0, 2, 11, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#e8916b';
+                for (let i = 0; i < 7; i++) {
+                    const ang = i / 7 * Math.PI * 2;
+                    ctx.fillRect(Math.cos(ang) * 11 - 2, 2 + Math.sin(ang) * 11 - 2, 4, 4);
+                }
+                ctx.fillStyle = 'rgba(255,210,110,' + (0.35 + 0.5 * blink).toFixed(3) + ')';
+                ctx.beginPath(); ctx.arc(0, 2, 4, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawProjectileSprite(pr) {
+            ctx.save();
+            ctx.translate(Math.round(pr.x), Math.round(pr.y));
+            if (pr.type === 'bolha') {
+                ctx.fillStyle = '#7fd8ea';
+                ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+                rectPx(-1, -2, 2, 2, '#dff6fb');
+            } else if (pr.type === 'concha') {
+                ctx.fillStyle = '#5c5468';
+                ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#877b96';
+                ctx.beginPath(); ctx.arc(-1, -2, 2.5, 0, Math.PI * 2); ctx.fill();
+            } else if (pr.type === 'areia') {
+                ctx.fillStyle = '#e6cf9c';
+                ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+                rectPx(-2, -2, 2, 2, '#b89b72');
+                rectPx(1, 1, 2, 2, '#b89b72');
+            } else if (pr.type === 'corrente') {
+                ctx.strokeStyle = '#7fd8ea'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-7, 0); ctx.lineTo(-2, 4); ctx.lineTo(3, -3); ctx.lineTo(8, 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        /* ============================================================
+           BLOCO 2.5 — partículas, anéis e textos flutuantes
+           ============================================================ */
+        function addParticles(x, y, n, o) {
+            o = o || {};
+            for (let i = 0; i < n; i++) {
+                const life = o.life || rand(0.35, 0.8);
+                particles.push({
+                    x: x, y: y,
+                    vx: (o.vx || 0) + rand(-(o.spread || 40), (o.spread || 40)),
+                    vy: (o.vy || 0) + rand(-(o.spread || 40), (o.spread || 40)),
+                    life: life, max: life,
+                    size: o.size || rand(2, 4),
+                    color: o.color || '#7fd8ea',
+                    grav: o.grav || 0
+                });
+            }
+        }
+
+        function addRing(x, y, r0, r1, color) {
+            rings.push({ x: x, y: y, r: r0, r1: r1, life: 0.45, max: 0.45, color: color });
+        }
+
+        function addText(x, y, txt, color, size) {
+            texts.push({ x: x, y: y, vy: -36, life: 0.95, max: 0.95, txt: txt, color: color || '#ffd25a', size: size || 20 });
+        }
+
+        function burstSplash(x, y, n) {
+            addParticles(x, y, n || 8, { color: '#7fd8ea', spread: 60, life: rand(0.3, 0.7), size: rand(2, 4), grav: 90 });
+            addRing(x, y, 6, 26, 'rgba(127,216,234,0.7)');
+        }
+
+        function burstBoom(x, y, r, color) {
+            addParticles(x, y, 14, { color: color || '#ffd25a', spread: r * 1.6, life: rand(0.3, 0.7), size: rand(3, 6), grav: 40 });
+            addRing(x, y, 8, r * 1.5, color || 'rgba(255,210,110,0.85)');
+            game.shake = Math.min(12, game.shake + 6);
+        }
+
+        function updateEffects(dt) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.life -= dt;
+                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                p.vy += p.grav * dt;
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+            }
+            for (let i = rings.length - 1; i >= 0; i--) {
+                const r = rings[i];
+                r.life -= dt;
+                if (r.life <= 0) { rings.splice(i, 1); continue; }
+                r.r += (r.r1 - r.r) * (dt * 7);
+            }
+            for (let i = texts.length - 1; i >= 0; i--) {
+                const tx = texts[i];
+                tx.life -= dt;
+                if (tx.life <= 0) { texts.splice(i, 1); continue; }
+                tx.y += tx.vy * dt;
+                tx.vy *= (1 - dt * 1.2);
+            }
+        }
+
+        function drawEffects() {
+            rings.forEach(r => {
+                ctx.globalAlpha = Math.max(0, r.life / r.max);
+                ctx.strokeStyle = r.color; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.stroke();
+            });
+            particles.forEach(p => {
+                ctx.globalAlpha = Math.max(0, p.life / p.max);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
+            ctx.textAlign = 'center';
+            texts.forEach(tx => {
+                ctx.globalAlpha = Math.min(1, tx.life / tx.max * 1.6);
+                ctx.font = tx.size + "px 'VT323', monospace";
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.fillText(tx.txt, tx.x + 2, tx.y + 2);
+                ctx.fillStyle = tx.color;
+                ctx.fillText(tx.txt, tx.x, tx.y);
+            });
+            ctx.globalAlpha = 1;
+            ctx.textAlign = 'left';
+        }
+    </script>
+
+    /* PARTE 3 */
+
+    <script>
+        /* ============================================================
+           REGIÃO — COMBATE: GAROTO · INIMIGOS · ALIADOS · PROJÉTEIS
+           (continuação do arquivo único; bloco <script> concatenável)
+           ============================================================ */
+        'use strict';
+
+        /* ============================================================
+           BLOCO 2.6 — garoto: movimento, limites da ilha e desmaio
+           ============================================================ */
+        function clampToIsland(o, m) {
+            const rx = ISLAND_RX - m, ry = ISLAND_RY - m * 0.62;
+            const dx = (o.x - CX) / rx, dy = (o.y - CY) / ry;
+            const d2 = dx * dx + dy * dy;
+            if (d2 > 1) {
+                const d = Math.sqrt(d2);
+                o.x = CX + dx / d * rx;
+                o.y = CY + dy / d * ry;
+            }
+        }
+
+        function updatePlayer(dt) {
+            /* entrada: teclado (keys) + joystick (joy) — definidos no BLOCO 2.13 */
+            let ix = 0, iy = 0;
+            if (keys['arrowleft'] || keys['a']) ix -= 1;
+            if (keys['arrowright'] || keys['d']) ix += 1;
+            if (keys['arrowup'] || keys['w']) iy -= 1;
+            if (keys['arrowdown'] || keys['s']) iy += 1;
+            ix += joy.x; iy += joy.y;
+
+            const mag = Math.sqrt(ix * ix + iy * iy);
+            player.moving = mag > 0.08;
+            if (player.moving) {
+                const nx = ix / mag, ny = iy / mag;
+                player.x += nx * player.speed * dt;
+                player.y += ny * player.speed * dt;
+                if (nx > 0.15) player.face = 1;
+                else if (nx < -0.15) player.face = -1;
+                player.walk += dt;
+                clampToIsland(player, 20);
+            }
+            if (player.inv > 0) player.inv -= dt;
+
+            /* arma de água: dispara sozinha no inimigo mais próximo */
+            player.shootTimer -= dt;
+            const target = nearestEnemy(player.x, player.y, player.range);
+            if (target && player.shootTimer <= 0) {
+                player.shootTimer = player.shootRate;
+                const ang = Math.atan2(target.y - player.y, target.x - player.x);
+                player.face = Math.cos(ang) >= 0 ? 1 : -1;
+                projectiles.push({
+                    x: player.x + Math.cos(ang) * 15, y: player.y - 12 + Math.sin(ang) * 15,
+                    vx: Math.cos(ang) * 400, vy: Math.sin(ang) * 400,
+                    type: 'bolha', dmg: player.dmg, splash: 0, slow: 0, life: 1.4
+                });
+                burstSplash(player.x + Math.cos(ang) * 18, player.y - 12 + Math.sin(ang) * 18, 2);
+                sfx('shoot');
+            }
+        }
+
+        /* desmaio: penalidade leve, a derrota real é a queda do farol */
+        function playerFaint() {
+            const lost = Math.max(5, Math.floor(save.coins * 0.15));
+            setCoins(save.coins - lost);
+            player.hp = player.maxHp;
+            player.x = CX; player.y = CY + 92;
+            player.inv = 2.6;
+            game.shake = 10;
+            addText(CX, CY - 215, 'DESMAYOU! -' + lost + ' MOEDAS', '#e8534f', 22);
+            burstBoom(CX, CY + 92, 46, 'rgba(232,83,79,0.9)');
+            sfx('lose');
+            updateHUD();
+        }
+
+        /* ============================================================
+           BLOCO 2.7 — inimigos: spawn, avanço e ataque ao farol
+           ============================================================ */
+        function spawnPoint() {
+            const side = Math.floor(Math.random() * 4);
+            if (side === 0) return { x: rand(-60, W + 60), y: -rand(40, 150) };
+            if (side === 1) return { x: W + rand(40, 150), y: rand(-60, H + 60) };
+            if (side === 2) return { x: rand(-60, W + 60), y: H + rand(40, 150) };
+            return { x: -rand(40, 150), y: rand(-60, H + 60) };
+        }
+
+        function spawnEnemy(type, wave, mini) {
+            const d = ENEMIES[type], pt = spawnPoint();
+            const hp = mini ? d.hp * 0.35 + d.hpG * wave * 0.3 : d.hp + d.hpG * (wave - 1);
+            enemies.push({
+                type: type, mini: !!mini, boss: !!d.boss && !mini,
+                x: pt.x, y: pt.y,
+                r: mini ? d.r * 0.62 : d.r,
+                hp: hp, maxHp: hp,
+                spd: (mini ? d.spd * 1.3 : d.spd) * (1 + wave * 0.004),
+                dmg: mini ? d.dmg * 0.5 : d.dmg,
+                reward: mini ? Math.ceil(d.reward * 0.3) : d.reward,
+                split: mini ? false : !!d.split,
+                atkT: rand(0.2, 0.9), ph: Math.random() * 6.28, wob: Math.random() * 6.28,
+                face: 1, flash: 0, slowT: 0, slowF: 1, dead: false
+            });
+        }
+
+        function nearestEnemy(x, y, maxR) {
+            let best = null, bestD = maxR;
+            for (const e of enemies) {
+                if (e.dead) continue;
+                const d = dist(x, y, e.x, e.y);
+                if (d < bestD) { bestD = d; best = e; }
+            }
+            return best;
+        }
+
+        function updateEnemies(dt) {
+            for (const e of enemies) {
+                if (e.dead) continue;
+                if (e.flash > 0) e.flash -= dt;
+                if (e.slowT > 0) e.slowT -= dt; else e.slowF = 1;
+
+                const lhD = dist(e.x, e.y, game.lh.x, game.lh.y);
+                const reach = 46 + e.r;
+                if (lhD > reach) {
+                    /* avança sobre o farol com leve sinuosidade */
+                    const ang = Math.atan2(game.lh.y - e.y, game.lh.x - e.x);
+                    const wob = Math.sin(game.time * 1.5 + e.wob) * 0.3;
+                    const sp = e.spd * e.slowF;
+                    e.x += Math.cos(ang + wob) * sp * dt;
+                    e.y += Math.sin(ang + wob) * sp * dt;
+                    e.face = Math.cos(ang) >= 0 ? 1 : -1;
+                } else {
+                    /* ataca o farol */
+                    e.atkT -= dt;
+                    if (e.atkT <= 0) {
+                        e.atkT = e.boss ? 0.85 : 1.15;
+                        damageLighthouse(e.dmg);
+                        addParticles(game.lh.x + rand(-16, 16), game.lh.y - rand(6, 66), 3,
+                            { color: '#e8b06a', spread: 40, life: 0.5, vy: -30 });
+                        sfx('hit');
+                    }
+                }
+
+                /* contato com o garoto */
+                if (player.inv <= 0 && dist(e.x, e.y, player.x, player.y) < e.r + 13) {
+                    player.hp -= 1;
+                    player.inv = 1.35;
+                    const ka = Math.atan2(e.y - player.y, e.x - player.x);
+                    e.x += Math.cos(ka) * 28; e.y += Math.sin(ka) * 28;
+                    addText(player.x, player.y - 36, '-1', '#e8534f', 22);
+                    burstSplash(player.x, player.y - 12, 6);
+                    game.shake = 6;
+                    sfx('hurt');
+                    updateHUD();
+                    if (player.hp <= 0) playerFaint();
+                }
+            }
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (enemies[i].dead) enemies.splice(i, 1);
+            }
+        }
+
+        function damageLighthouse(dmg) {
+            game.lh.hp = Math.max(0, game.lh.hp - dmg);
+            game.shake = Math.min(12, game.shake + 3);
+            updateHUD();
+            if (game.lh.hp <= 0 && !game.over) triggerGameOver();
+        }
+
+        function killEnemy(e) {
+            if (e.dead) return;
+            e.dead = true;
+            game.kills++;
+            addCoins(e.reward);
+            game.earned += e.reward;
+            addText(e.x, e.y - e.r - 10, '+' + e.reward, '#ffd25a', 20);
+            if (e.boss) {
+                burstBoom(e.x, e.y, 78, 'rgba(160,110,220,0.95)');
+                addText(e.x, e.y - e.r - 34, 'KRAKEN ABATIDO!', '#b394e8', 20);
+                sfx('boom');
+            } else {
+                burstSplash(e.x, e.y, 8);
+                sfx('hit');
+            }
+            if (e.split) {
+                for (let i = 0; i < 2; i++) spawnEnemy('polvo', game.wave, true);
+                addText(e.x, e.y - e.r - 28, 'DIVIDIU!', '#b394e8', 18);
+            }
+        }
+
+        /* flash branco ao tomar dano (chamado no render) */
+        function drawEnemyFlash(e) {
+            if (e.flash <= 0) return;
+            ctx.globalAlpha = Math.min(0.85, e.flash * 6);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 2, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        /* ============================================================
+           BLOCO 2.8 — aliados e construções
+           ============================================================ */
+        function createAlly(type, x, y) {
+            const d = UNITS[type];
+            return {
+                type: type, x: x, y: y,
+                range: d.range, rate: d.rate, dmg: d.dmg,
+                proj: d.proj, splash: d.splash || 0, slow: d.slow || 0, heal: d.heal || 0,
+                cool: rand(0, d.rate || 1), aim: -Math.PI / 2,
+                ph: Math.random() * 6.28, moving: false, walk: 0, dead: false
+            };
+        }
+
+        function updateAllies(dt) {
+            for (const a of allies) {
+                if (a.dead) continue;
+
+                if (a.type === 'mergulhador') {
+                    /* persegue e ataca corpo a corpo */
+                    const tgt = nearestEnemy(a.x, a.y, 300);
+                    a.moving = false;
+                    if (tgt) {
+                        const d = dist(a.x, a.y, tgt.x, tgt.y);
+                        if (d > 24) {
+                            const ang = Math.atan2(tgt.y - a.y, tgt.x - a.x);
+                            a.x += Math.cos(ang) * 118 * dt;
+                            a.y += Math.sin(ang) * 118 * dt;
+                            a.moving = true; a.walk += dt;
+                            clampToIsland(a, 30);
+                        } else {
+                            a.cool -= dt;
+                            if (a.cool <= 0) {
+                                a.cool = a.rate;
+                                damageEnemy(tgt, a.dmg);
+                                burstSplash(tgt.x, tgt.y, 4);
+                                sfx('hit');
+                            }
+                        }
+                    }
+                } else if (a.type === 'curandeiro') {
+                    /* repara o farol continuamente */
+                    a.cool -= dt;
+                    if (a.cool <= 0) {
+                        a.cool = 1 / a.rate;
+                        if (game.lh.hp < game.lh.max) {
+                            game.lh.hp = Math.min(game.lh.max, game.lh.hp + a.heal * 4);
+                            addParticles(game.lh.x + rand(-22, 22), game.lh.y - rand(24, 96), 3,
+                                { color: '#6fd08c', spread: 22, life: 0.9, vy: -26 });
+                            updateHUD();
+                        }
+                    }
+                } else if (a.type === 'mina') {
+                    /* armadilha: explode ao contato */
+                    const tgt = nearestEnemy(a.x, a.y, 32);
+                    if (tgt) {
+                        for (const e of enemies) {
+                            if (!e.dead && dist(a.x, a.y, e.x, e.y) < 66) damageEnemy(e, a.dmg * 0.65, true);
+                        }
+                        damageEnemy(tgt, a.dmg, true);
+                        burstBoom(a.x, a.y, 68, 'rgba(232,145,107,0.95)');
+                        addText(a.x, a.y - 26, 'BOOM!', '#ffd25a', 20);
+                        sfx('boom');
+                        a.dead = true;
+                    }
+                } else {
+                    /* torres fixas: miram e disparam */
+                    const tgt = nearestEnemy(a.x, a.y, a.range);
+                    if (tgt) {
+                        a.aim = Math.atan2(tgt.y - a.y, tgt.x - a.x);
+                        a.cool -= dt;
+                        if (a.cool <= 0) {
+                            a.cool = a.rate;
+                            fireAllyProjectile(a);
+                        }
+                    } else {
+                        a.cool = Math.max(a.cool - dt, -0.25);
+                    }
+                }
+            }
+            for (let i = allies.length - 1; i >= 0; i--) {
+                if (allies[i].dead) allies.splice(i, 1);
+            }
+        }
+
+        function fireAllyProjectile(a) {
+            const ang = a.aim;
+            const speed = a.proj === 'concha' ? 300 : (a.proj === 'areia' ? 265 : 345);
+            projectiles.push({
+                x: a.x + Math.cos(ang) * 16, y: a.y - 12 + Math.sin(ang) * 16,
+                vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
+                type: a.proj, dmg: a.dmg, splash: a.splash, slow: a.slow, life: 1.8
+            });
+            sfx('shoot');
+        }
+
+        /* ============================================================
+           BLOCO 2.9 — projéteis, dano e colisões
+           ============================================================ */
+        function damageEnemy(e, dmg, silent) {
+            if (e.dead) return;
+            e.hp -= dmg;
+            e.flash = 0.12;
+            if (!silent && dmg >= 12) addText(e.x, e.y - e.r - 8, String(Math.round(dmg)), '#dff6fb', 16);
+            if (e.hp <= 0) killEnemy(e);
+        }
+
+        function updateProjectiles(dt) {
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.life -= dt;
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                if (p.life <= 0 || p.x < -70 || p.x > W + 70 || p.y < -70 || p.y > H + 70) {
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+                let hit = null;
+                for (const e of enemies) {
+                    if (e.dead) continue;
+                    if (dist(p.x, p.y, e.x, e.y) < e.r + 7) { hit = e; break; }
+                }
+                if (hit) {
+                    damageEnemy(hit, p.dmg);
+                    if (p.slow > 0) {
+                        hit.slowT = 1.9;
+                        hit.slowF = 1 - p.slow;
+                        addText(hit.x, hit.y - hit.r - 22, 'LENTO', '#7fd8ea', 15);
+                    }
+                    if (p.splash > 0) {
+                        for (const e of enemies) {
+                            if (e !== hit && !e.dead && dist(p.x, p.y, e.x, e.y) < p.splash) {
+                                damageEnemy(e, p.dmg * 0.55, true);
+                            }
+                        }
+                        burstBoom(p.x, p.y, p.splash,
+                            p.type === 'areia' ? 'rgba(230,207,156,0.9)' : 'rgba(150,140,170,0.9)');
+                        sfx('boom');
+                    } else {
+                        burstSplash(p.x, p.y, 5);
+                        sfx('hit');
+                    }
+                    projectiles.splice(i, 1);
+                }
+            }
+        }
+    </script>
+
+    /* PARTE 4 */
+
+    <script>
+        /* ============================================================
+           REGIÃO — ONDAS · ECONOMIA · HUD · ENTRADA
+           (continuação do arquivo único; bloco <script> concatenável)
+           ============================================================ */
+        'use strict';
+
+        /* guarda de consistência: o Kraken é sempre tratado como chefe */
+        ENEMIES.kraken.boss = true;
+
+        /* ============================================================
+           BLOCO 2.10 — ondas: fila de spawn, progressão e chefes
+           ============================================================ */
+        function availableTypes(wave) {
+            const pool = [];
+            for (const k in ENEMIES) {
+                if (k === 'kraken') continue;          // chefe só entra por conta própria
+                if (wave >= ENEMIES[k].wave) pool.push(k);
+            }
+            return pool;
+        }
+
+        function buildWaveQueue(n) {
+            const q = [];
+            const isBoss = n % 10 === 0;            // ondas 10, 20, 30... trazem o Kraken
+            const pool = availableTypes(n);
+            const count = Math.min(26, isBoss ? 5 + Math.floor(n * 0.35) : 4 + Math.floor(n * 0.95));
+            const gap = Math.max(0.3, 1.35 - n * 0.011);
+            for (let i = 0; i < count; i++) {
+                q.push({ type: pool[Math.floor(Math.random() * pool.length)], delay: gap * rand(0.75, 1.25) });
+            }
+            if (isBoss) {
+                const bosses = 1 + Math.floor(n / 40);   // 1 chefe até a 39, 2 até a 79, 3 no tramo final
+                for (let i = 0; i < bosses; i++) q.push({ type: 'kraken', delay: 1.4 });
+            }
+            return q;
+        }
+
+        function startWave(n) {
+            game.wave = n;
+            game.spawnQueue = buildWaveQueue(n);
+            game.spawnTimer = 1.1;
+            game.betweenWaves = 0;
+            game.waveBanner = 2.3;
+            updateHUD();
+        }
+
+        function updateWaves(dt) {
+            if (game.waveBanner > 0) game.waveBanner -= dt;
+
+            if (game.betweenWaves > 0) {
+                game.betweenWaves -= dt;
+                if (game.betweenWaves <= 0) startWave(game.wave + 1);
+                return;
+            }
+            if (game.spawnQueue.length > 0) {
+                game.spawnTimer -= dt;
+                if (game.spawnTimer <= 0) {
+                    const s = game.spawnQueue.shift();
+                    spawnEnemy(s.type, game.wave, false);
+                    game.spawnTimer = s.delay;
+                }
+                return;
+            }
+            /* fila vazia e mar calmo: onda concluída */
+            if (enemies.length === 0) {
+                if (game.wave >= WAVE_GOAL) { triggerVictory(); return; }
+                const bonus = 18 + game.wave * 3;
+                addCoins(bonus);
+                game.earned += bonus;
+                addText(game.lh.x, game.lh.y - 215, 'ONDA COMPLETA! +' + bonus, '#6fd08c', 21);
+                addRing(game.lh.x, game.lh.y - 172, 10, 60, 'rgba(111,208,140,0.85)');
+                game.betweenWaves = 5;
+                sfx('wave');
+            }
+        }
+
+        /* ============================================================
+           BLOCO 2.11 — economia: giro do farol, upgrade, reparo, colocação
+           ============================================================ */
+        function addCoins(n) {
+            setCoins(save.coins + n);
+            refreshBuildBar();                       // realça unidades agora acessíveis
+        }
+
+        function updateEconomy(dt) {
+            /* o giro é automático: uma volta completa rende moedas */
+            game.beamTimer += dt;
+            if (game.beamTimer >= game.beamInterval) {
+                game.beamTimer -= game.beamInterval;
+                addCoins(game.beamValue);
+                game.earned += game.beamValue;
+                addText(game.lh.x, game.lh.y - 208, '+' + game.beamValue, '#ffd25a', 20);
+                addRing(game.lh.x, game.lh.y - 172, 8, 46, 'rgba(255,210,110,0.8)');
+                sfx('coin');
+            }
+        }
+
+        function upgradeLighthouse() {
+            if (game.lh.level >= 8) {
+                addText(player.x, player.y - 42, 'NÍVEL MÁXIMO', '#84a9bd', 18);
+                return;
+            }
+            if (save.coins < game.upgradeCost) {
+                addText(player.x, player.y - 42, 'MOEDAS INSUFICIENTES', '#e8534f', 18);
+                sfx('hurt');
+                return;
+            }
+            setCoins(save.coins - game.upgradeCost);
+            game.lh.level++;
+            game.beamInterval = Math.max(2.2, 6 - (game.lh.level - 1) * 0.55);
+            game.beamValue = 10 + (game.lh.level - 1) * 4;
+            game.upgradeCost = Math.round(game.upgradeCost * 1.75);
+            game.lh.max += 25;
+            game.lh.hp = Math.min(game.lh.max, game.lh.hp + 25);
+            addText(game.lh.x, game.lh.y - 215, 'FAROL NÍVEL ' + game.lh.level + '!', '#ffd25a', 23);
+            burstBoom(game.lh.x, game.lh.y - 172, 42, 'rgba(255,210,110,0.9)');
+            sfx('upg');
+            updateHUD();
+        }
+
+        function repairLighthouse() {
+            const cost = 25 + (game.lh.level - 1) * 6;
+            if (game.lh.hp >= game.lh.max) {
+                addText(player.x, player.y - 42, 'FAROL INTEIRO', '#84a9bd', 18);
+                return;
+            }
+            if (save.coins < cost) {
+                addText(player.x, player.y - 42, 'MOEDAS INSUFICIENTES', '#e8534f', 18);
+                sfx('hurt');
+                return;
+            }
+            setCoins(save.coins - cost);
+            game.lh.hp = Math.min(game.lh.max, game.lh.hp + Math.round(game.lh.max * 0.3));
+            addText(game.lh.x, game.lh.y - 215, 'REPARADO', '#6fd08c', 20);
+            addParticles(game.lh.x, game.lh.y - 90, 10, { color: '#6fd08c', spread: 36, life: 0.9, vy: -24 });
+            sfx('upg');
+            updateHUD();
+        }
+
+        function tryPlaceUnit(px, py) {
+            if (!selectedUnit || game.paused || game.over) return;
+            const d = UNITS[selectedUnit];
+            if (!save.unlocked.includes(selectedUnit)) return;
+            if (!onIsland(px, py)) {
+                addText(px, py - 22, 'SÓ NA ILHA!', '#e8534f', 17); sfx('hurt'); return;
+            }
+            if (dist(px, py, game.lh.x, game.lh.y) < 78) {
+                addText(px, py - 22, 'LONGE DO FAROL!', '#e8534f', 17); sfx('hurt'); return;
+            }
+            for (const a of allies) {
+                if (dist(px, py, a.x, a.y) < 32) {
+                    addText(px, py - 22, 'OCUPADO!', '#e8534f', 17); sfx('hurt'); return;
+                }
+            }
+            if (save.coins < d.cost) {
+                addText(px, py - 22, 'MOEDAS INSUFICIENTES', '#e8534f', 17); sfx('hurt'); return;
+            }
+            setCoins(save.coins - d.cost);
+            allies.push(createAlly(selectedUnit, px, py));
+            burstSplash(px, py, 7);
+            addRing(px, py, 8, 34, 'rgba(255,210,110,0.85)');
+            addText(px, py - 26, d.name.toUpperCase(), '#ffd25a', 17);
+            sfx('place');
+            updateHUD();
+        }
+
+        /* ============================================================
+           BLOCO 2.12 — HUD, barra de construção e fantasmas de colocação
+           ============================================================ */
+        function updateHUD() {
+            $('hud-wave').textContent = game.wave;
+            $('hud-coins').textContent = fmt(save.coins);
+            const hp = Math.max(0, Math.round(game.lh.hp));
+            $('lh-hp-text').textContent = hp + '/' + game.lh.max;
+            $('lh-bar').style.width = (game.lh.hp / game.lh.max * 100) + '%';
+            const filled = Math.max(0, Math.min(player.maxHp, player.hp));
+            $('hearts').textContent = '♥'.repeat(filled) + '♡'.repeat(player.maxHp - filled);
+            $('upg-cost').textContent = game.lh.level >= 8 ? 'MAX' : game.upgradeCost;
+            $('rep-cost').textContent = 25 + (game.lh.level - 1) * 6;
+            refreshBuildBar();
+        }
+
+        function resetBuildBar() {
+            const bar = $('build-bar');
+            bar.innerHTML = '';
+            UNIT_ORDER.forEach((key, i) => {
+                const u = UNITS[key];
+                const owned = save.unlocked.includes(key);
+                const el = document.createElement('div');
+                el.className = 'unit-btn' + (owned ? '' : ' locked');
+                el.dataset.key = key;
+                el.innerHTML =
+                    '<span class="u-key">' + (i + 1) + '</span>' +
+                    '<span class="u-name">' + u.name + '</span>' +
+                    '<span class="u-cost">' + (owned ? u.cost + ' moedas' : 'bloqueado') + '</span>';
+                el.addEventListener('click', () => selectUnit(key));
+                bar.appendChild(el);
+            });
+            refreshBuildBar();
+        }
+
+        function refreshBuildBar() {
+            const btns = document.querySelectorAll('.unit-btn');
+            for (const el of btns) {
+                const key = el.dataset.key;
+                const owned = save.unlocked.includes(key);
+                el.classList.toggle('sel', key === selectedUnit);
+                el.classList.toggle('locked', !owned);
+                el.classList.toggle('poor', owned && save.coins < UNITS[key].cost);
+            }
+        }
+
+        function selectUnit(key) {
+            if (!save.unlocked.includes(key)) {
+                sfx('hurt');
+                return;
+            }
+            selectedUnit = (selectedUnit === key) ? null : key;
+            sfx('place');
+            refreshBuildBar();
+        }
+
+        function drawWaveBanner() {
+            if (game.waveBanner <= 0) return;
+            const a = Math.min(1, game.waveBanner / 0.7);
+            ctx.globalAlpha = a;
+            ctx.textAlign = 'center';
+            ctx.font = "32px 'Press Start 2P', monospace";
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillText('ONDA ' + game.wave, CX + 3, CY - 232);
+            ctx.fillStyle = '#ffd25a';
+            ctx.fillText('ONDA ' + game.wave, CX, CY - 235);
+            if (game.wave % 10 === 0) {
+                ctx.font = "16px 'Press Start 2P', monospace";
+                ctx.fillStyle = '#ff8a4e';
+                ctx.fillText('O KRAKEN VEM...', CX, CY - 207);
+            }
+            ctx.globalAlpha = 1;
+            ctx.textAlign = 'left';
+        }
+
+        function drawBuildGhost() {
+            if (!selectedUnit || game.paused || game.over) return;
+            const d = UNITS[selectedUnit];
+            const px = pointer.x, py = pointer.y;
+            const ok = onIsland(px, py) && save.coins >= d.cost && dist(px, py, game.lh.x, game.lh.y) >= 78;
+            ctx.globalAlpha = 0.45;
+            if (d.range > 0) {
+                ctx.strokeStyle = ok ? 'rgba(127,216,234,0.85)' : 'rgba(232,83,79,0.85)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 8]);
+                ctx.beginPath(); ctx.arc(px, py, d.range, 0, Math.PI * 2); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            drawAllySprite(createAlly(selectedUnit, px, py), game.time);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = ok ? '#6fd08c' : '#e8534f';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(px, py, 18, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        /* ============================================================
+           BLOCO 2.13 — entrada: teclado, mouse, toque e joystick
+           ============================================================ */
+        const keys = {};
+        const joy = { x: 0, y: 0, active: false };
+
+        function canvasPos(clientX, clientY) {
+            const r = canvas.getBoundingClientRect();
+            return {
+                x: clamp((clientX - r.left) / r.width * W, 0, W),
+                y: clamp((clientY - r.top) / r.height * H, 0, H)
+            };
+        }
+
+        /* --- teclado --- */
+        window.addEventListener('keydown', e => {
+            const k = e.key.toLowerCase();
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+            keys[k] = true;
+            if (k === 'escape' || k === 'p') togglePause();
+            if (k >= '1' && k <= '8') selectUnit(UNIT_ORDER[parseInt(k, 10) - 1]);
+        });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+        /* --- mouse --- */
+        canvas.addEventListener('mousemove', e => {
+            const p = canvasPos(e.clientX, e.clientY);
+            pointer.x = p.x; pointer.y = p.y; pointer.inside = true;
+        });
+        canvas.addEventListener('mouseleave', () => { pointer.inside = false; });
+        canvas.addEventListener('mousedown', e => {
+            ensureAudio();
+            const p = canvasPos(e.clientX, e.clientY);
+            pointer.x = p.x; pointer.y = p.y; pointer.inside = true;
+            tryPlaceUnit(p.x, p.y);
+        });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        /* --- toque na área de jogo --- */
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault(); ensureAudio();
+            const t = e.changedTouches[0];
+            const p = canvasPos(t.clientX, t.clientY);
+            pointer.x = p.x; pointer.y = p.y; pointer.inside = true;
+            tryPlaceUnit(p.x, p.y);
+        }, { passive: false });
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const t = e.changedTouches[0];
+            const p = canvasPos(t.clientX, t.clientY);
+            pointer.x = p.x; pointer.y = p.y;
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => { pointer.inside = false; });
+
+        /* --- joystick de toque (movimento do garoto) --- */
+        const joyEl = $('joystick'), joyKnob = $('joy-knob');
+        let joyTouchId = null;
+
+        function setJoy(clientX, clientY) {
+            const r = joyEl.getBoundingClientRect();
+            const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            let dx = clientX - cx, dy = clientY - cy;
+            const max = r.width * 0.34;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > max) { dx = dx / d * max; dy = dy / d * max; }
+            joyKnob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+            joy.x = dx / max; joy.y = dy / max; joy.active = true;
+        }
+        function resetJoy() {
+            joy.x = 0; joy.y = 0; joy.active = false;
+            joyKnob.style.transform = 'translate(0,0)';
+        }
+        joyEl.addEventListener('touchstart', e => {
+            e.preventDefault();
+            joyTouchId = e.changedTouches[0].identifier;
+            setJoy(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }, { passive: false });
+        joyEl.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for (const t of e.changedTouches) {
+                if (t.identifier === joyTouchId) setJoy(t.clientX, t.clientY);
+            }
+        }, { passive: false });
+        joyEl.addEventListener('touchend', e => {
+            for (const t of e.changedTouches) {
+                if (t.identifier === joyTouchId) { joyTouchId = null; resetJoy(); }
+            }
+        });
+        joyEl.addEventListener('touchcancel', () => { joyTouchId = null; resetJoy(); });
+
+        /* ativa o joystick automaticamente em dispositivos de toque */
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            joyEl.classList.add('on');
+        }
+
+        /* --- botões do HUD --- */
+        $('btn-upgrade').addEventListener('click', () => { ensureAudio(); upgradeLighthouse(); });
+        $('btn-repair').addEventListener('click', () => { ensureAudio(); repairLighthouse(); });
+        $('btn-pause').addEventListener('click', () => { togglePause(); });
+
+        /* pausa automática ao perder o foco da janela (evita estados inconsistentes) */
+        window.addEventListener('blur', () => {
+            if (game.running && !game.paused && !game.over) togglePause();
+        });
+    </script>
+
+    /* PARTE 5 */
+
+    <script>
+        /* ============================================================
+           REGIÃO — PAUSA · TELAS FINAIS · LOOP · INICIALIZAÇÃO
+           (continuação do arquivo único; bloco <script> concatenável)
+           ============================================================ */
+        'use strict';
+
+        /* ============================================================
+           BLOCO 5.1 — estados: pausa, derrota e vitória
+           ============================================================ */
+        function hideOverlays() {
+            $('ov-pause').classList.remove('active');
+            $('ov-gameover').classList.remove('active');
+            $('ov-victory').classList.remove('active');
+        }
+
+        function togglePause() {
+            if (!game.running || game.over || game.victory) return;
+            game.paused = !game.paused;
+            $('ov-pause').classList.toggle('active', game.paused);
+            resetJoy();
+            sfx(game.paused ? 'place' : 'coin');
+        }
+
+        function quitToMenu() {
+            hideOverlays();
+            game.running = false;
+            game.paused = false;
+            resetJoy();
+            refreshMenu();
+            showScreen('menu');
+        }
+
+        function triggerGameOver() {
+            if (game.over || game.victory) return;
+            game.over = true;
+            game.paused = false;
+            game.running = false;
+            save.best = Math.max(save.best, game.wave);
+            persist();
+            $('go-wave').textContent = game.wave;
+            $('go-coins').textContent = fmt(save.coins);
+            refreshMenu();
+            $('ov-gameover').classList.add('active');
+            sfx('lose');
+        }
+
+        function triggerVictory() {
+            if (game.over || game.victory) return;
+            game.victory = true;
+            game.paused = false;
+            game.running = false;
+            save.best = WAVE_GOAL;
+            persist();
+            $('vic-coins').textContent = fmt(save.coins);
+            refreshMenu();
+            $('ov-victory').classList.add('active');
+            sfx('win');
+        }
+
+        /* ============================================================
+           BLOCO 5.2 — botões dos overlays e pausa automática
+           ============================================================ */
+        $('btn-resume').addEventListener('click', () => { ensureAudio(); togglePause(); });
+        $('btn-restart').addEventListener('click', () => { ensureAudio(); sfx('place'); hideOverlays(); startGame(); });
+        $('btn-quit').addEventListener('click', () => { ensureAudio(); sfx('place'); quitToMenu(); });
+        $('btn-go-restart').addEventListener('click', () => { ensureAudio(); sfx('place'); hideOverlays(); startGame(); });
+        $('btn-go-menu').addEventListener('click', () => { ensureAudio(); sfx('place'); quitToMenu(); });
+        $('btn-vic-restart').addEventListener('click', () => { ensureAudio(); sfx('place'); hideOverlays(); startGame(); });
+        $('btn-vic-menu').addEventListener('click', () => { ensureAudio(); sfx('place'); quitToMenu(); });
+
+        /* pausa automática ao trocar de aba (evita estados inconsistentes) */
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && game.running && !game.paused && !game.over && !game.victory) togglePause();
+        });
+
+        /* ============================================================
+           BLOCO 5.3 — render: anel do giro do farol e barra do chefe
+           ============================================================ */
+        function drawSpinRing() {
+            /* anel de progresso ao redor da lâmpada: volta completa = moedas */
+            const p = clamp(game.beamTimer / game.beamInterval, 0, 1);
+            const a = -Math.PI / 2 + p * Math.PI * 2;
+            ctx.strokeStyle = 'rgba(255,210,110,0.15)';
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(CX, CY - 172, 74, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = 'rgba(255,210,110,0.9)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(CX, CY - 172, 74, -Math.PI / 2, a);
+            ctx.stroke();
+            /* marcador pixel da cabeça do giro */
+            ctx.fillStyle = '#ffe9a8';
+            ctx.fillRect(CX + Math.cos(a) * 74 - 3, CY - 172 + Math.sin(a) * 74 - 3, 6, 6);
+        }
+
+        function drawBossBar() {
+            let boss = null;
+            for (const e of enemies) { if (e.boss && !e.dead) { boss = e; break; } }
+            if (!boss) return;
+            const bw = 420, bh = 14, bx = CX - bw / 2, by = 32;
+            ctx.fillStyle = 'rgba(8,20,32,0.8)';
+            ctx.fillRect(bx - 5, by - 5, bw + 10, bh + 10);
+            ctx.fillStyle = '#2c1e42';
+            ctx.fillRect(bx, by, bw, bh);
+            ctx.fillStyle = '#b394e8';
+            ctx.fillRect(bx, by, bw * clamp(boss.hp / boss.maxHp, 0, 1), bh);
+            ctx.font = "11px 'Press Start 2P', monospace";
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#e8d8ff';
+            ctx.fillText('KRAKEN', CX, by - 11);
+            ctx.textAlign = 'left';
+        }
+
+        /* ============================================================
+           BLOCO 5.4 — render da cena completa
+           ============================================================ */
+        function render() {
+            /* base sem translação: evita bordas vazias durante o tremor de tela */
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = '#0e3a5c';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.save();
+            if (game.shake > 0) ctx.translate(rand(-game.shake, game.shake), rand(-game.shake, game.shake));
+            drawWorld(game.time);
+            drawSpinRing();
+
+            /* entidades ordenadas por profundidade (eixo Y) */
+            const ents = [];
+            for (const e of enemies) { if (!e.dead) ents.push({ y: e.y, k: 'e', o: e }); }
+            for (const a of allies) { if (!a.dead) ents.push({ y: a.y, k: 'a', o: a }); }
+            ents.push({ y: player.y, k: 'p', o: player });
+            ents.sort((m, n) => m.y - n.y);
+            for (const en of ents) {
+                if (en.k === 'e') { drawEnemySprite(en.o, game.time); drawEnemyFlash(en.o); }
+                else if (en.k === 'a') drawAllySprite(en.o, game.time);
+                else drawPlayerSprite(en.o, game.time);
+            }
+            for (const pr of projectiles) drawProjectileSprite(pr);
+            drawEffects();
+            ctx.restore();
+
+            drawWaveBanner();
+            drawBossBar();
+            drawBuildGhost();
+        }
+
+        /* ============================================================
+           BLOCO 5.5 — loop principal e redimensionamento responsivo
+           ============================================================ */
+        let lastT = 0;
+
+        function fitCanvas() {
+            const hudH = $('hud').offsetHeight || 52;
+            const barH = $('build-bar').offsetHeight || 62;
+            const availH = window.innerHeight - hudH - barH;
+            const availW = window.innerWidth;
+            const scale = Math.min(availW / W, availH / H);
+            $('stage').style.width = Math.max(300, Math.floor(W * scale)) + 'px';
+        }
+        let fitW = -1, fitH = -1;
+        function maybeFit() {
+            if (window.innerWidth !== fitW || window.innerHeight !== fitH) {
+                fitW = window.innerWidth; fitH = window.innerHeight;
+                fitCanvas();
+            }
+        }
+        window.addEventListener('resize', maybeFit);
+        window.addEventListener('orientationchange', maybeFit);
+
+        function loop(ts) {
+            requestAnimationFrame(loop);
+            const t = ts / 1000;
+            let dt = t - lastT;
+            lastT = t;
+            if (!(dt > 0)) dt = 0;
+            if (dt > 0.05) dt = 0.05;      /* trava de segurança após aba oculta */
+
+            if (!$('screen-game').classList.contains('active')) return;
+            maybeFit();
+
+            if (game.running && !game.paused && !game.over && !game.victory) {
+                game.time += dt;
+                updatePlayer(dt);
+                updateWaves(dt);
+                updateEconomy(dt);
+                updateEnemies(dt);
+                updateAllies(dt);
+                updateProjectiles(dt);
+                updateEffects(dt);
+                if (game.shake > 0) game.shake = Math.max(0, game.shake - dt * 24);
+            }
+            render();
+        }
+
+        /* ============================================================
+           BLOCO 5.6 — inicialização
+           ============================================================ */
+        setCoins(save.coins);
+        refreshMenu();
+        refreshShop();
+        fitCanvas();
+        requestAnimationFrame(loop);
+    </script>
+</body>
+
+</html>
