@@ -507,6 +507,13 @@
             letter-spacing: 2px
         }
 
+        .unit-btn .u-count {
+            display: block;
+            font-size: 12px;
+            color: var(--foam);
+            letter-spacing: 1px
+        }
+
         .unit-btn:hover {
             border-color: var(--foam);
             transform: translateY(-2px)
@@ -686,8 +693,10 @@
             </div>
             <div class="hud-chip"><span class="lbl">GAROTO</span><span
                     id="hearts">&#9829;&#9829;&#9829;&#9829;&#9829;</span></div>
+            <div class="hud-chip"><span class="lbl">ALIADOS</span><b id="ally-count">0/5</b></div>
             <button class="hud-btn" id="btn-upgrade">MELHORAR FAROL <b id="upg-cost">45</b></button>
             <button class="hud-btn" id="btn-repair">REPARAR <b id="rep-cost">25</b></button>
+            <button class="hud-btn" id="btn-speed">VEL. <b id="speed-val">1x</b></button>
             <button class="hud-btn" id="btn-pause">| | PAUSA</button>
         </div>
 
@@ -757,14 +766,14 @@
 
         // Definição das unidades desbloqueáveis (aliados e construções)
         const UNITS = {
-            soldado: { name: 'Soldado de Água', cost: 30, range: 120, rate: 1.1, dmg: 10, proj: 'bolha', desc: 'Atirador equilibrado de bolhas d\'água.' },
-            bolha: { name: 'Estilingue de Bolhas', cost: 40, range: 135, rate: 2.4, dmg: 6, proj: 'bolha', desc: 'Rajadas rápidas, ideal contra multidões.' },
-            canhao: { name: 'Canhão de Concha', cost: 65, range: 165, rate: 0.5, dmg: 36, proj: 'concha', splash: 38, desc: 'Disparo lento com impacto em área.' },
-            catapulta: { name: 'Catapulta de Areia', cost: 75, range: 205, rate: 0.42, dmg: 28, proj: 'areia', splash: 58, desc: 'Alcance enorme, dano em área.' },
-            corrente: { name: 'Torre da Corrente', cost: 55, range: 125, rate: 0.9, dmg: 5, proj: 'corrente', slow: 0.45, desc: 'Reduz a velocidade dos inimigos.' },
-            mergulhador: { name: 'Mergulhador', cost: 50, range: 0, rate: 0.75, dmg: 20, proj: null, desc: 'Aliado corpo a corpo que persegue o inimigo.' },
-            curandeiro: { name: 'Faroleiro Auxiliar', cost: 60, range: 0, rate: 0.5, heal: 3, proj: null, desc: 'Repara o farol continuamente.' },
-            mina: { name: 'Mina de Coral', cost: 30, range: 0, rate: 0, dmg: 85, proj: null, splash: 64, desc: 'Armadilha que explode ao contato.' }
+            soldado: { name: 'Soldado de Água', cost: 30, range: 120, rate: 1.1, dmg: 10, proj: 'bolha', max: 6, desc: 'Atirador equilibrado de bolhas d\'água.' },
+            bolha: { name: 'Estilingue de Bolhas', cost: 40, range: 135, rate: 2.4, dmg: 6, proj: 'bolha', max: 6, desc: 'Rajadas rápidas, ideal contra multidões.' },
+            canhao: { name: 'Canhão de Concha', cost: 65, range: 165, rate: 0.5, dmg: 36, proj: 'concha', max: 3, splash: 38, desc: 'Disparo lento com impacto em área.' },
+            catapulta: { name: 'Catapulta de Areia', cost: 75, range: 205, rate: 0.42, dmg: 28, proj: 'areia', max: 3, splash: 58, desc: 'Alcance enorme, dano em área.' },
+            corrente: { name: 'Torre da Corrente', cost: 55, range: 125, rate: 0.9, dmg: 5, proj: 'corrente', max: 4, slow: 0.45, desc: 'Reduz a velocidade dos inimigos.' },
+            mergulhador: { name: 'Mergulhador', cost: 50, range: 0, rate: 0.75, dmg: 20, proj: null, max: 4, desc: 'Aliado corpo a corpo que persegue o inimigo.' },
+            curandeiro: { name: 'Faroleiro Auxiliar', cost: 60, range: 0, rate: 0.5, heal: 3, proj: null, max: 2, desc: 'Repara o farol continuamente.' },
+            mina: { name: 'Mina de Coral', cost: 30, range: 0, rate: 0, dmg: 85, proj: null, max: 10, splash: 64, desc: 'Armadilha que explode ao contato.' }
         };
         const UNIT_ORDER = ['soldado', 'bolha', 'canhao', 'catapulta', 'corrente', 'mergulhador', 'curandeiro', 'mina'];
 
@@ -780,7 +789,7 @@
 
         /* BLOCO G.2 — persistência (localStorage) */
         function defaultSave() {
-            return { coins: 5, unlocked: ['soldado', 'bolha'], best: 0, sound: true };
+            return { coins: 0, unlocked: ['soldado'], best: 0, sound: true };
         }
         function loadSave() {
             try {
@@ -935,7 +944,6 @@
         refreshShop();
     </script>
 
-    /* PARTE 2 */
 
     <script>
         /* ============================================================
@@ -953,7 +961,7 @@
             running: false, paused: false, over: false, victory: false,
             wave: 1, waveBanner: 0,                 // banner "ONDA X" no canvas
             spawnQueue: [], spawnTimer: 0, waveGap: 4, betweenWaves: 0,
-            time: 0, shake: 0,
+            time: 0, shake: 0, speed: 1,
             lh: { x: CX, y: CY, hp: 200, max: 200, level: 1 },   // farol
             beamTimer: 0, beamInterval: 6, beamValue: 10,   // economia do giro
             upgradeCost: 45, repairCost: 25,
@@ -975,7 +983,7 @@
             game.running = true; game.paused = false; game.over = false; game.victory = false;
             game.wave = 1; game.waveBanner = 2.2;
             game.spawnQueue = []; game.spawnTimer = 0; game.betweenWaves = 0;
-            game.time = 0; game.shake = 0;
+            game.time = 0; game.shake = 0; game.speed = 1;
             game.lh.hp = game.lh.max = 200; game.lh.level = 1;
             game.beamTimer = 0; game.beamInterval = 6; game.beamValue = 10;
             game.upgradeCost = 45; game.repairCost = 25;
@@ -1471,7 +1479,6 @@
         }
     </script>
 
-    /* PARTE 3 */
 
     <script>
         /* ============================================================
@@ -1817,7 +1824,6 @@
         }
     </script>
 
-    /* PARTE 4 */
 
     <script>
         /* ============================================================
@@ -1959,6 +1965,14 @@
             updateHUD();
         }
 
+        // function maxAllies() { return 4 + game.lh.level; }
+
+        function countAllyType(type) {
+            let n = 0;
+            for (const a of allies) { if (a.type === type && !a.dead) n++; }
+            return n;
+        }
+
         function tryPlaceUnit(px, py) {
             if (!selectedUnit || game.paused || game.over) return;
             const d = UNITS[selectedUnit];
@@ -1973,6 +1987,11 @@
                 if (dist(px, py, a.x, a.y) < 32) {
                     addText(px, py - 22, 'OCUPADO!', '#e8534f', 17); sfx('hurt'); return;
                 }
+            }
+            const placed = countAllyType(selectedUnit);
+            if (placed >= d.max) {
+                addText(px, py - 22, 'LIMITE DE ' + d.name.toUpperCase() + '!', '#e8534f', 16);
+                sfx('hurt'); return;
             }
             if (save.coins < d.cost) {
                 addText(px, py - 22, 'MOEDAS INSUFICIENTES', '#e8534f', 17); sfx('hurt'); return;
@@ -1999,6 +2018,8 @@
             $('hearts').textContent = '♥'.repeat(filled) + '♡'.repeat(player.maxHp - filled);
             $('upg-cost').textContent = game.lh.level >= 8 ? 'MAX' : game.upgradeCost;
             $('rep-cost').textContent = 25 + (game.lh.level - 1) * 6;
+            $('ally-count').textContent = allies.length;
+            $('speed-val').textContent = game.speed + 'x';
             refreshBuildBar();
         }
 
@@ -2014,7 +2035,8 @@
                 el.innerHTML =
                     '<span class="u-key">' + (i + 1) + '</span>' +
                     '<span class="u-name">' + u.name + '</span>' +
-                    '<span class="u-cost">' + (owned ? u.cost + ' moedas' : 'bloqueado') + '</span>';
+                    '<span class="u-cost">' + (owned ? u.cost + ' moedas' : 'bloqueado') + '</span>' +
+                    '<span class="u-count">0/' + u.max + '</span>';
                 el.addEventListener('click', () => selectUnit(key));
                 bar.appendChild(el);
             });
@@ -2029,6 +2051,9 @@
                 el.classList.toggle('sel', key === selectedUnit);
                 el.classList.toggle('locked', !owned);
                 el.classList.toggle('poor', owned && save.coins < UNITS[key].cost);
+                const cnt = el.querySelector('.u-count');
+                if (cnt && owned) cnt.textContent = countAllyType(key) + '/' + UNITS[key].max;
+                else if (cnt) cnt.textContent = '--/' + UNITS[key].max;
             }
         }
 
@@ -2180,14 +2205,18 @@
         $('btn-upgrade').addEventListener('click', () => { ensureAudio(); upgradeLighthouse(); });
         $('btn-repair').addEventListener('click', () => { ensureAudio(); repairLighthouse(); });
         $('btn-pause').addEventListener('click', () => { togglePause(); });
+        $('btn-speed').addEventListener('click', () => {
+            ensureAudio();
+            game.speed = game.speed >= 3 ? 1 : game.speed + 1;
+            $('speed-val').textContent = game.speed + 'x';
+            sfx('place');
+        });
 
         /* pausa automática ao perder o foco da janela (evita estados inconsistentes) */
         window.addEventListener('blur', () => {
             if (game.running && !game.paused && !game.over) togglePause();
         });
     </script>
-
-    /* PARTE 5 */
 
     <script>
         /* ============================================================
@@ -2372,15 +2401,16 @@
             maybeFit();
 
             if (game.running && !game.paused && !game.over && !game.victory) {
-                game.time += dt;
-                updatePlayer(dt);
-                updateWaves(dt);
-                updateEconomy(dt);
-                updateEnemies(dt);
-                updateAllies(dt);
-                updateProjectiles(dt);
-                updateEffects(dt);
-                if (game.shake > 0) game.shake = Math.max(0, game.shake - dt * 24);
+                const gdt = dt * game.speed;
+                game.time += gdt;
+                updatePlayer(gdt);
+                updateWaves(gdt);
+                updateEconomy(gdt);
+                updateEnemies(gdt);
+                updateAllies(gdt);
+                updateProjectiles(gdt);
+                updateEffects(gdt);
+                if (game.shake > 0) game.shake = Math.max(0, game.shake - gdt * 24);
             }
             render();
         }
