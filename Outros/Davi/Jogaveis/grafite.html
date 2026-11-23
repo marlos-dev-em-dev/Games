@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRAFITE — Dois Mundos, Um Traço</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,400;1,600&family=Special+Elite&display=swap"
+    rel="stylesheet">
+
+  <!-- SISTEMA GLOBAL — CSS -->
+  <style>
+    :root {
+      --paper: #ece5d4;
+      --paper-2: #e0d7c1;
+      --ink: #1b1813;
+      --ink-soft: #5c5548;
+      --line: #c3b8a1;
+      --shadow: rgba(27, 24, 19, .16);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      color: var(--ink);
+      background: radial-gradient(120% 90% at 50% 0%, #f3eddf 0%, var(--paper) 55%, var(--paper-2) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* textura de fibra de papel */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      mix-blend-mode: multiply;
+      opacity: .26;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+    }
+
+    /* vinheta da folha */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+      background: radial-gradient(115% 95% at 50% 50%, transparent 52%, rgba(27, 24, 19, .16) 100%);
+    }
+
+    /* ===== SISTEMA GLOBAL — ESTRUTURA ===== */
+    #wrap {
+      position: relative;
+      width: min(1000px, calc(100vw - 32px));
+      z-index: 1;
+    }
+
+    canvas#game {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1000/560;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      border: 2px solid var(--ink);
+      box-shadow: 10px 12px 0 var(--shadow);
+      background: transparent;
+      cursor: crosshair;
+    }
+
+    /* ===== CENA 1 — MENU PRINCIPAL (telas sobrepostas) ===== */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      pointer-events: none;
+    }
+
+    .screen {
+      pointer-events: auto;
+      width: 100%;
+      max-width: 620px;
+    }
+
+    .screen.hidden {
+      display: none;
+    }
+
+    .card {
+      position: relative;
+      background: rgba(242, 236, 222, .97);
+      border: 2px solid var(--ink);
+      box-shadow: 12px 14px 0 var(--shadow);
+      padding: 34px 38px 30px;
+      transform: rotate(-.4deg);
+    }
+
+    .card::before {
+      /* fita adesiva */
+      content: "";
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      width: 120px;
+      height: 26px;
+      transform: translateX(-50%) rotate(1.8deg);
+      background: rgba(186, 172, 142, .55);
+      border: 1px solid rgba(27, 24, 19, .16);
+    }
+
+    .eyebrow {
+      font-family: "Special Elite", monospace;
+      font-size: 11px;
+      letter-spacing: .32em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    h1 {
+      font-size: clamp(48px, 9vw, 88px);
+      font-weight: 600;
+      letter-spacing: .05em;
+      line-height: .92;
+      margin: 10px 0 6px;
+    }
+
+    h1 em {
+      font-style: italic;
+      font-weight: 300;
+    }
+
+    h2 {
+      font-size: clamp(30px, 5vw, 46px);
+      font-weight: 600;
+      letter-spacing: .04em;
+      line-height: 1.05;
+    }
+
+    h2 em {
+      font-style: italic;
+      font-weight: 300;
+    }
+
+    .tagline {
+      font-size: clamp(17px, 2.3vw, 21px);
+      font-style: italic;
+      color: var(--ink-soft);
+    }
+
+    .how {
+      list-style: none;
+      font-family: "Special Elite", monospace;
+      font-size: 12.5px;
+      letter-spacing: .03em;
+      line-height: 2.05;
+      text-align: left;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 2px;
+      margin: 18px 0;
+    }
+
+    .how b {
+      letter-spacing: .14em;
+    }
+
+    .row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+
+    .stat {
+      font-family: "Special Elite", monospace;
+      font-size: 11px;
+      letter-spacing: .22em;
+      color: var(--ink-soft);
+    }
+
+    .stat b {
+      display: block;
+      font-size: 22px;
+      letter-spacing: .05em;
+      color: var(--ink);
+      margin-top: 4px;
+    }
+
+    .record {
+      font-family: "Special Elite", monospace;
+      font-size: 11px;
+      letter-spacing: .28em;
+      color: var(--ink-soft);
+    }
+
+    /* ===== BLOCO 1.2 — controles ===== */
+    .btns {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .btn {
+      font-family: "Special Elite", monospace;
+      font-size: 13px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--ink);
+      border: 2px solid var(--ink);
+      padding: 13px 26px;
+      cursor: pointer;
+      box-shadow: 5px 5px 0 var(--ink);
+      transition: transform .12s ease, box-shadow .12s ease, background .2s ease, color .2s ease, letter-spacing .3s ease;
+    }
+
+    .btn:hover {
+      background: var(--ink);
+      color: var(--paper);
+      letter-spacing: .3em;
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    .btn:active {
+      transform: translate(5px, 5px);
+      box-shadow: 0 0 0 var(--ink);
+    }
+
+    .btn.ghost {
+      border-style: dashed;
+      box-shadow: none;
+    }
+
+    .btn.ghost:hover {
+      border-style: solid;
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    .btn:focus-visible {
+      outline: 2px dashed var(--ink);
+      outline-offset: 4px;
+    }
+
+    @media (max-width:640px) {
+      .card {
+        padding: 24px 20px;
+      }
+
+      .how {
+        font-size: 11px;
+        line-height: 1.9;
+      }
+
+      .btn {
+        padding: 11px 18px;
+        font-size: 11px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- SISTEMA GLOBAL — ESTRUTURA -->
+  <div id="wrap">
+
+    <!-- CENA 2 — JOGO PRINCIPAL -->
+    <!-- BLOCO 2.1 — área de jogo -->
+    <canvas id="game" width="1000" height="560" aria-label="Área de jogo de GRAFITE"></canvas>
+
+    <!-- CENA 1 — MENU PRINCIPAL -->
+    <!-- BLOCO 1.1 — estrutura do menu -->
+    <div id="overlay">
+
+      <section id="screen-menu" class="screen">
+        <div class="card">
+          <p class="eyebrow">puzzle cooperativo · 2 jogadores · 2 mouses</p>
+          <h1>GRA<em>FI</em>TE</h1>
+          <p class="tagline">Dois mundos. Um traço. Dois ratos disputando a mesma mão de tinta.</p>
+          <ul class="how">
+            <li><b>MOVER</b> — mouse (ou os dois mouses somados no mesmo cursor)</li>
+            <li><b>OBJETIVO</b> — conduza os dois pontos até os anéis ao mesmo tempo</li>
+            <li><b>PAREDES</b> — sólidas nos dois mundos: deslize por elas</li>
+            <li><b>BORRÕES</b> — evite-os: cada toque custa uma borracha</li>
+            <li><b>TECLAS</b> — P pausa · R reinicia o nível · M liga/desliga o som</li>
+          </ul>
+          <p class="record">RECORDE · <span id="menu-record">0</span></p>
+          <div class="btns"><button id="btn-play" class="btn">Jogar</button></div>
+        </div>
+      </section>
+
+      <!-- BLOCO 1.2 — controles (telas de pausa, andamento e fim) -->
+      <section id="screen-pause" class="screen hidden">
+        <div class="card">
+          <p class="eyebrow">traço suspenso</p>
+          <h2>PAUSA</h2>
+          <p class="tagline" id="pause-level">Nível 1</p>
+          <div class="btns">
+            <button id="btn-resume" class="btn">Continuar</button>
+            <button id="btn-restart" class="btn ghost">Reiniciar nível</button>
+            <button id="btn-quit" class="btn ghost">Menu</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-clear" class="screen hidden">
+        <div class="card">
+          <p class="eyebrow">carimbo aplicado</p>
+          <h2>NÍVEL <em>CONCLUÍDO</em></h2>
+          <div class="row">
+            <div class="stat">TEMPO<b id="clear-time">0:00</b></div>
+            <div class="stat">BÔNUS<b id="clear-bonus">0</b></div>
+            <div class="stat">PONTOS<b id="clear-score">0</b></div>
+          </div>
+          <div class="btns"><button id="btn-next" class="btn">Próximo nível</button></div>
+        </div>
+      </section>
+
+      <section id="screen-over" class="screen hidden">
+        <div class="card">
+          <p class="eyebrow">as borrachas acabaram</p>
+          <h2>TRAÇO <em>INTERROMPIDO</em></h2>
+          <div class="row">
+            <div class="stat">PONTOS<b id="over-score">0</b></div>
+            <div class="stat">NÍVEL<b id="over-level">1</b></div>
+            <div class="stat">RECORDE<b id="over-best">0</b></div>
+          </div>
+          <div class="btns">
+            <button id="btn-retry" class="btn">Tentar de novo</button>
+            <button id="btn-menu2" class="btn ghost">Menu</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-win" class="screen hidden">
+        <div class="card">
+          <p class="eyebrow">os dois mundos concordam</p>
+          <h2>OBRA <em>CONCLUÍDA</em></h2>
+          <p class="tagline">Um único traço atravessou os dois mundos. Os ratos, enfim, concordaram.</p>
+          <div class="row">
+            <div class="stat">PONTOS<b id="win-score">0</b></div>
+            <div class="stat">RECORDE<b id="win-best">0</b></div>
+          </div>
+          <div class="btns">
+            <button id="btn-replay" class="btn">Jogar de novo</button>
+            <button id="btn-menu3" class="btn ghost">Menu</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       GRAFITE — Dois Mundos, Um Traço
+       Puzzle cooperativo caótico: 2 jogadores, 2 mouses, 1 cursor.
+       O navegador funde os dois mouses num único cursor — o jogo
+       transforma esse controle compartilhado na mecânica central.
+       ============================================================ */
+
+    /* ===== SISTEMA GLOBAL — CONFIGURAÇÃO ===== */
+    const W = 1000, H = 560;
+    const BOARD = { w: 420, h: 420, y: 92, ax: 48, bx: 532 };
+    const DOT_R = 10;              // raio do ponto (px)
+    const MARK_R = 0.085;          // raio do anel/alvo (espaço normalizado)
+    const HAZ_R = 0.032;           // raio padrão do borrão
+    const START_LIVES = 5;
+    const TRAIL_MAX = 46;
+    const INK = '#1b1813';
+    const INK_SOFT = '#5c5548';
+    const PAPER = '#f0e9d9';
+
+    /* ===== SISTEMA GLOBAL — NÍVEIS =====
+       Espaço normalizado 0..1 (quadros quadrados).
+       Cada mundo tem suas paredes, mas TODAS bloqueiam o traço
+       compartilhado: a rota precisa ser válida nos dois mundos. */
+    const LEVELS = [
+      {
+        name: 'O Primeiro Traço',
+        spawn: [0.5, 0.92],
+        marks: [{ a: [0.5, 0.12], b: [0.5, 0.12] }],
+        a: { walls: [[0, 0.34, 0.70, 0.07]] },
+        b: { walls: [[0.30, 0.62, 0.70, 0.07]] },
+        hazards: []
+      },
+      {
+        name: 'A Parede que Dobra',
+        spawn: [0.5, 0.9],
+        marks: [{ a: [0.47, 0.12], b: [0.53, 0.12] }],
+        a: { walls: [[0.22, 0, 0.07, 0.55], [0.22, 0.72, 0.07, 0.28]] },
+        b: { walls: [[0.71, 0.15, 0.07, 0.85]] },
+        hazards: [{ a: [0.5, 0.30], b: [0.5, 0.68], speed: 0.26, phase: 0 }]
+      },
+      {
+        name: 'Espelho Torto',
+        spawn: [0.15, 0.9],
+        marks: [{ a: [0.5, 0.5], b: [0.5, 0.5] }, { a: [0.5, 0.12], b: [0.55, 0.12] }],
+        a: { walls: [[0, 0.28, 0.42, 0.07], [0.58, 0.28, 0.42, 0.07]] },
+        b: { walls: [[0, 0.65, 0.42, 0.07], [0.58, 0.65, 0.42, 0.07]] },
+        hazards: [{ a: [0.2, 0.2], b: [0.8, 0.2], speed: 0.28, phase: 0.5 }]
+      },
+      {
+        name: 'Corredor Estreito',
+        spawn: [0.85, 0.15],
+        marks: [{ a: [0.15, 0.15], b: [0.15, 0.15] }, { a: [0.85, 0.85], b: [0.85, 0.85] }],
+        a: { walls: [[0.33, 0, 0.07, 0.45], [0.33, 0.60, 0.07, 0.40]] },
+        b: { walls: [[0.60, 0, 0.07, 0.40], [0.60, 0.55, 0.07, 0.45]] },
+        hazards: [
+          { a: [0.15, 0.22], b: [0.15, 0.8], speed: 0.30, phase: 0 },
+          { a: [0.85, 0.22], b: [0.85, 0.8], speed: 0.26, phase: 1 }
+        ]
+      },
+      {
+        name: 'Redemoinho',
+        spawn: [0.5, 0.5],
+        marks: [{ a: [0.28, 0.28], b: [0.31, 0.31] }, { a: [0.72, 0.72], b: [0.70, 0.70] }],
+        a: { walls: [[0.45, 0, 0.10, 0.38], [0, 0.45, 0.38, 0.10]] },
+        b: { walls: [[0.45, 0.62, 0.10, 0.38], [0.62, 0.45, 0.38, 0.10]] },
+        hazards: [
+          { a: [0.3, 0.6], b: [0.3, 0.95], speed: 0.30, phase: 0 },
+          { a: [0.75, 0.05], b: [0.75, 0.4], speed: 0.24, phase: 0.8 }
+        ]
+      },
+      {
+        name: 'Escada de Tinta',
+        spawn: [0.15, 0.92],
+        marks: [{ a: [0.5, 0.64], b: [0.5, 0.64] }, { a: [0.5, 0.14], b: [0.5, 0.14] }],
+        a: { walls: [[0, 0.28, 0.68, 0.07], [0, 0.76, 0.68, 0.07]] },
+        b: { walls: [[0.32, 0.52, 0.68, 0.07]] },
+        hazards: [
+          { a: [0.15, 0.64], b: [0.65, 0.64], speed: 0.28, phase: 0 },
+          { a: [0.2, 0.06], b: [0.8, 0.06], speed: 0.32, phase: 1 }
+        ]
+      },
+      {
+        name: 'Travessia',
+        spawn: [0.85, 0.9],
+        marks: [{ a: [0.5, 0.56], b: [0.55, 0.56] }, { a: [0.5, 0.10], b: [0.5, 0.13] }],
+        a: { walls: [[0, 0.44, 0.68, 0.06]] },
+        b: { walls: [[0.32, 0.20, 0.68, 0.06], [0.32, 0.68, 0.68, 0.06]] },
+        hazards: [
+          { a: [0.5, 0.52], b: [0.5, 0.64], speed: 0.34, phase: 0 },
+          { a: [0.85, 0.28], b: [0.85, 0.40], speed: 0.30, phase: 0.5 },
+          { a: [0.15, 0.06], b: [0.6, 0.06], speed: 0.36, phase: 0 }
+        ]
+      },
+      {
+        name: 'Obra Final',
+        spawn: [0.5, 0.92],
+        marks: [
+          { a: [0.85, 0.68], b: [0.85, 0.68] },
+          { a: [0.15, 0.48], b: [0.18, 0.48] },
+          { a: [0.5, 0.08], b: [0.5, 0.08] }
+        ],
+        a: { walls: [[0, 0.18, 0.64, 0.06], [0, 0.58, 0.64, 0.06]] },
+        b: { walls: [[0.36, 0.38, 0.64, 0.06], [0.36, 0.78, 0.64, 0.06]] },
+        hazards: [
+          { a: [0.15, 0.9], b: [0.85, 0.9], speed: 0.30, phase: 0 },
+          { a: [0.5, 0.46], b: [0.85, 0.46], speed: 0.28, phase: 1 },
+          { a: [0.2, 0.10], b: [0.8, 0.10], speed: 0.34, phase: 0.4 }
+        ]
+      }
+    ];
+
+    /* ===== SISTEMA GLOBAL — UTILITÁRIOS ===== */
+    const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const dist2 = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+    const fmtTime = t => {
+      const m = Math.floor(t / 60), s = Math.floor(t % 60);
+      return m + ':' + String(s).padStart(2, '0');
+    };
+    const $ = id => document.getElementById(id);
+    const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  </script>
+
+  <script>
+    /* ============================================================
+       PARTE 2 — ÁUDIO SINTETIZADO, ESTADO, ENTRADA E FLUXO
+       ============================================================ */
+
+    /* ===== SISTEMA GLOBAL — ÁUDIO =====
+       Sons gerados por osciladores (WebAudio). Sem arquivos externos. */
+    const AudioSys = {
+      ctx: null,
+      master: null,
+      muted: false,
+
+      ensure() {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          this.ctx = new AC();
+          this.master = this.ctx.createGain();
+          this.master.gain.value = 0.3;
+          this.master.connect(this.ctx.destination);
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+
+      /* nota simples com envelope e deslize de frequência */
+      tone(freq, dur, o) {
+        o = o || {};
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime + (o.delay || 0);
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = o.type || 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        if (o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq + o.slide), t + dur);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime((o.vol || 0.4) * 0.5, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.connect(g); g.connect(this.master);
+        osc.start(t); osc.stop(t + dur + 0.03);
+      },
+
+      /* ruído filtrado (impactos e borrões) */
+      noise(dur, o) {
+        o = o || {};
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime + (o.delay || 0);
+        const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = o.freq || 600; f.Q.value = 0.8;
+        const g = this.ctx.createGain(); g.gain.value = (o.vol || 0.5) * 0.6;
+        src.connect(f); f.connect(g); g.connect(this.master);
+        src.start(t);
+      },
+
+      ui() { this.tone(660, 0.07, { type: 'square', vol: 0.16 }); },
+      tick() { this.tone(1180 + Math.random() * 120, 0.03, { type: 'square', vol: 0.08 }); },
+      mark() {
+        this.tone(523, 0.1, { vol: 0.3 });
+        this.tone(784, 0.12, { vol: 0.3, delay: 0.07 });
+        this.tone(1046, 0.2, { vol: 0.28, delay: 0.15 });
+        this.noise(0.16, { vol: 0.16, freq: 2400 });
+      },
+      hit() {
+        this.noise(0.22, { vol: 0.6, freq: 380 });
+        this.tone(150, 0.26, { type: 'sawtooth', vol: 0.34, slide: -90 });
+      },
+      clear() {
+        this.tone(392, 0.16, { vol: 0.3 });
+        this.tone(494, 0.16, { vol: 0.3, delay: 0.11 });
+        this.tone(587, 0.16, { vol: 0.3, delay: 0.22 });
+        this.tone(784, 0.34, { vol: 0.32, delay: 0.33 });
+      },
+      over() {
+        this.tone(330, 0.22, { type: 'sawtooth', vol: 0.26 });
+        this.tone(262, 0.22, { type: 'sawtooth', vol: 0.26, delay: 0.18 });
+        this.tone(196, 0.5, { type: 'sawtooth', vol: 0.28, delay: 0.36 });
+      },
+      win() {
+        [523, 659, 784, 1046, 1319].forEach((f, i) =>
+          this.tone(f, 0.3, { vol: 0.3, delay: i * 0.13 }));
+        this.noise(0.5, { vol: 0.14, freq: 3200, delay: 0.2 });
+      },
+      pause() { this.tone(392, 0.12, { type: 'square', vol: 0.14 }); },
+
+      toggle() {
+        this.muted = !this.muted;
+        if (!this.muted) { this.ensure(); this.ui(); }
+      }
+    };
+
+    /* ===== SISTEMA GLOBAL — ESTADO ===== */
+    const G = {
+      mode: 'menu',            // menu | playing | paused | clear | over | win
+      level: 0,
+      lives: START_LIVES,
+      score: 0,
+      best: Number(localStorage.getItem('grafite_best')) || 0,
+      time: 0,                 // tempo do nível atual (s)
+      pointer: { x: 0.5, y: 0.9, tx: 0.5, ty: 0.9, seen: false },
+      trail: [],               // rastro do traço (coord. normalizadas)
+      marks: [],               // carimbos do nível
+      haz: [],                 // borrões em movimento (posições por mundo)
+      particles: [],           // partículas de poeira/sujeira
+      flash: 0,                // flash de dano (0..1)
+      shake: 0,                // tremor da tela (px)
+      pulse: 0                 // pulso do carimbo aplicado
+    };
+
+    /* carrega a configuração de um nível e reinicia seu estado */
+    function loadLevel(i) {
+      const L = LEVELS[i];
+      G.level = i;
+      G.time = 0;
+      G.pointer.x = G.pointer.tx = L.spawn[0];
+      G.pointer.y = G.pointer.ty = L.spawn[1];
+      G.trail.length = 0;
+      G.marks = L.marks.map(function (m) {
+        return { ax: m.a[0], ay: m.a[1], bx: m.b[0], by: m.b[1], done: false, t: 0 };
+      });
+      G.haz = (L.hazards || []).map(function (h) {
+        return {
+          ax: h.a[0], ay: h.a[1], bx: h.b[0], by: h.b[1],
+          speed: h.speed, phase: h.phase,
+          ra: h.a[0], raY: h.a[1], rb: h.b[0], rbY: h.b[1]
+        };
+      });
+      G.particles.length = 0;
+      G.flash = 0;
+      G.shake = 0;
+      G.pulse = 0;
+    }
+
+    function saveBest() {
+      try { localStorage.setItem('grafite_best', String(G.best)); } catch (e) { /* armazenamento indisponível */ }
+    }
+
+    /* perde uma borracha: reseta o traço e devolve ao ponto de partida */
+    function loseLife() {
+      G.lives--;
+      G.flash = 1;
+      G.shake = REDUCE ? 0 : 16;
+      G.trail.length = 0;
+      AudioSys.hit();
+      if (navigator.vibrate) navigator.vibrate(60);
+      if (G.lives <= 0) {
+        gameOver();
+        return;
+      }
+      const L = LEVELS[G.level];
+      G.pointer.x = G.pointer.tx = L.spawn[0];
+      G.pointer.y = G.pointer.ty = L.spawn[1];
+    }
+
+    /* ===== SISTEMA GLOBAL — ENTRADA ===== */
+    const keys = new Set();
+
+    function pointerToNorm(e) {
+      const r = $('game').getBoundingClientRect();
+      G.pointer.tx = clamp((e.clientX - r.left) / r.width, 0, 1);
+      G.pointer.ty = clamp((e.clientY - r.top) / r.height, 0, 1);
+      G.pointer.seen = true;
+    }
+
+    /* o navegador funde os dois mouses num único cursor — é ele quem
+       conduz o traço compartilhado. Dois jogadores, uma mão só. */
+    $('game').addEventListener('pointermove', pointerToNorm);
+    $('game').addEventListener('pointerdown', function (e) {
+      AudioSys.ensure();
+      pointerToNorm(e);
+    });
+
+    window.addEventListener('keydown', function (e) {
+      const k = e.key.toLowerCase();
+
+      if (k === 'm') { AudioSys.toggle(); return; }
+
+      if (k === 'p' || k === 'escape') {
+        if (G.mode === 'playing' || G.mode === 'paused') { e.preventDefault(); togglePause(); }
+        return;
+      }
+      if (k === 'r') {
+        if (G.mode === 'playing' || G.mode === 'paused') { e.preventDefault(); restartLevel(); }
+        return;
+      }
+      if (k === 'enter' || k === ' ') {
+        e.preventDefault();
+        AudioSys.ensure();
+        if (G.mode === 'menu' || G.mode === 'over' || G.mode === 'win') startGame();
+        else if (G.mode === 'clear') nextLevel();
+        return;
+      }
+      /* controle por teclado (acessibilidade): setas / WASD conduzem o traço */
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].indexOf(k) >= 0) {
+        keys.add(k);
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('keyup', function (e) {
+      keys.delete(e.key.toLowerCase());
+    });
+
+    /* ===== CENA 3 — FLUXO E ESTADOS DE TELA ===== */
+    /* BLOCO 3.1 — transições e resultados */
+
+    function showScreen(id) {
+      ['screen-menu', 'screen-pause', 'screen-clear', 'screen-over', 'screen-win']
+        .forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+    }
+
+    function updateRecords() {
+      $('menu-record').textContent = G.best;
+    }
+
+    function startGame() {
+      AudioSys.ensure();
+      G.score = 0;
+      G.lives = START_LIVES;
+      loadLevel(0);
+      G.mode = 'playing';
+      showScreen(null);
+      AudioSys.ui();
+    }
+
+    function restartLevel() {
+      loadLevel(G.level);
+      G.mode = 'playing';
+      showScreen(null);
+      AudioSys.ui();
+    }
+
+    function togglePause() {
+      if (G.mode === 'playing') {
+        G.mode = 'paused';
+        $('pause-level').textContent = 'Nível ' + (G.level + 1) + ' — ' + LEVELS[G.level].name;
+        showScreen('screen-pause');
+        AudioSys.pause();
+      } else if (G.mode === 'paused') {
+        G.mode = 'playing';
+        showScreen(null);
+        AudioSys.ui();
+      }
+    }
+
+    function levelClear() {
+      const timeBonus = Math.max(0, Math.round(3000 - G.time * 45));
+      const levelBonus = (G.level + 1) * 500;
+      const total = timeBonus + levelBonus;
+      G.score += total;
+      if (G.score > G.best) { G.best = G.score; saveBest(); }
+      $('clear-time').textContent = fmtTime(G.time);
+      $('clear-bonus').textContent = '+' + total;
+      $('clear-score').textContent = G.score;
+      G.mode = 'clear';
+      showScreen('screen-clear');
+      AudioSys.clear();
+      if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+    }
+
+    function nextLevel() {
+      if (G.level + 1 >= LEVELS.length) { winGame(); return; }
+      loadLevel(G.level + 1);
+      G.mode = 'playing';
+      showScreen(null);
+      AudioSys.ui();
+    }
+
+    function gameOver() {
+      if (G.score > G.best) { G.best = G.score; saveBest(); }
+      $('over-score').textContent = G.score;
+      $('over-level').textContent = (G.level + 1);
+      $('over-best').textContent = G.best;
+      G.mode = 'over';
+      showScreen('screen-over');
+      AudioSys.over();
+    }
+
+    function winGame() {
+      if (G.score > G.best) { G.best = G.score; saveBest(); }
+      $('win-score').textContent = G.score;
+      $('win-best').textContent = G.best;
+      G.mode = 'win';
+      showScreen('screen-win');
+      AudioSys.win();
+    }
+
+    function toMenu() {
+      updateRecords();
+      G.mode = 'menu';
+      showScreen('screen-menu');
+      AudioSys.ui();
+    }
+  </script>
+
+  <script>
+    /* ============================================================
+       PARTE 3 — MOVIMENTAÇÃO, COLISÕES E INIMIGOS
+       ============================================================ */
+
+    /* ===== SISTEMA GLOBAL — CONSTANTES DE MOVIMENTO ===== */
+    const NORM_R = DOT_R / BOARD.w;  // raio do ponto em espaço normalizado
+    const FOLLOW = 0.22;             // velocidade de seguimento do cursor
+    const MAX_STEP = 0.012;            // passo máximo por substep (anti-tunelamento)
+
+    /* ===== SISTEMA GLOBAL — PONTOS DO TRAÇO =====
+       Cada mundo tem seu próprio ponto, mas ambos recebem o mesmo alvo
+       (o cursor compartilhado). Paredes diferentes fazem os pontos
+       divergirem — daí nasce o puzzle. */
+    G.dotA = { x: 0.5, y: 0.9 };
+    G.dotB = { x: 0.5, y: 0.9 };
+    G.invuln = 0;    // invencibilidade breve após spawn / dano
+
+    /* ===== BLOCO 2.2 — movimentação ===== */
+
+    /* Colisão círculo × retângulo (espaço normalizado 0..1) */
+    function circleRectCollide(cx, cy, r, rx, ry, rw, rh) {
+      const nx = clamp(cx, rx, rx + rw);
+      const ny = clamp(cy, ry, ry + rh);
+      const dx = cx - nx, dy = cy - ny;
+      return (dx * dx + dy * dy) < (r * r);
+    }
+
+    /* Verifica colisão com todas as paredes de um mundo */
+    function collidesWalls(x, y, r, walls) {
+      for (let i = 0; i < walls.length; i++) {
+        const w = walls[i];
+        if (circleRectCollide(x, y, r, w[0], w[1], w[2], w[3])) return true;
+      }
+      return false;
+    }
+
+    /* Move um ponto em direção ao alvo com deslizamento nas paredes.
+       Substeps pequenos evitam atravessar paredes finas. */
+    function moveDot(dot, tx, ty, walls) {
+      const dx = (tx - dot.x) * FOLLOW;
+      const dy = (ty - dot.y) * FOLLOW;
+      const dist = Math.hypot(dx, dy);
+      const steps = Math.max(1, Math.ceil(dist / MAX_STEP));
+      const sx = dx / steps, sy = dy / steps;
+      const r = NORM_R;
+
+      for (let i = 0; i < steps; i++) {
+        const nx = clamp(dot.x + sx, r, 1 - r);
+        const ny = clamp(dot.y + sy, r, 1 - r);
+
+        if (!collidesWalls(nx, ny, r, walls)) { dot.x = nx; dot.y = ny; }
+        else if (!collidesWalls(nx, dot.y, r, walls)) { dot.x = nx; }            // desliza X
+        else if (!collidesWalls(dot.x, ny, r, walls)) { dot.y = ny; }            // desliza Y
+        else break;                                                                  // bloqueado
+      }
+    }
+
+    /* ===== BLOCO 2.3 — inimigos (borrões) ===== */
+
+    /* Posição atual de um borrão — oscilação senoidal entre dois pontos.
+       A mesma posição vale para os dois mundos. */
+    function hazCurrentPos(h) {
+      const t = (Math.sin(G.time * h.speed * Math.PI * 2 + h.phase * Math.PI * 2) + 1) / 2;
+      return { x: lerp(h.ax, h.bx, t), y: lerp(h.ay, h.by, t) };
+    }
+
+    /* Colisão dos pontos com borrões. Retorna true se houve dano. */
+    function checkHazards() {
+      if (G.invuln > 0) return false;
+      const hitR = HAZ_R + NORM_R;
+      for (let i = 0; i < G.haz.length; i++) {
+        const p = hazCurrentPos(G.haz[i]);
+        if (dist2(G.dotA.x, G.dotA.y, p.x, p.y) < hitR ||
+          dist2(G.dotB.x, G.dotB.y, p.x, p.y) < hitR) {
+          spawnParticles(p.x, p.y, 14, 0.35);
+          loseLife();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /* ===== BLOCO 2.4 — pontuação (carimbos) ===== */
+
+    /* Um carimbo é aplicado quando os DOIS pontos estão nos seus anéis
+       ao mesmo tempo. Retorna true quando todos os carimbos estão prontos. */
+    function checkMarks() {
+      let allDone = true;
+      for (let i = 0; i < G.marks.length; i++) {
+        const m = G.marks[i];
+        if (!m.done) {
+          const inA = dist2(G.dotA.x, G.dotA.y, m.ax, m.ay) < MARK_R;
+          const inB = dist2(G.dotB.x, G.dotB.y, m.bx, m.by) < MARK_R;
+          if (inA && inB) {
+            m.done = true;
+            m.t = 0;
+            G.score += 200;
+            G.pulse = 1;
+            AudioSys.mark();
+            spawnParticles(m.ax, m.ay, 10, 0.18);
+            spawnParticles(m.bx, m.by, 10, 0.18);
+          }
+        }
+        if (!m.done) allDone = false;
+      }
+      return allDone;
+    }
+
+    /* ===== SISTEMA GLOBAL — PARTÍCULAS E EFEITOS ===== */
+
+    function spawnParticles(x, y, count, spread) {
+      if (REDUCE) return;
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = Math.random() * spread;
+        G.particles.push({
+          x: x, y: y,
+          vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+          life: 1,
+          size: 0.003 + Math.random() * 0.005
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = G.particles.length - 1; i >= 0; i--) {
+        const p = G.particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.97; p.vy *= 0.97;
+        p.life -= dt * 1.4;
+        if (p.life <= 0) G.particles.splice(i, 1);
+      }
+    }
+
+    /* ===== SISTEMA GLOBAL — ATUALIZAÇÃO DO JOGO ===== */
+
+    function gameUpdate(dt) {
+      /* efeitos decaem sempre (inclusive em pausa e transições) */
+      G.flash = Math.max(0, G.flash - dt * 3);
+      G.shake = Math.max(0, G.shake - dt * 32);
+      G.pulse = Math.max(0, G.pulse - dt * 2);
+      G.invuln = Math.max(0, G.invuln - dt);
+      updateParticles(dt);
+
+      if (G.mode !== 'playing') return;
+
+      G.time += dt;
+
+      /* --- entrada por teclado (acessibilidade / substitui mouse) --- */
+      const KS = 0.016;
+      if (keys.has('arrowup') || keys.has('w')) G.pointer.ty -= KS;
+      if (keys.has('arrowdown') || keys.has('s')) G.pointer.ty += KS;
+      if (keys.has('arrowleft') || keys.has('a')) G.pointer.tx -= KS;
+      if (keys.has('arrowright') || keys.has('d')) G.pointer.tx += KS;
+      G.pointer.tx = clamp(G.pointer.tx, 0, 1);
+      G.pointer.ty = clamp(G.pointer.ty, 0, 1);
+
+      /* --- sincronização de spawn (início de nível ou vida perdida) --- */
+      if (G.trail.length === 0) {
+        G.dotA.x = G.dotB.x = G.pointer.x;
+        G.dotA.y = G.dotB.y = G.pointer.y;
+        G.invuln = 1.6;                       // breve proteção contra re-dano
+      }
+
+      /* --- movimentação dos dois pontos (mesmo alvo, paredes diferentes) --- */
+      const L = LEVELS[G.level];
+      moveDot(G.dotA, G.pointer.tx, G.pointer.ty, L.a.walls);
+      moveDot(G.dotB, G.pointer.tx, G.pointer.ty, L.b.walls);
+
+      /* --- registro do rastro compartilhado --- */
+      const last = G.trail[G.trail.length - 1];
+      if (!last ||
+        dist2(G.dotA.x, G.dotA.y, last.ax, last.ay) > 0.003 ||
+        dist2(G.dotB.x, G.dotB.y, last.bx, last.by) > 0.003) {
+        G.trail.push({ ax: G.dotA.x, ay: G.dotA.y, bx: G.dotB.x, by: G.dotB.y });
+        if (G.trail.length > TRAIL_MAX) G.trail.shift();
+      }
+
+      /* --- colisões com borrões --- */
+      if (checkHazards()) return;
+
+      /* --- carimbos / conclusão do nível --- */
+      if (checkMarks()) { levelClear(); return; }
+    }
+  </script>
+
+  <script PARTE 4/5 — Renderização ```html <script>
+    /* ============================================================
+       PARTE 4 — RENDERIZAÇÃO
+       ============================================================ */
+
+    const ctx = $('game').getContext('2d');
+
+    /* ===== SISTEMA GLOBAL — DESENHO DE TEXTO ===== */
+    function txt(text, x, y, size, align, color, alpha, spacing) {
+      ctx.save();
+      ctx.font = size + 'px "Special Elite", monospace';
+      ctx.textAlign = align || 'left';
+      ctx.textBaseline = 'alphabetic';
+      if ('letterSpacing' in ctx) ctx.letterSpacing = (spacing || 2) + 'px';
+      ctx.fillStyle = color || INK;
+      ctx.globalAlpha = alpha == null ? 1 : alpha;
+      ctx.fillText(text, x, y);
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+      ctx.restore();
+    }
+
+    /* ===== BLOCO 4.1 — molduras, papel e paredes ===== */
+
+    /* ruído determinístico: o traço "à mão" fica estável entre frames */
+    function srand(i) {
+      const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    }
+
+    /* linha com tremor de lápis */
+    function handLine(x1, y1, x2, y2, seed, width, alpha) {
+      const segs = 6;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs;
+        const px = lerp(x1, x2, t) + (srand(seed + i * 3.7) - 0.5) * 2.4;
+        const py = lerp(y1, y2, t) + (srand(seed + i * 5.1) - 0.5) * 2.4;
+        ctx.lineTo(px, py);
+      }
+      ctx.lineWidth = width || 1.6;
+      ctx.strokeStyle = INK;
+      ctx.globalAlpha = alpha == null ? 0.9 : alpha;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    function handRect(x, y, w, h, seed, width, alpha) {
+      handLine(x, y, x + w, y, seed, width, alpha);
+      handLine(x + w, y, x + w, y + h, seed + 11, width, alpha);
+      handLine(x + w, y + h, x, y + h, seed + 23, width, alpha);
+      handLine(x, y + h, x, y, seed + 37, width, alpha);
+    }
+
+    /* folha de papel de cada mundo */
+    function drawBoardBase(x, y, w, h, seed) {
+      const g = ctx.createLinearGradient(x, y, x, y + h);
+      g.addColorStop(0, '#f6f1e4');
+      g.addColorStop(1, '#ece5d2');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+
+      /* fibras tênues do papel */
+      ctx.strokeStyle = 'rgba(27,24,19,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 14; i++) {
+        const yy = y + srand(seed + i * 2.3) * h;
+        ctx.beginPath();
+        ctx.moveTo(x + 6, yy);
+        ctx.lineTo(x + w - 6, yy + (srand(seed + i * 4.1) - 0.5) * 10);
+        ctx.stroke();
+      }
+      /* moldura dupla, à mão */
+      handRect(x - 4, y - 4, w + 8, h + 8, seed + 5, 2.2, 0.95);
+      handRect(x - 9, y - 9, w + 18, h + 18, seed + 9, 1, 0.3);
+    }
+
+    /* paredes sólidas — MUNDO I (lápis) */
+    function drawWallsSolid(x, y, w, h, walls) {
+      for (let i = 0; i < walls.length; i++) {
+        const wl = walls[i];
+        const wx = x + wl[0] * w, wy = y + wl[1] * h;
+        const ww = wl[2] * w, wh = wl[3] * h;
+        ctx.fillStyle = 'rgba(27,24,19,0.88)';
+        ctx.fillRect(wx, wy, ww, wh);
+        handRect(wx, wy, ww, wh, i * 7 + 3, 1.4, 0.55);
+      }
+    }
+
+    /* paredes hachuradas — MUNDO II (carvão) */
+    function drawWallsHatched(x, y, w, h, walls) {
+      for (let i = 0; i < walls.length; i++) {
+        const wl = walls[i];
+        const wx = x + wl[0] * w, wy = y + wl[1] * h;
+        const ww = wl[2] * w, wh = wl[3] * h;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(wx, wy, ww, wh);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(27,24,19,0.09)';
+        ctx.fillRect(wx, wy, ww, wh);
+        ctx.strokeStyle = 'rgba(27,24,19,0.6)';
+        ctx.lineWidth = 1.1;
+        for (let d = -wh; d < ww + wh; d += 7) {
+          ctx.beginPath();
+          ctx.moveTo(wx + d, wy);
+          ctx.lineTo(wx + d + wh, wy + wh);
+          ctx.stroke();
+        }
+        ctx.restore();
+        handRect(wx, wy, ww, wh, i * 5 + 13, 1.6, 0.9);
+      }
+    }
+
+    /* ===== BLOCO 4.2 — rastro, pontos e cursor compartilhado ===== */
+
+    function drawTrail(bx, by, bw, bh, kx, ky) {
+      if (G.trail.length < 2) return;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (let i = 1; i < G.trail.length; i++) {
+        const p0 = G.trail[i - 1], p1 = G.trail[i];
+        const age = i / G.trail.length;
+        ctx.beginPath();
+        ctx.moveTo(bx + p0[kx] * bw, by + p0[ky] * bh);
+        ctx.lineTo(bx + p1[kx] * bw, by + p1[ky] * bh);
+        ctx.strokeStyle = INK;
+        ctx.globalAlpha = 0.12 + age * 0.5;
+        ctx.lineWidth = 1.2 + age * 2.6;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawDot(bx, by, bw, bh, dot, style) {
+      const x = bx + dot.x * bw, y = by + dot.y * bh;
+      const r = DOT_R;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      if (style === 'a') {
+        /* MUNDO I — miolo sólido de lápis */
+        ctx.fillStyle = INK;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = PAPER;
+        ctx.fill();
+      } else {
+        /* MUNDO II — anel de carvão */
+        ctx.fillStyle = PAPER;
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = INK;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = INK;
+        ctx.fill();
+      }
+    }
+
+    function drawCrosshair(bx, by, bw, bh) {
+      const x = bx + G.pointer.tx * bw, y = by + G.pointer.ty * bh;
+      ctx.save();
+      ctx.setLineDash([3, 4]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = INK;
+      ctx.globalAlpha = 0.32;
+      ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - 22, y); ctx.lineTo(x - 8, y);
+      ctx.moveTo(x + 8, y); ctx.lineTo(x + 22, y);
+      ctx.moveTo(x, y - 22); ctx.lineTo(x, y - 8);
+      ctx.moveTo(x, y + 8); ctx.lineTo(x, y + 22);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ===== BLOCO 4.3 — carimbos (anéis) e borrões ===== */
+
+    function drawMark(bx, by, bw, bh, m, key) {
+      const x = bx + (key === 'a' ? m.ax : m.bx) * bw;
+      const y = by + (key === 'a' ? m.ay : m.by) * bh;
+      const r = MARK_R * bw;
+
+      if (m.done) {
+        /* carimbo aplicado: anel grosso, rabisco interno e onda de pulso */
+        if (m.t < 1) {
+          const pr = r * (1 + (1 - m.t) * 1.6);
+          ctx.beginPath(); ctx.arc(x, y, pr, 0, Math.PI * 2);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = INK;
+          ctx.globalAlpha = (1 - m.t) * 0.6;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          m.t += 0.025;
+        }
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.lineWidth = 3.4;
+        ctx.strokeStyle = INK;
+        ctx.stroke();
+        /* rabisco interno */
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x, y, r - 2, 0, Math.PI * 2); ctx.clip();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = INK;
+        ctx.globalAlpha = 0.85;
+        for (let i = -3; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(x - r, y + i * 4 + (srand(i * 9.3) - 0.5) * 3);
+          ctx.lineTo(x + r, y + i * 4 + (srand(i * 6.1) - 0.5) * 3);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else {
+        /* anel duplo tracejado, pulsando suavemente */
+        const breathe = 1 + Math.sin(G.time * 3.2) * 0.05;
+        ctx.save();
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.arc(x, y, r * breathe, 0, Math.PI * 2);
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = INK;
+        ctx.globalAlpha = 0.85;
+        ctx.stroke();
+        ctx.setLineDash([2, 6]);
+        ctx.beginPath(); ctx.arc(x, y, r * 0.62 * breathe, 0, Math.PI * 2);
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.55;
+        ctx.stroke();
+        ctx.restore();
+        /* pequeno rótulo numeral */
+        txt(String(G.marks.indexOf(m) + 1), x, y + 4, 11, 'center', INK, 0.5, 0);
+      }
+    }
+
+    /* borrão irregular (mancha de tinta) */
+    function drawBlob(bx, by, bw, bh, h) {
+      const p = hazCurrentPos(h);
+      const x = bx + p.x * bw, y = by + p.y * bh;
+      const r = HAZ_R * bw * 2.1;
+
+      ctx.beginPath();
+      const pts = 11;
+      for (let i = 0; i <= pts; i++) {
+        const a = (i / pts) * Math.PI * 2;
+        const wob = 1 + 0.22 * Math.sin(a * 3 + G.time * 2.4 + h.phase * 6) +
+          0.12 * Math.sin(a * 5 - G.time * 1.7);
+        const px = x + Math.cos(a) * r * wob;
+        const py = y + Math.sin(a) * r * wob;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(27,24,19,0.82)';
+      ctx.fill();
+
+      /* gotículas satélites */
+      for (let i = 0; i < 3; i++) {
+        const a = i * 2.2 + h.phase * 4;
+        const d = r * (1.5 + 0.3 * Math.sin(G.time * 2 + i));
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 2.4 + i * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /* ===== BLOCO 4.4 — partículas, efeitos, HUD e cena ===== */
+
+    function drawParticles(bx, by, bw, bh) {
+      for (let i = 0; i < G.particles.length; i++) {
+        const p = G.particles[i];
+        ctx.beginPath();
+        ctx.arc(bx + p.x * bw, by + p.y * bh, p.size * bw * (0.5 + p.life), 0, Math.PI * 2);
+        ctx.fillStyle = INK;
+        ctx.globalAlpha = p.life * 0.7;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawHUD() {
+      const L = LEVELS[G.level];
+
+      /* nome do nível */
+      txt('NÍVEL ' + String(G.level + 1).padStart(2, '0'), BOARD.ax, 30, 11, 'left', INK_SOFT, 1, 3);
+      txt(L.name.toUpperCase(), BOARD.ax, 54, 15, 'left', INK, 1, 3);
+
+      /* tempo */
+      txt(fmtTime(G.time), W / 2, 42, 22, 'center', INK, 0.9, 4);
+
+      /* pontos */
+      txt('PONTOS', W - BOARD.ax, 30, 11, 'right', INK_SOFT, 1, 3);
+      txt(String(G.score), W - BOARD.ax, 54, 22, 'right', INK, 1, 3);
+
+      /* borrachas (vidas) — pequenos apagadores */
+      const erW = 22, erH = 10, gap = 7;
+      const total = START_LIVES;
+      const startX = W / 2 - (total * erW + (total - 1) * gap) / 2;
+      for (let i = 0; i < total; i++) {
+        const ex = startX + i * (erW + gap), ey = 62;
+        ctx.lineWidth = 1.4;
+        if (i < G.lives) {
+          ctx.fillStyle = INK;
+          ctx.fillRect(ex, ey, erW, erH);
+        } else {
+          ctx.setLineDash([3, 3]);
+          ctx.strokeStyle = INK;
+          ctx.globalAlpha = 0.4;
+          ctx.strokeRect(ex + 0.5, ey + 0.5, erW, erH);
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      /* rótulos dos mundos */
+      txt('MUNDO I · LÁPIS — paredes sólidas', BOARD.ax, 82, 10, 'left', INK_SOFT, 0.9, 2);
+      txt('MUNDO II · CARVÃO — paredes hachuradas', BOARD.bx, 82, 10, 'left', INK_SOFT, 0.9, 2);
+
+      /* rodapé de atalhos */
+      txt('P · PAUSA     R · REINICIAR NÍVEL     M · SOM     ENTER · AVANÇAR',
+        W / 2, 552, 10, 'center', INK_SOFT, 0.75, 2);
+    }
+
+    /* desenha um mundo completo (quadro + paredes + rastro + peças) */
+    function drawWorld(bx, key, walls, solid) {
+      drawBoardBase(bx, BOARD.y, BOARD.w, BOARD.h, key === 'a' ? 1 : 41);
+      if (solid) drawWallsSolid(bx, BOARD.y, BOARD.w, BOARD.h, walls);
+      else drawWallsHatched(bx, BOARD.y, BOARD.w, BOARD.h, walls);
+
+      drawTrail(bx, BOARD.y, BOARD.w, BOARD.h,
+        key === 'a' ? 'ax' : 'bx', key === 'a' ? 'ay' : 'by');
+
+      for (let i = 0; i < G.marks.length; i++) drawMark(bx, BOARD.y, BOARD.w, BOARD.h, G.marks[i], key);
+      for (let i = 0; i < G.haz.length; i++) drawBlob(bx, BOARD.y, BOARD.w, BOARD.h, G.haz[i]);
+      drawParticles(bx, BOARD.y, BOARD.w, BOARD.h);
+      drawDot(bx, BOARD.y, BOARD.w, BOARD.h, key === 'a' ? G.dotA : G.dotB, key);
+      drawCrosshair(bx, BOARD.y, BOARD.w, BOARD.h);
+    }
+
+    /* cena principal */
+    function render() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+
+      drawHUD();
+
+      const sx = (Math.random() - 0.5) * G.shake;
+      const sy = (Math.random() - 0.5) * G.shake;
+      ctx.save();
+      ctx.translate(sx, sy);
+
+      const L = LEVELS[G.level];
+      drawWorld(BOARD.ax, 'a', L.a.walls, true);
+      drawWorld(BOARD.bx, 'b', L.b.walls, false);
+
+      ctx.restore();
+
+      /* flash de dano: mancha de tinta cobrindo a folha */
+      if (G.flash > 0) {
+        ctx.fillStyle = 'rgba(27,24,19,' + (G.flash * 0.32) + ')';
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+  </script>
+
+  <script>
+    /* ============================================================
+       PARTE 5 — LOOP DO JOGO, EVENTOS E INICIALIZAÇÃO
+       ============================================================ */
+
+    /* ===== SISTEMA GLOBAL — LOOP DO JOGO ===== */
+    let lastT = performance.now();
+
+    function frame(now) {
+      const dt = Math.min((now - lastT) / 1000, 0.05); // trava de segurança: máx. 50ms
+      lastT = now;
+      gameUpdate(dt);
+      render();
+      requestAnimationFrame(frame);
+    }
+
+    /* ===== CENA 1 — MENU PRINCIPAL / BLOCO 1.2 — controles ===== */
+    function clickSfx() { AudioSys.ensure(); AudioSys.ui(); }
+
+    $('btn-play').addEventListener('click', function () { clickSfx(); startGame(); });
+
+    $('btn-resume').addEventListener('click', function () { clickSfx(); togglePause(); });
+    $('btn-restart').addEventListener('click', function () { clickSfx(); restartLevel(); });
+    $('btn-quit').addEventListener('click', function () { clickSfx(); toMenu(); });
+
+    $('btn-next').addEventListener('click', function () { clickSfx(); nextLevel(); });
+
+    $('btn-retry').addEventListener('click', function () { clickSfx(); startGame(); });
+    $('btn-menu2').addEventListener('click', function () { clickSfx(); toMenu(); });
+
+    $('btn-replay').addEventListener('click', function () { clickSfx(); startGame(); });
+    $('btn-menu3').addEventListener('click', function () { clickSfx(); toMenu(); });
+
+    /* ===== SISTEMA GLOBAL — EVENTOS DE JANELA ===== */
+
+    /* perda de foco: pausa automática para não desperdiçar borrachas */
+    window.addEventListener('blur', function () {
+      if (G.mode === 'playing') togglePause();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && G.mode === 'playing') togglePause();
+    });
+
+    /* primeira interação em qualquer ponto libera o áudio (política do navegador) */
+    window.addEventListener('pointerdown', function once() {
+      AudioSys.ensure();
+    }, { once: true });
+
+    /* ===== SISTEMA GLOBAL — INICIALIZAÇÃO ===== */
+    (function init() {
+      /* posição inicial do traço: ponto de partida do primeiro nível */
+      const sp = LEVELS[0].spawn;
+      G.pointer.x = G.pointer.tx = sp[0];
+      G.pointer.y = G.pointer.ty = sp[1];
+      G.dotA.x = G.dotB.x = sp[0];
+      G.dotA.y = G.dotB.y = sp[1];
+
+      updateRecords();
+      showScreen('screen-menu');
+
+      /* o canvas é dimensionado por CSS (aspect-ratio fixo 1000×560),
+         então o redesenho por frame resolve a responsividade. */
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+
+</html>
